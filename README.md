@@ -1,68 +1,46 @@
 # Clio
 
-A small language that compiles to **C99** — one obvious way to do most things, with a Go-based compiler in this repository.
+Clio is a small, fast language that compiles to **C99**. It is designed to be simple, with one obvious way to do things, making it perfect for game development and learning.
 
 ## Quick Start
 
-### 1. Download & Run (No Toolchain Needed)
-The easiest way to use Clio is to download a **Portable Bundle** which includes the compiler and a built-in C toolchain (Zig).
+### 1. Download
+Download the **Portable Bundle** for your platform from the [Releases](https://github.com/CharmingBlaze/clio/releases) page.
 
-1. **Download** the latest release for Windows, Linux, or macOS from the [Releases](https://github.com/CharmingBlaze/clio/releases) page.
-2. **Extract** the archive to any folder.
-3. **Run** an example:
-   ```sh
-   # Windows
-   .\bin\clio.exe run examples\hello.clio
+- **Windows**: `clio-windows-amd64.zip`
+- **Linux**: `clio-linux-amd64.tar.gz`
+- **macOS**: `clio-darwin-arm64.tar.gz` (Apple Silicon)
 
-   # Linux / macOS
-   ./bin/clio run examples/hello.clio
-   ```
+### 2. Extract
+Extract the archive to a folder of your choice.
 
-### 2. From Source (For Developers)
-If you have Go 1.21+ installed, you can run directly from the repository:
+### 3. Run
+Open your terminal in that folder and run your first program:
 
 ```sh
-go run ./cmd/clio run examples/hello.clio
+# Windows
+.\bin\clio.exe run examples\hello.clio
+
+# Linux / macOS
+./bin/clio run examples/hello.clio
 ```
 
-Or build and install to your PATH:
+**Note:** You do **not** need to install any C toolchain or other dependencies. Everything required is included in the bundle.
 
-```sh
-go build -o clio ./cmd/clio
-./clio run examples/onepage.clio
-```
+## Learning Clio
 
-**Note:** When running from source, you need a C compiler (`clang`, `gcc`, or `zig`) on your PATH. The Portable Bundles above handle this for you automatically.
-
-
-## Documentation
-
-| Doc | What it is |
+| Resource | What it is |
 |-----|------------|
-| [docs/LANGUAGE.md](docs/LANGUAGE.md) | **Start here** — the language on one page, with a learning path. |
-| [docs/DIRECTIVES.md](docs/DIRECTIVES.md) | `#include`, `#library`, `#link`, and where files are found. |
-| [docs/C_LIBRARIES.md](docs/C_LIBRARIES.md) | `extern fn`, `f32` (C `float`) in `extern`, Raylib linking, generated [include/raylib/raylib.clio](include/raylib/raylib.clio). |
-| [docs/BINDGEN.md](docs/BINDGEN.md) | **C binding generator** — `clio bind <lib> <header.h>`. |
-| [docs/LIBRARIES.md](docs/LIBRARIES.md) | `clio build --lib`, headers and static libraries. |
-| [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) | Portable bundles and the compiler driver. |
-| [SUPPORTED.md](SUPPORTED.md) | Feature checklist vs the internal build-spec. |
-| [examples/README.md](examples/README.md) | **Runnable programs** and suggested order. |
+| [docs/LANGUAGE.md](docs/LANGUAGE.md) | **Full Reference** — the whole language on one page. |
+| [examples/README.md](examples/README.md) | **Examples** — a suggested path to learn by doing. |
+| [docs/DIRECTIVES.md](docs/DIRECTIVES.md) | **Modules** — how to use `#include` and libraries. |
+| [docs/C_LIBRARIES.md](docs/C_LIBRARIES.md) | **C Interop** — calling C functions (like Raylib) from Clio. |
 
-## Examples (short)
+## Why Clio?
 
-| Run | Notes |
-|-----|--------|
-| `clio run examples/hello.clio` | Smallest program |
-| `clio run examples/onepage.clio` | One-file tour of the language |
-| `clio run examples/include/main.clio` | `#include` and `pub` across files |
-| `clio run examples/multi/app.clio` | The older `use lib` form (same idea) |
+- **Zero Setup**: Download, extract, and start coding immediately.
+- **Lightning Fast**: Compiles directly to optimized C code.
+- **Simple Syntax**: A modern, readable syntax that stays out of your way.
+- **Truly Portable**: Works exactly the same on Windows, Linux, and Mac.
 
-See [examples/README.md](examples/README.md) for the full list.
-
-## Repository layout
-
-- `cmd/clio` — the compiler driver (`build`, `check`, `run`, `install`, etc.)
-- `internal/*` — lexer, parser, type checker, C codegen
-- `docs/` — language and tooling docs; `build-spec.js` is a reference for implementers
-- `examples/` — small programs you can run locally
 

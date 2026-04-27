@@ -1,11 +1,10 @@
-# Clio examples
-
-All paths are relative to the **repository root**. If `clio` is on your `PATH`, you can `cd` to this folder and use shorter names.
+To run these examples, use the `clio` command from your portable bundle:
 
 ```sh
-# From repo root
-go run ./cmd/clio run examples/hello.clio
+# Example:
+./bin/clio run examples/hello.clio
 ```
+
 
 ## Suggested order (learning)
 

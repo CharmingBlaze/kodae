@@ -1,8 +1,8 @@
-# Clio implementation vs. build-spec
+# Feature Support Status
 
-This document tracks what the Go compiler in this repo supports relative to `docs/build-spec.js`. It is a living checklist, not a normative spec.
+This document tracks the implementation status of Clio features. 
 
-For a beginner-friendly single-page introduction, see `docs/LANGUAGE.md`. Deeper topics: `docs/DIRECTIVES.md` (includes and library metadata), `docs/LIBRARIES.md` and `docs/C_LIBRARIES.md` (C interop), and `docs/DISTRIBUTION.md` (portable bundles).
+For a beginner-friendly introduction, see `docs/LANGUAGE.md`. Deeper topics: `docs/DIRECTIVES.md` (includes and libraries), and `docs/C_LIBRARIES.md` (C interop).
 
 | Area | Status | Notes |
 |------|--------|--------|
