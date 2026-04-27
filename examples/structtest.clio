@@ -1,0 +1,27 @@
+struct Point {
+  x: int
+  y: int
+}
+struct Pair {
+  a: int
+  b: int
+}
+
+fn main() {
+  let p: Point = Point { x: 1, y: 2 }
+  p.x = 10
+  print(p)
+  let t: Point = p
+  t.y = 0
+  print(t)
+  if (t == Point { x: 10, y: 0 }) {
+    print(1)
+  }
+  let pair: Pair = Pair { a: 3, b: 4 }
+  pair.a = 1
+  print((pair))
+  print(none == none)
+  let n: int? = none
+  print(n)
+  print((bool(1)) == (bool(0)))
+}

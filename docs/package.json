@@ -1,0 +1,13 @@
+{
+  "name": "clio-spec-doc",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build Clio Compiler Technical Specification .docx",
+  "main": "build-spec.js",
+  "scripts": {
+    "build": "node build-spec.js"
+  },
+  "dependencies": {
+    "docx": "^9.2.0"
+  }
+}

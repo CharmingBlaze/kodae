@@ -1,0 +1,233 @@
+' -- Dragon's Cave - a Clio text RPG
+
+' -- Structs
+
+struct Player {
+    name:   str
+    health: int
+    max_hp: int
+    attack: int
+    gold:   int
+    level:  int
+    xp:     int
+}
+
+struct Enemy {
+    name:   str
+    health: int
+    attack: int
+    reward: int   ' gold dropped on death
+    xp:     int
+}
+
+' -- Enums
+
+enum GameState { Playing, Dead, Won }
+enum Choice    { Fight, Run, Heal, Invalid }
+
+' -- Player methods
+
+fn Player.show_stats(self) {
+    print("-----------------------------")
+    print("  $self.name   Lv.$self.level")
+    print("  HP:  $self.health / $self.max_hp")
+    print("  ATK: $self.attack   XP: $self.xp   Gold: $self.gold")
+    print("-----------------------------")
+}
+
+fn Player.is_alive(self) -> bool {
+    return self.health > 0
+}
+
+fn Player.take_damage(self, dmg: int) {
+    self.health -= dmg
+    self.health = max(self.health, 0)
+}
+
+fn Player.heal(self) {
+    if (self.gold < 10) {
+        print("  Not enough gold! (need 10)")
+        return
+    }
+    self.gold -= 10
+    let amount = random(15, 30)
+    self.health += amount
+    self.health = min(self.health, self.max_hp)
+    print("  You drink a potion and recover $amount HP!")
+}
+
+fn Player.gain_xp(self, amount: int) {
+    self.xp += amount
+    if (self.xp >= self.level * 100) {
+        self.level++
+        self.attack += 3
+        self.max_hp += 15
+        self.health = self.max_hp
+        print("  *** LEVEL UP! You are now level $self.level! ***")
+        print("  ATK +3, Max HP +15, HP fully restored!")
+    }
+}
+
+' -- Enemy methods
+
+fn Enemy.is_alive(self) -> bool {
+    return self.health > 0
+}
+
+fn Enemy.take_damage(self, dmg: int) {
+    self.health -= dmg
+    self.health = max(self.health, 0)
+}
+
+' -- Combat
+
+fn get_choice() -> Choice {
+    print("  [1] Fight   [2] Run   [3] Heal (10g)")
+    let raw = input("  > ")
+    if (raw == "1") { return Choice.Fight }
+    if (raw == "2") { return Choice.Run   }
+    if (raw == "3") { return Choice.Heal  }
+    return Choice.Invalid
+}
+
+fn do_combat(player: Player, enemy: Enemy) -> bool {
+    ' returns true if player survived
+    print("")
+    print("  A wild $enemy.name appears! (HP: $enemy.health)")
+    print("")
+
+    loop {
+        player.show_stats()
+        let choice = get_choice()
+
+        match (choice) {
+            Choice.Fight => {
+                let pdmg = random(player.attack - 2, player.attack + 5)
+                enemy.take_damage(pdmg)
+                print("  You strike for $pdmg damage! ($enemy.name: $enemy.health HP)")
+
+                if (NOT enemy.is_alive()) {
+                    print("  $enemy.name is defeated!")
+                    player.gold += enemy.reward
+                    player.gain_xp(enemy.xp)
+                    print("  You gain $enemy.reward gold and $enemy.xp XP!")
+                    return true
+                }
+
+                let edgm = random(enemy.attack - 2, enemy.attack + 3)
+                player.take_damage(edgm)
+                print("  $enemy.name hits you for $edgm damage!")
+
+                if (NOT player.is_alive()) {
+                    print("  You have been defeated...")
+                    return false
+                }
+            }
+            Choice.Run => {
+                if (random(1, 3) == 1) {
+                    print("  You failed to escape!")
+                    let edgm = random(enemy.attack - 2, enemy.attack + 3)
+                    player.take_damage(edgm)
+                    print("  $enemy.name hits you for $edgm as you flee!")
+                } else {
+                    print("  You escaped safely!")
+                    return true
+                }
+            }
+            Choice.Heal => {
+                player.heal()
+            }
+            Choice.Invalid => {
+                print("  Unknown command.")
+            }
+        }
+        print("")
+    }
+}
+
+' -- Enemies
+
+fn make_goblin() -> Enemy {
+    return Enemy { name: "Goblin", health: 30, attack: 8, reward: 15, xp: 40 }
+}
+
+fn make_orc() -> Enemy {
+    return Enemy { name: "Orc Warrior", health: 55, attack: 14, reward: 30, xp: 80 }
+}
+
+fn make_dragon() -> Enemy {
+    return Enemy { name: "Cave Dragon", health: 120, attack: 22, reward: 200, xp: 300 }
+}
+
+fn random_enemy() -> Enemy {
+    let roll = random(1, 3)
+    if (roll == 1) { return make_goblin() }
+    if (roll == 2) { return make_orc() }
+    return make_goblin()
+}
+
+' -- Main
+
+fn main() {
+    clear_screen()
+    print("+-------------------------+")
+    print("|     DRAGON'S CAVE       |")
+    print("|   A Clio Text RPG       |")
+    print("+-------------------------+")
+    print("")
+
+    let hero_name = input("  Enter your hero's name: ")
+    let player = Player {
+        name:   hero_name,
+        health: 100,
+        max_hp: 100,
+        attack: 12,
+        gold:   20,
+        level:  1,
+        xp:     0
+    }
+
+    print("")
+    print("  Welcome, $hero_name! You must slay the Cave Dragon.")
+    print("  Fight through 3 enemies to reach it...")
+    print("")
+
+    let state: GameState = GameState.Playing
+    let floor = 1
+
+    while (state == GameState.Playing) {
+        print("  -- Floor $floor of the cave --")
+
+        let enemy: Enemy
+        if (floor == 4) {
+            enemy = make_dragon()
+        } else {
+            enemy = random_enemy()
+        }
+
+        let survived = do_combat(player, enemy)
+
+        if (NOT survived) {
+            state = GameState.Dead
+        } else if (floor == 4) {
+            state = GameState.Won
+        } else {
+            floor++
+            print("  You press deeper into the cave...")
+            print("")
+        }
+    }
+
+    print("")
+    match (state) {
+        GameState.Won => {
+            print("  * YOU WIN! $hero_name slays the dragon!")
+            print("  Final gold: $player.gold   Level: $player.level")
+        }
+        GameState.Dead => {
+            print("  X  GAME OVER. $hero_name falls in the cave.")
+            print("  You reached floor $floor with $player.gold gold.")
+        }
+        GameState.Playing => { }
+    }
+}

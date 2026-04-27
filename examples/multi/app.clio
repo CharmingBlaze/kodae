@@ -1,0 +1,9 @@
+' `use lib` loads `lib.clio` from the same directory (before this file's decls):
+'   clio build app.clio
+' Or list files explicitly: clio build lib.clio app.clio
+use lib
+
+fn main() {
+  let v: int = double(10)
+  print( str( v ) )
+}

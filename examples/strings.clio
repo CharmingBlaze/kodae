@@ -1,0 +1,11 @@
+' String concat (+) and Kotlin-style $ interpolation lower to the same a+b form.
+fn main() {
+  let bob: str = "Alice"
+  print("Hello " + bob)
+  print("Hello $bob")
+  let score: int = 42
+  print("Score: " + str(score))
+  print("Score: $score")
+  let greeting = "Hi $bob, your score is $score!"
+  let built = "Hi " + bob + ", score " + str(score) + "!"
+}

@@ -1,0 +1,134 @@
+/* Inlined C bootstrap for a single out.c (no second compile unit). */
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <locale.h>
+#endif
+
+/* Call at program start (see generated main). Windows: UTF-8 console. POSIX: honor LANG/LC_* so
+   UTF-8 literals and string building match the terminal. */
+void clio_console_utf8_init(void) {
+#if defined(_WIN32)
+  (void)SetConsoleOutputCP(65001u);
+  (void)SetConsoleCP(65001u);
+#else
+  (void)setlocale(LC_ALL, "");
+#endif
+}
+
+typedef struct {
+  const char *data;
+  int64_t      len;
+} clio_str;
+
+/* result[T] (value, err, ok) */
+typedef struct { int64_t value; clio_str err; bool ok; } clio_res_i64;
+typedef struct { double value; clio_str err; bool ok; } clio_res_f64;
+typedef struct { clio_str value; clio_str err; bool ok; } clio_res_str;
+typedef struct { bool value; clio_str err; bool ok; } clio_res_bool;
+
+static inline clio_str clio_str_lit(const char *c) {
+  if (!c) { return (clio_str){NULL, 0}; }
+  return (clio_str){c, (int64_t)strlen(c)};
+}
+
+clio_str clio_str_concat(clio_str a, clio_str b) {
+  int64_t n = a.len + b.len;
+  if (n <= 0) { return (clio_str){"", 0}; }
+  char *p = (char *)malloc((size_t)n + 1);
+  if (!p) {
+    fprintf(stderr, "clio: oom in str concat\n");
+    exit(1);
+  }
+  if (a.len > 0) { memcpy(p, a.data, (size_t)a.len); }
+  if (b.len > 0) { memcpy(p + a.len, b.data, (size_t)b.len); }
+  p[n] = 0;
+  return (clio_str){p, n};
+}
+
+clio_str clio_int_to_str(int64_t v) {
+  char buf[32];
+  int n = snprintf(buf, sizeof buf, "%" PRId64, v);
+  if (n < 0) { n = 0; }
+  if (n >= (int)sizeof buf) { n = (int)sizeof buf - 1; }
+  char *p = (char *)malloc((size_t)n + 1);
+  if (!p) { exit(1); }
+  memcpy(p, buf, (size_t)n);
+  p[n] = 0;
+  return (clio_str){p, n};
+}
+
+clio_str clio_float_to_str(double v) {
+  char buf[64];
+  int n = snprintf(buf, sizeof buf, "%.17g", v);
+  if (n < 0) { n = 0; }
+  char *p = (char *)malloc((size_t)n + 1);
+  if (!p) { exit(1); }
+  memcpy(p, buf, (size_t)n);
+  p[n] = 0;
+  return (clio_str){p, n};
+}
+
+clio_str clio_bool_to_str(bool v) { return v ? clio_str_lit("true") : clio_str_lit("false"); }
+
+void clio_print_int(int64_t v)  { printf("%" PRId64 "\n", v); }
+void clio_print_float(double v) { printf("%g\n", v); }
+void clio_print_bool(bool v)     { printf("%s\n", v ? "true" : "false"); }
+void clio_print_str(clio_str s) {
+  if (s.data && s.len > 0) { fwrite(s.data, 1, (size_t)s.len, stdout); }
+  putchar('\n');
+}
+/* Composable: no trailing newline (for struct / nested print). */
+void clio_show_int(int64_t v)  { printf("%" PRId64, v); }
+void clio_show_float(double v) { printf("%g", v); }
+void clio_show_bool(bool v)    { printf("%s", v ? "true" : "false"); }
+void clio_show_str(clio_str s) {
+  if (s.data && s.len > 0) { fwrite(s.data, 1, (size_t)s.len, stdout); }
+}
+void clio_show_endl(void) { putchar('\n'); }
+
+/* Console helpers (text I/O, demos). */
+void clio_clear_screen(void) {
+#if defined(_WIN32)
+  (void)system("cls");
+#else
+  printf("\033[2J\033[H");
+  fflush(stdout);
+#endif
+}
+
+clio_str clio_input(clio_str prompt) {
+  if (prompt.data && prompt.len > 0) {
+    fwrite(prompt.data, 1, (size_t)prompt.len, stdout);
+    fflush(stdout);
+  }
+  char line[4096];
+  if (fgets(line, (int)sizeof line, stdin) == NULL) {
+    return (clio_str){0};
+  }
+  int64_t n = 0;
+  while (n < (int64_t)sizeof line - 1 && line[n] && line[n] != '\n' && line[n] != '\r') {
+    n++;
+  }
+  char *p = (char *)malloc((size_t)(n < 0 ? 0 : n) + 1);
+  if (!p) { exit(1); }
+  if (n > 0) { memcpy(p, line, (size_t)n); }
+  p[n] = 0;
+  return (clio_str){p, n};
+}
+
+static int clio_random_seeded;
+int64_t clio_random(int64_t lo, int64_t hi) {
+  if (!clio_random_seeded) { srand((unsigned)time(NULL)); clio_random_seeded = 1; }
+  if (hi < lo) { int64_t t = lo; lo = hi; hi = t; }
+  int64_t span = hi - lo + 1;
+  if (span <= 0) { return lo; }
+  if (span > 2147483646) { span = 2147483646; }
+  return lo + (int64_t)(rand() % (int)span);
+}
