@@ -9,16 +9,15 @@ import (
 	"clio/internal/bindgen"
 )
 
-func main() {
-	fs := flag.NewFlagSet("clio-bind", flag.ContinueOnError)
+func runBind(args []string) error {
+	fs := flag.NewFlagSet("bind", flag.ContinueOnError)
 	out := fs.String("o", "", "output .clio path (default: include/<name>/<name>.clio)")
-	if err := fs.Parse(os.Args[1:]); err != nil {
-		os.Exit(2)
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
 	rest := fs.Args()
 	if len(rest) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: clio-bind [-o out.clio] <name> <path/to/header.h>")
-		os.Exit(2)
+		return fmt.Errorf("usage: clio bind [-o out.clio] <name> <path/to/header.h>")
 	}
 	libName := rest[0]
 	headerPath := rest[1]
@@ -30,17 +29,14 @@ func main() {
 
 	res, err := bindgen.GenerateBindings(headerPath, libName)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "clio-bind:", err)
-		os.Exit(1)
+		return err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, "clio-bind:", err)
-		os.Exit(1)
+		return err
 	}
 	if err := os.WriteFile(outputPath, []byte(res.Content), 0o644); err != nil {
-		fmt.Fprintln(os.Stderr, "clio-bind:", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Also update examples copy if it exists
@@ -49,4 +45,5 @@ func main() {
 	_ = os.WriteFile(exampleCopy, []byte(res.Content), 0o644)
 
 	fmt.Fprintf(os.Stderr, "wrote %s: structs=%d externs=%d skipped=%d\n", outputPath, res.Structs, res.Externs, res.Skipped)
+	return nil
 }

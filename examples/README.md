@@ -17,9 +17,10 @@ go run ./cmd/clio run examples/hello.clio
 6. **include/main.clio** — `#include "helpers"` and **`pub`** for anything used across files.  
 7. **multi/app.clio** (run from `examples/multi/`) — the legacy **`use name`** form loading `lib.clio` in the same directory.  
 8. **extern_hello.clio** — `extern fn` and a C `printf` call.  
-9. **raylib_minimal.clio** — template for a game: needs Raylib installed, `# link` / `# linkpath` (read [C_LIBRARIES.md](../docs/C_LIBRARIES.md) first).  
-10. **result_minimal.clio** — `catch` style.  
-11. **textrpg.clio** — larger sample.  
+9. **raylib_minimal.clio** — few hand-written `extern` lines; needs native Raylib.  
+10. **raylib_game.clio** — `#include` the large generated binding in `include/raylib/raylib.clio` (also under `examples/libs/raylib/` for the include path).  
+11. **result_minimal.clio** — `catch` style.  
+12. **textrpg.clio** — larger sample.  
 
 ## Full index
 
@@ -34,7 +35,8 @@ go run ./cmd/clio run examples/hello.clio
 | [include/](include/) | **`#include`**, `pub fn` / `pub struct` across two `.clio` files |
 | [multi/](multi/) | **`use lib`**, `pub` on the shared `double` in `lib.clio` |
 | [extern_hello.clio](extern_hello.clio) | C interop (`extern fn` + `printf`) |
-| [raylib_minimal.clio](raylib_minimal.clio) | Linking a native game library |
+| [raylib_minimal.clio](raylib_minimal.clio) | Minimal Raylib `extern` set |
+| [raylib_game.clio](raylib_game.clio) | Many Raylib functions via generated [include/raylib/raylib.clio](../include/raylib/raylib.clio) |
 | [result_minimal.clio](result_minimal.clio) | `catch` |
 | [textrpg.clio](textrpg.clio) | Larger game-style script |
 

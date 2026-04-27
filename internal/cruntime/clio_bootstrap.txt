@@ -6,7 +6,16 @@
 #include <string.h>
 #include <time.h>
 #if defined(_WIN32)
-#include <windows.h>
+/* Do not #include <windows.h> here: winuser.h declares Win32 CloseWindow, ShowCursor, and
+ * DrawText, which conflict with Raylib’s same-named functions in a single C file. We only
+ * need kernel32 for UTF-8 console. */
+#  if defined(__GNUC__) || defined(__clang__)
+__attribute__((dllimport)) int __attribute__((__stdcall__)) SetConsoleOutputCP(unsigned int wParam);
+__attribute__((dllimport)) int __attribute__((__stdcall__)) SetConsoleCP(unsigned int wParam);
+#  else
+__declspec(dllimport) int __stdcall SetConsoleOutputCP(unsigned int wParam);
+__declspec(dllimport) int __stdcall SetConsoleCP(unsigned int wParam);
+#  endif
 #else
 #include <locale.h>
 #endif

@@ -7,6 +7,10 @@ const (
 	KInvalid Kind = iota
 	KInt
 	KFloat
+	KF32 // C float in extern signatures only; widens to KFloat in Clio expressions
+	KI32 // C int32_t in extern only; widens to KInt in expressions
+	KU32 // C uint32_t in extern only; widens to KInt
+	KU8  // C uint8_t in extern only; widens to KInt
 	KStr
 	KBool
 	KVoid
@@ -66,6 +70,14 @@ func (t *Type) String() string {
 		return "int"
 	case KFloat:
 		return "float"
+	case KF32:
+		return "f32"
+	case KI32:
+		return "i32"
+	case KU32:
+		return "u32"
+	case KU8:
+		return "u8"
 	case KStr:
 		return "str"
 	case KBool:
@@ -124,6 +136,9 @@ func (a *Type) equal(b *Type) bool {
 		// int vs float coercion sites handle separately; not equal
 		return false
 	}
+	if a.Kind == KF32 || a.Kind == KI32 || a.Kind == KU32 || a.Kind == KU8 {
+		return true
+	}
 	switch a.Kind {
 	case KEnum:
 		if a.EnumRef == nil && b.EnumRef == nil {
@@ -173,6 +188,11 @@ func (a *Type) equal(b *Type) bool {
 // Builtin
 var TpInt = &Type{Kind: KInt}
 var TpFloat = &Type{Kind: KFloat}
+// TpF32 is C float, valid only in extern fn signatures; calls widen to TpFloat.
+var TpF32 = &Type{Kind: KF32}
+var TpI32 = &Type{Kind: KI32}
+var TpU32 = &Type{Kind: KU32}
+var TpU8 = &Type{Kind: KU8}
 var TpStr = &Type{Kind: KStr}
 var TpBool = &Type{Kind: KBool}
 var TpVoid = &Type{Kind: KVoid}
@@ -182,12 +202,12 @@ var TpByte  = &Type{Kind: KByte}
 
 func optionalOf(inner *Type) *Type { return &Type{Kind: KOptional, Opt: inner} }
 
-// isNumeric is true for int and float
+// isNumeric is true for int, float, and f32
 func (t *Type) isNumeric() bool {
 	if t == nil {
 		return false
 	}
-	return t.Kind == KInt || t.Kind == KFloat
+	return t.Kind == KInt || t.Kind == KFloat || t.Kind == KF32 || t.Kind == KI32 || t.Kind == KU32 || t.Kind == KU8
 }
 
 // coercesToString is true for values that can be coerced in str+T concatenation.
@@ -196,7 +216,7 @@ func coercesToString(t *Type) bool {
 		return false
 	}
 	switch t.Kind {
-	case KInt, KFloat, KBool, KEnum:
+	case KInt, KFloat, KBool, KEnum, KI32, KU32, KU8, KF32:
 		return true
 	default:
 		return false

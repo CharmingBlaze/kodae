@@ -16,6 +16,18 @@ func (p *Parser) parseExternType() *ast.TypeExpr {
 }
 
 func (p *Parser) parseTypeWithRules(allowPtr bool) *ast.TypeExpr {
+	if p.tok.Type == token.IDENT {
+		switch p.tok.Literal {
+		case "f32", "i32", "u32", "u8":
+			if !allowPtr {
+				p.failf("type %s is only allowed in extern fn signatures or struct fields for C interop", p.tok.Literal)
+				return nil
+			}
+			n := p.tok.Literal
+			p.next()
+			return &ast.TypeExpr{Name: n}
+		}
+	}
 	if p.tok.Type != token.IDENT && p.tok.Type != token.RESULT {
 		p.failf("type: need identifier, got %v", p.tok.Type)
 		return nil

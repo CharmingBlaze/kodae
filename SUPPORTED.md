@@ -9,7 +9,7 @@ For a beginner-friendly single-page introduction, see `docs/LANGUAGE.md`. Deeper
 | **Single / multi file** | Partial | `clio build|check|cgen|parse` all accept `a.clio b.clio` in order. **`#include "p"`** resolves: same directory → `./libs/p` → `$CLIO_HOME/libs` or `~/.clio/libs`; deduplicated; cycles error. See [docs/DIRECTIVES.md](docs/DIRECTIVES.md). |
 | **clio install** | Yes | Copies a `.clio` into the user lib dir (same place as “step 3” in `#include` search) so any project can `#include` by name. |
 | **module / use / pub** | Partial | `module` / `pub` are parsed. **`use name`**: loads `name.clio` from the **same directory** as the current file, before that file’s other top-level decls. Cycles are an error. Cross-file references require `pub` on the defining decl. `module` is not used to resolve paths (v1). |
-| **extern fn** | Yes | C signatures; calls use the real C name (no `f_` prefix). stdio `printf` etc. skip redecl (see `<stdio.h>`). `str` → `ptr[byte]` uses `(s).data`. |
+| **extern fn** | Yes | C signatures; calls use the real C name (no `f_` prefix). stdio `printf` etc. skip redecl (see `<stdio.h>`). `str` → `ptr[byte]` uses `(s).data`. C `float` in `extern` is spelled **`f32`**; return values widen to Clio’s normal `float` (C `double`). |
 | **# link "…"** | Yes | Appended to the C link line after `-lm`. Bare names (e.g. `"raylib"`) become `-lraylib`; tokens starting with `-` pass through. CLI: `--ldflags` / `--ldflags=...`. |
 | **# linkpath "dir"** | Yes | Appends `-Ldir` so the linker finds `lib*.a` / import libs. |
 | **Int literals** | Yes | Decimal and `0x` / `0X` hex. |
@@ -27,7 +27,7 @@ For a beginner-friendly single-page introduction, see `docs/LANGUAGE.md`. Deeper
 | **`list[T]`** | Yes (v1) | Type syntax `list[T]`, literals `[a, b]`, index read/write `xs[i]`, `len(xs)`, methods `push`, `pop`, `append`, `remove`, and `for (x in list)` iteration. |
 | **Match on enums** | Yes | **Exhaustiveness** is checked (all variants or error). |
 | **-- (decrement)** | Yes | Postfix, like `++`. |
-| **Arrays, clio bind** | No / stub | `cmd/clio-bind` exits 1 with a message. |
+| **`clio bind` (Generic)** | Yes | Uses LLVM/Clang (`-ast-dump=json`) to generate robust `pub struct`, `pub enum`, and `extern fn` bindings for any C library header. Handles nested types and complex C signatures. |
 
 Environment: `CLIO_CC` and `clio build --cc` select the C toolchain (see `internal/ccdriver`). For packaging details, see `docs/DISTRIBUTION.md`.
 

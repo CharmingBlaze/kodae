@@ -231,7 +231,7 @@ func (p *Parser) parseStructDeclWithPub(pub bool) *ast.StructDecl {
 			return nil
 		}
 		p.next()
-		ft := p.parseType()
+		ft := p.parseTypeWithRules(true)
 		fields = append(fields, ast.StructField{Name: fn, T: ft})
 		if p.tok.Type == token.COMMA {
 			p.next()

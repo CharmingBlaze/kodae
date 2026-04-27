@@ -185,6 +185,26 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 	switch tx.Name {
 	case "int":
 		base = TpInt
+	case "f32":
+		if c.externTypeCtx <= 0 && c.sizedTypeCtx <= 0 {
+			return nil, fmt.Errorf("type f32 (C float) is only allowed in extern fn signatures or struct fields for C layout")
+		}
+		base = TpF32
+	case "i32":
+		if c.externTypeCtx <= 0 && c.sizedTypeCtx <= 0 {
+			return nil, fmt.Errorf("type i32 (C int32_t) is only allowed in extern fn signatures or struct fields for C layout")
+		}
+		base = TpI32
+	case "u32":
+		if c.externTypeCtx <= 0 && c.sizedTypeCtx <= 0 {
+			return nil, fmt.Errorf("type u32 (C uint32_t) is only allowed in extern fn signatures or struct fields for C layout")
+		}
+		base = TpU32
+	case "u8":
+		if c.externTypeCtx <= 0 && c.sizedTypeCtx <= 0 {
+			return nil, fmt.Errorf("type u8 (C uint8_t) is only allowed in extern fn signatures or struct fields for C layout")
+		}
+		base = TpU8
 	case "float", "f64", "float64", "double":
 		base = TpFloat
 	case "str", "string":
@@ -235,6 +255,19 @@ func (c *Checker) assignable(want, got *Type) error {
 	// int <= float
 	if want.Kind == KFloat && got.Kind == KInt {
 		return nil
+	}
+	// f32 in extern: accept int or Clio float (double) as the argument
+	if want.Kind == KF32 {
+		if got.Kind == KInt || got.Kind == KFloat || got.Kind == KF32 {
+			return nil
+		}
+		return errAssign(want, got)
+	}
+	if want.Kind == KI32 || want.Kind == KU32 || want.Kind == KU8 {
+		if got.Kind == KInt || got.Kind == KFloat || got.Kind == want.Kind {
+			return nil
+		}
+		return errAssign(want, got)
 	}
 	if !want.equal(got) {
 		if (want.equal(TpInt) && got.equal(TpFloat)) || (want.equal(TpFloat) && got.equal(TpInt)) {

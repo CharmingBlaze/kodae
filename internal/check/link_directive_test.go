@@ -51,3 +51,25 @@ fn main() { }`
 		t.Fatalf("LinkFlags=%v", inf.LinkFlags)
 	}
 }
+
+func TestCheck_ExternF32WidensToFloat(t *testing.T) {
+	t.Parallel()
+	const src = `extern fn GetA() -> f32
+extern fn SetB(x: f32) -> void
+fn main() {
+  let a = GetA()
+  let x: int = 1
+  SetB(1.0)
+  SetB(1.5)
+  SetB(x)
+}`
+	p := parser.New(lex.New(src))
+	pr := p.ParseProgram()
+	if p.Err() != nil {
+		t.Fatalf("parse: %v", p.Err())
+	}
+	_, err := Check(pr)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+}

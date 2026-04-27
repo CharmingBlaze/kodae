@@ -169,6 +169,14 @@ Everything else — portable compiler bundles and `catch` — is **advanced** an
 - Casts: `int(x)`, `float(x)`, `str(x)`, `bool(x)`  
 - Helpers: `min`, `max`, `abs`
 
+### C Interop Types
+For working with C libraries (like Raylib), Clio provides sized types:
+- `i32`, `u32`, `u8`
+- `f32` (C float)
+- `ptr[byte]` (C pointer)
+
+These types are mainly for data layout in structs and function calls. You can usually pass a standard `int` or `float` to a function expecting these, and the compiler will handle the conversion automatically.
+
 ## Runnable copy
 
 A checked-in version of the one-pager (with `fn main() { ... }`) is [examples/onepage.clio](../examples/onepage.clio) — you can `clio run` or `clio build` that file to verify your install.

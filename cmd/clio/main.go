@@ -29,6 +29,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  buildc <file.clio> [-o f.c]  write C only\n")
 		fmt.Fprintf(os.Stderr, "  run <file.clio> [--cc c]  build and run the same binary (set CLIO_CC to pick the C compiler)\n")
 		fmt.Fprintf(os.Stderr, "  install <name.clio|name>  copy a .clio into the user lib dir (see $CLIO_HOME or ~/.clio/libs) for #include\n")
+		fmt.Fprintf(os.Stderr, "  bind raylib <raylib.h> [-o include/raylib/raylib.clio]  generate Clio externs from raylib.h\n")
 		fmt.Fprintf(os.Stderr, "  version\n")
 		os.Exit(1)
 	}
@@ -132,6 +133,10 @@ func main() {
 			fatal(fmt.Errorf("install: clio install <name.clio>  or  clio install <name> (looks for name.clio in the current directory)"))
 		}
 		if err := runInstall(rest[0]); err != nil {
+			fatal(err)
+		}
+	case "bind":
+		if err := runBind(argsAfterCmd()); err != nil {
 			fatal(err)
 		}
 	default:

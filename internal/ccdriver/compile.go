@@ -14,7 +14,7 @@ import (
 // Compile builds cSrcPath to outPath. outPath is typically an absolute or cwd-relative
 // file name (e.g. "a.out" or "app" or "app.exe" on Windows). extra is appended after -lm
 // (e.g. -lraylib, -L/path) from # link in source or the CLI.
-func Compile(ccc CCmd, cSrcPath, outPath string, extra []string) error {
+func Compile(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool) error {
 	outAbs, err := filepath.Abs(outPath)
 	if err != nil {
 		return err
@@ -28,6 +28,9 @@ func Compile(ccc CCmd, cSrcPath, outPath string, extra []string) error {
 	argv = append(argv, ccc.Prefix...)
 	// LLVM, GCC, and "zig cc" all accept this GNU-style CLI on common targets.
 	argv = append(argv, "-std=c99", "-O2", "-o", outAbs, cAbs, "-lm")
+	if gui && runtime.GOOS == "windows" {
+		argv = append(argv, "-mwindows")
+	}
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdout = os.Stdout
@@ -83,7 +86,7 @@ func ArchiveStatic(objPath, libPath string) error {
 	return nil
 }
 
-func LinkShared(ccc CCmd, cSrcPath, outPath string, extra []string) error {
+func LinkShared(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool) error {
 	outAbs, err := filepath.Abs(outPath)
 	if err != nil {
 		return err
@@ -102,6 +105,9 @@ func LinkShared(ccc CCmd, cSrcPath, outPath string, extra []string) error {
 		argv = append(argv, "-shared", "-fPIC")
 	}
 	argv = append(argv, "-o", outAbs, cAbs, "-lm")
+	if gui && runtime.GOOS == "windows" {
+		argv = append(argv, "-mwindows")
+	}
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdout = os.Stdout

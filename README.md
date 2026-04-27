@@ -28,7 +28,8 @@ go build -o clio ./cmd/clio
 |-----|------------|
 | [docs/LANGUAGE.md](docs/LANGUAGE.md) | **Start here** — the language on one page, with a learning path. |
 | [docs/DIRECTIVES.md](docs/DIRECTIVES.md) | `#include`, `#library`, `#link`, and where files are found. |
-| [docs/C_LIBRARIES.md](docs/C_LIBRARIES.md) | `extern fn`, Raylib-style linking. |
+| [docs/C_LIBRARIES.md](docs/C_LIBRARIES.md) | `extern fn`, `f32` (C `float`) in `extern`, Raylib linking, generated [include/raylib/raylib.clio](include/raylib/raylib.clio). |
+| [docs/BINDGEN.md](docs/BINDGEN.md) | **C binding generator** — `clio bind <lib> <header.h>`. |
 | [docs/LIBRARIES.md](docs/LIBRARIES.md) | `clio build --lib`, headers and static libraries. |
 | [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) | Portable bundles and the compiler driver. |
 | [SUPPORTED.md](SUPPORTED.md) | Feature checklist vs the internal build-spec. |

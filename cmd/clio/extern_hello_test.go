@@ -55,7 +55,7 @@ func TestExternPrintfExampleLinks(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		out += ".exe"
 	}
-	if err := ccdriver.Compile(ccc, cf, out, nil); err != nil {
+	if err := ccdriver.Compile(ccc, cf, out, nil, false); err != nil {
 		t.Fatal("link:", err)
 	}
 }

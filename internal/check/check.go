@@ -51,8 +51,10 @@ type Info struct {
 	Externs map[string]*ast.ExternDecl
 	// LinkFlags: raw tokens from # link "..." (split in driver when compiling).
 	LinkFlags []string
-	Module    string
-	Meta      map[string]string
+	// UsesConsole: true if the program uses print, input, or clear_screen.
+	UsesConsole bool
+	Module      string
+	Meta        map[string]string
 }
 
 // Checker is the semantic/type checker
@@ -75,6 +77,10 @@ type Checker struct {
 	tryOK        bool // set while type-checking let init, return value, assign RHS, or expr-stmt
 	// curFile: absolute .clio path of the function / let being checked (for pub / cross-file rules)
 	curFile string
+	// externTypeCtx > 0 while resolving types inside extern fn signatures (allows f32)
+	externTypeCtx int
+	// sizedTypeCtx > 0 while resolving struct field types (allows f32/i32/u32/u8 for C layout)
+	sizedTypeCtx int
 }
 
 // Check type-checks a program
@@ -158,6 +164,7 @@ func Check(pr *ast.Program) (*Info, error) {
 			continue
 		}
 		c.curFile = sdecl.File
+		c.sizedTypeCtx++
 		m := make(map[string]*Type, len(sdecl.Fields))
 		var order []string
 		for _, f := range sdecl.Fields {
@@ -186,6 +193,7 @@ func Check(pr *ast.Program) (*Info, error) {
 			order = append(order, f.Name)
 			m[f.Name] = ft
 		}
+		c.sizedTypeCtx--
 		if c.err != nil {
 			c.curFile = ""
 			break
@@ -327,17 +335,21 @@ func Check(pr *ast.Program) (*Info, error) {
 				continue
 			}
 			c.curFile = t.File
-			for _, f := range t.Fields {
-				ft, err := c.resolveType(f.T)
-				if err != nil {
-					c.setErr(err)
-					break
+			func() {
+				c.sizedTypeCtx++
+				defer func() { c.sizedTypeCtx-- }()
+				for _, f := range t.Fields {
+					ft, err := c.resolveType(f.T)
+					if err != nil {
+						c.setErr(err)
+						break
+					}
+					if err := c.validatePubStructFieldType(ft); err != nil {
+						c.setErr(fmt.Errorf("pub struct %s field %s: %v", t.Name, f.Name, err))
+						break
+					}
 				}
-				if err := c.validateExportType(ft); err != nil {
-					c.setErr(fmt.Errorf("pub struct %s field %s: %v", t.Name, f.Name, err))
-					break
-				}
-			}
+			}()
 			c.curFile = ""
 		case *ast.FnDecl:
 			if !t.Pub {
@@ -372,6 +384,29 @@ func Check(pr *ast.Program) (*Info, error) {
 	return c.inf, nil
 }
 
+// validatePubStructFieldType allows C layout types (f32, i32, …) for pub structs used in bindings.
+func (c *Checker) validatePubStructFieldType(t *Type) error {
+	if t == nil {
+		return nil
+	}
+	switch t.Kind {
+	case KInt, KFloat, KBool, KStr, KVoid, KF32, KI32, KU32, KU8:
+		return nil
+	case KStruct:
+		return nil
+	case KList:
+		return fmt.Errorf("list[T] is not exportable in pub API")
+	case KPtr:
+		return fmt.Errorf("ptr[...] is not exportable in pub API")
+	case KOptional:
+		return fmt.Errorf("optional/none type is not exportable in pub API")
+	case KResult:
+		return fmt.Errorf("result[...] is not exportable in pub API")
+	default:
+		return fmt.Errorf("type %s is not exportable", t)
+	}
+}
+
 func (c *Checker) validateExportType(t *Type) error {
 	if t == nil {
 		return nil
@@ -379,6 +414,8 @@ func (c *Checker) validateExportType(t *Type) error {
 	switch t.Kind {
 	case KInt, KFloat, KBool, KStr, KVoid:
 		return nil
+	case KF32, KI32, KU32, KU8:
+		return fmt.Errorf("C-sized type %s is not for pub export; use int/float only", t)
 	case KStruct:
 		return nil
 	case KList:

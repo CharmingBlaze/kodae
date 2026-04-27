@@ -115,7 +115,7 @@ func TestTextrpgLinks(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		out += ".exe"
 	}
-	if err := ccdriver.Compile(ccc, cf, out, nil); err != nil {
+	if err := ccdriver.Compile(ccc, cf, out, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	// No run (needs stdin); link success = enough.

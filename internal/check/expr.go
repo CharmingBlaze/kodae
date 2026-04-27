@@ -622,6 +622,8 @@ func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, er
 }
 
 func (c *Checker) typeExternCall(x *ast.CallExpr, ex *ast.ExternDecl) (*Type, error) {
+	c.externTypeCtx++
+	defer func() { c.externTypeCtx-- }()
 	var wantFixed int
 	variadic := false
 	for _, p := range ex.Params {
@@ -673,6 +675,15 @@ func (c *Checker) typeExternCall(x *ast.CallExpr, ex *ast.ExternDecl) (*Type, er
 	if rt == nil {
 		rt = TpVoid
 	}
+	// C float widens to Clio float (double); fixed-width ints widen to Clio int
+	if rt != nil && rt.Kind == KF32 {
+		c.setType(x, TpFloat)
+		return TpFloat, nil
+	}
+	if rt != nil && (rt.Kind == KI32 || rt.Kind == KU32 || rt.Kind == KU8) {
+		c.setType(x, TpInt)
+		return TpInt, nil
+	}
 	c.setType(x, rt)
 	return rt, nil
 }
@@ -684,6 +695,18 @@ func (c *Checker) assignableExtern(want, got *Type) error {
 	}
 	if want.Kind == KPtr && want.Pointee != nil && want.Pointee.Kind == KByte && got.equal(TpStr) {
 		return nil
+	}
+	if want.Kind == KF32 {
+		if got.Kind == KInt || got.Kind == KFloat {
+			return nil
+		}
+		return c.assignable(want, got)
+	}
+	if want.Kind == KI32 || want.Kind == KU32 || want.Kind == KU8 {
+		if got.Kind == KInt || got.Kind == KFloat {
+			return nil
+		}
+		return c.assignable(want, got)
 	}
 	return c.assignable(want, got)
 }
@@ -699,6 +722,7 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 	// built-ins
 	switch name {
 	case "print":
+		c.inf.UsesConsole = true
 		// 1..n args, each any printable, entire thing is a statement; type void — use void as "unit"
 		if len(x.Args) == 0 {
 			return nil, fmt.Errorf("print needs at least one argument")
@@ -713,6 +737,7 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		c.setType(x, TpVoid)
 		return TpVoid, nil
 	case "input":
+		c.inf.UsesConsole = true
 		if len(x.Args) != 1 {
 			return nil, fmt.Errorf("input: need one string (prompt)")
 		}
@@ -743,6 +768,7 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		c.setType(x, TpInt)
 		return TpInt, nil
 	case "clear_screen":
+		c.inf.UsesConsole = true
 		if len(x.Args) != 0 {
 			return nil, fmt.Errorf("clear_screen: no arguments")
 		}

@@ -49,7 +49,8 @@ C → Clio type cheat sheet:
 | `const char *` / `char *` (string pointer) | `ptr[byte]` in `extern fn` parameters |
 | `void *` | `ptr[byte]` (or another `ptr[...]`) in **extern** signatures only |
 | `unsigned int` | `int` for many cases, or be explicit in comments |
-| `Color` in Raylib | *often* a **packed `int` colour** in practice; many samples use a hex `int` literal, e.g. `0xFFFFFFFF` (Clio supports `0x…` for integers) |
+| `Color` in Raylib | In the generated binding, `Color` is a `pub struct` (`r/g/b/a: u8`) and externs use that struct by value. |
+| C `float` (Raylib) | In `extern fn` only, use the Clio type `f32` (emitted as C `float`). Clio’s normal `float` is still a C `double` everywhere else. |
 
 **Example (from a typical `raylib.h`):**
 
@@ -70,10 +71,11 @@ extern fn EndDrawing() -> void
 extern fn CloseWindow() -> void
 
 ' C: void ClearBackground(Color color);
-extern fn ClearBackground(color: int) -> void
+pub struct Color { r: u8, g: u8, b: u8, a: u8 }
+extern fn ClearBackground(color: Color) -> void
 
 ' C: void DrawText(const char *text, int x, int y, int fontSize, Color color);
-extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: int) -> void
+extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: Color) -> void
 ```
 
 Clio requires a return type: use **`-> void`** for C `void` functions, not “nothing” after the closing `)`.
@@ -93,8 +95,9 @@ extern fn WindowShouldClose() -> bool
 extern fn BeginDrawing() -> void
 extern fn EndDrawing() -> void
 extern fn CloseWindow() -> void
-extern fn ClearBackground(color: int) -> void
-extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: int) -> void
+pub struct Color { r: u8, g: u8, b: u8, a: u8 }
+extern fn ClearBackground(color: Color) -> void
+extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: Color) -> void
 
 fn main() {
   InitWindow(800, 600, "My Game")
@@ -103,8 +106,8 @@ fn main() {
     if (WindowShouldClose()) { break }
 
     BeginDrawing()
-    ClearBackground(0x181818FF)
-    DrawText("Hello from Clio!", 300, 280, 24, 0xFFFFFFFF)
+    ClearBackground(Color { r: 24, g: 24, b: 24, a: 255 })
+    DrawText("Hello from Clio!", 300, 280, 24, Color { r: 255, g: 255, b: 255, a: 255 })
     EndDrawing()
   }
 
@@ -136,8 +139,17 @@ C source + Clio runtime
 game.exe  ←── linked with raylib (as configured)
 ```
 
-## Future: `clio bind`
+## Large generated bindings
 
-A future tool could generate the `extern fn` lines from a `.h` (for example: `clio bind raylib.h`). For now, **hand‑written `extern` only for the symbols you use** is normal — many small games need only a few dozen functions.
+Clio includes a powerful binding generator that can automatically create wrappers for any C library.
 
-A minimal Raylib-style skeleton is in [examples/raylib_minimal.clio](../examples/raylib_minimal.clio) (you must install Raylib and fix `# linkpath` yourself; CI does not require it to be present).
+For example, to generate bindings for Raylib:
+```bash
+clio bind raylib path/to/raylib.h
+```
+
+This will create `include/raylib/raylib.clio` with all structs, enums, and functions mapped to Clio.
+
+For more details on how to use the generator with other libraries, see **[docs/BINDGEN.md](BINDGEN.md)**.
+
+A hand-written minimal example remains [examples/raylib_minimal.clio](../examples/raylib_minimal.clio). You must install native Raylib and set `# linkpath` / the linker; CI does not build with Raylib by default.

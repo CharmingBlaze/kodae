@@ -3,6 +3,7 @@ package codegen
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -46,6 +47,14 @@ func cT(t *check.Type) string {
 		return "int64_t"
 	case check.KFloat:
 		return "double"
+	case check.KF32:
+		return "float"
+	case check.KI32:
+		return "int32_t"
+	case check.KU32:
+		return "uint32_t"
+	case check.KU8:
+		return "uint8_t"
 	case check.KStr:
 		return "clio_str"
 	case check.KBool:
@@ -284,6 +293,14 @@ func (em *emitter) resolveTypeExpr(tx *ast.TypeExpr) (*check.Type, error) {
 	switch tx.Name {
 	case "int":
 		return check.TpInt, nil
+	case "f32":
+		return check.TpF32, nil
+	case "i32":
+		return check.TpI32, nil
+	case "u32":
+		return check.TpU32, nil
+	case "u8":
+		return check.TpU8, nil
 	case "float", "f64", "float64", "double":
 		return check.TpFloat, nil
 	case "str", "string":
@@ -336,6 +353,16 @@ func (em *emitter) cParamTFromExpr(t *ast.TypeExpr) (string, error) {
 	return cParamT(ty), nil
 }
 
+// cExternDeclParamT is the C type written in `extern` declarations: struct by value
+// (Raylib-style), not pointer like normal Clio user functions.
+func (em *emitter) cExternDeclParamT(t *ast.TypeExpr) (string, error) {
+	ty, err := em.resolveTypeExpr(t)
+	if err != nil {
+		return "", err
+	}
+	return cT(ty), nil
+}
+
 // emitExternCDecl returns one line `extern T name(param_list);`
 func (em *emitter) emitExternCDecl(ex *ast.ExternDecl) (string, error) {
 	var ret string
@@ -382,7 +409,7 @@ func (em *emitter) emitExternCDecl(ex *ast.ExternDecl) (string, error) {
 				b.WriteString(", ")
 			}
 			needComma = true
-			s, err := em.cParamTFromExpr(p.T)
+			s, err := em.cExternDeclParamT(p.T)
 			if err != nil {
 				return "", err
 			}
@@ -397,6 +424,49 @@ func (em *emitter) emitExternCDecl(ex *ast.ExternDecl) (string, error) {
 
 func EmitC(p *ast.Program, inf *check.Info) (string, error) {
 	return EmitCWithOptions(p, inf, EmitOptions{})
+}
+
+// structEmitOrder returns struct names so each struct appears after any struct type
+// referenced by its fields (needed for Raylib-style interop structs in one TU).
+func structEmitOrder(inf *check.Info) []string {
+	remaining := make(map[string]*check.Struct, len(inf.Struct))
+	for n, s := range inf.Struct {
+		remaining[n] = s
+	}
+	var out []string
+	for len(remaining) > 0 {
+		var ready []string
+		for name, sdef := range remaining {
+			ok := true
+			for _, fn := range sdef.Order {
+				ft := sdef.Fields[fn]
+				if ft != nil && ft.Kind == check.KStruct && ft.StructName != "" && ft.StructName != name {
+					if _, pending := remaining[ft.StructName]; pending {
+						ok = false
+						break
+					}
+				}
+			}
+			if ok {
+				ready = append(ready, name)
+			}
+		}
+		if len(ready) == 0 {
+			var rest []string
+			for n := range remaining {
+				rest = append(rest, n)
+			}
+			sort.Strings(rest)
+			out = append(out, rest...)
+			break
+		}
+		sort.Strings(ready)
+		for _, n := range ready {
+			delete(remaining, n)
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 func EmitCWithOptions(p *ast.Program, inf *check.Info, opts EmitOptions) (string, error) {
@@ -437,7 +507,7 @@ typedef struct { bool has; bool v; } clio_opt_bool;
 		fmt.Fprintf(&out, "typedef int64_t E_%s;\n\n", ed.Name)
 	}
 
-	for name := range em.inf.Struct {
+	for _, name := range structEmitOrder(em.inf) {
 		sdef := em.inf.Struct[name]
 		tag := cStructTagName(sdef.Name)
 		tn := cStructCName(sdef.Name)
@@ -449,6 +519,25 @@ typedef struct { bool has; bool v; } clio_opt_bool;
 		fmt.Fprintf(&out, "};\ntypedef struct %s %s;\n\n", tag, tn)
 	}
 
+	var needUndef bool
+	for _, d := range p.Decls {
+		ex, ok := d.(*ast.ExternDecl)
+		if !ok {
+			continue
+		}
+		if stdioNoRedeclare(ex.Name) {
+			continue
+		}
+		needUndef = true
+	}
+	if needUndef {
+		// windows.h (via clio bootstrap) #defines these; Raylib uses the same names as real functions.
+		out.WriteString("#if defined(_WIN32)\n" +
+			"#undef CloseWindow\n" +
+			"#undef ShowCursor\n" +
+			"#undef DrawText\n" +
+			"#endif\n\n")
+	}
 	for _, d := range p.Decls {
 		ex, ok := d.(*ast.ExternDecl)
 		if !ok {
@@ -2061,7 +2150,9 @@ func (em *emitter) emitIndexExpr(ix *ast.IndexExpr) (string, error) {
 }
 
 func (em *emitter) emitListElemAddr(et *check.Type, arg string) string {
-	return fmt.Sprintf("&((%s){%s})", cT(et), arg)
+	// Use C99 compound literal array trick to get a pointer to the value (rvalue or lvalue).
+	// This avoids the double-wrap issue and works for structs initialized from structs in C.
+	return fmt.Sprintf("((%s[]){%s})", cT(et), arg)
 }
 
 func (em *emitter) emitListLit(ll *ast.ListLit) (string, error) {
@@ -2302,10 +2393,60 @@ func (em *emitter) emitExternCallArg(pWant *check.Type, a ast.Expr) (string, err
 			return em.emitStrAsCDataPtr(s), nil
 		}
 	}
+	if pWant != nil && pWant.Kind == check.KF32 {
+		s, err := em.emitExpr(a)
+		if err != nil {
+			return "", err
+		}
+		return "((float)(" + s + "))", nil
+	}
+	if pWant != nil && pWant.Kind == check.KI32 {
+		s, err := em.emitExpr(a)
+		if err != nil {
+			return "", err
+		}
+		return "((int32_t)(int64_t)(" + s + "))", nil
+	}
+	if pWant != nil && pWant.Kind == check.KU32 {
+		s, err := em.emitExpr(a)
+		if err != nil {
+			return "", err
+		}
+		return "((uint32_t)(uint64_t)(int64_t)(" + s + "))", nil
+	}
+	if pWant != nil && pWant.Kind == check.KU8 {
+		s, err := em.emitExpr(a)
+		if err != nil {
+			return "", err
+		}
+		return "((uint8_t)(int64_t)(" + s + "))", nil
+	}
 	if pWant != nil && pWant.Kind == check.KStruct {
-		return em.emitByRefForStructParam(a)
+		return em.emitExternByValueStructArg(a)
 	}
 	return em.emitExpr(a)
+}
+
+// emitExternByValueStructArg passes a struct to a C extern expecting a value (not S_* pointer).
+func (em *emitter) emitExternByValueStructArg(a ast.Expr) (string, error) {
+	t, err := em.typeOf(a)
+	if err != nil {
+		return "", err
+	}
+	if t == nil || t.Kind != check.KStruct {
+		return em.emitExpr(a)
+	}
+	if sl, ok := a.(*ast.StructLit); ok {
+		return em.emitStructLit(sl)
+	}
+	if id, ok := a.(*ast.IdentExpr); ok {
+		return em.emitIdentLoad(id.Name, t), nil
+	}
+	inner, err2 := em.emitExpr(a)
+	if err2 != nil {
+		return "", err2
+	}
+	return inner, nil
 }
 
 func (em *emitter) emitExternCall(ex *ast.ExternDecl, c *ast.CallExpr) (string, error) {
@@ -2342,7 +2483,19 @@ func (em *emitter) emitExternCall(ex *ast.ExternDecl, c *ast.CallExpr) (string, 
 		argI++
 	}
 	b.WriteByte(')')
-	return b.String(), nil
+	out := b.String()
+	if ex.Return != nil {
+		rt, err := em.resolveTypeExpr(ex.Return)
+		if err == nil && rt != nil {
+			switch rt.Kind {
+			case check.KF32:
+				return "((double)(" + out + "))", nil
+			case check.KI32, check.KU32, check.KU8:
+				return "((int64_t)(" + out + "))", nil
+			}
+		}
+	}
+	return out, nil
 }
 
 func (em *emitter) appendShowValueC(b *strings.Builder, cexpr string, t *check.Type) error {

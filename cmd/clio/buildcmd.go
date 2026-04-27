@@ -86,12 +86,13 @@ func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []strin
 		}
 		if opt.Shared || (!opt.Static && !opt.Shared) {
 			sharedOut := libName + ".so"
-			if runtime.GOOS == "windows" {
+			switch runtime.GOOS {
+			case "windows":
 				sharedOut = libName + ".dll"
-			} else if runtime.GOOS == "darwin" {
+			case "darwin":
 				sharedOut = libName + ".dylib"
 			}
-			if err := ccdriver.LinkShared(ccc, cOut, sharedOut, link); err != nil {
+			if err := ccdriver.LinkShared(ccc, cOut, sharedOut, link, !inf.UsesConsole); err != nil {
 				return err
 			}
 		}
@@ -120,7 +121,7 @@ func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []strin
 		return err
 	}
 	link := append(append([]string{}, inf.LinkFlags...), ldExtra...)
-	if err := ccdriver.Compile(ccc, cf, out, link); err != nil {
+	if err := ccdriver.Compile(ccc, cf, out, link, !inf.UsesConsole); err != nil {
 		return err
 	}
 	return nil

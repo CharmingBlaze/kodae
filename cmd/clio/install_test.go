@@ -31,7 +31,9 @@ func TestRunInstall_BareNameResolvesInCwd(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("CLIO_HOME", home)
 	dir := t.TempDir()
-	t.Chdir(dir)
+	old, _ := os.Getwd()
+	os.Chdir(dir)
+	t.Cleanup(func() { os.Chdir(old) })
 	if err := os.WriteFile(filepath.Join(dir, "k.clio"), []byte("pub fn f() {}\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
