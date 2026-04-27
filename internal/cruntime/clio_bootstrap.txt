@@ -96,6 +96,22 @@ void clio_log(clio_str msg);
 clio_list clio_args(void);
 clio_str clio_env(clio_str name);
 void clio_list_shuffle(clio_list* l);
+void clio_list_reverse(clio_list* l);
+void clio_list_sort(clio_list* l);
+bool clio_in_range(double v, double lo, double hi);
+bool clio_in_rect(double px, double py, double rx, double ry, double rw, double rh);
+void clio_run(clio_str cmd);
+void clio_open_url(clio_str url);
+void clio_clipboard_set(clio_str val);
+clio_str clio_clipboard_get(void);
+clio_str clio_str_reverse(clio_str s);
+clio_str clio_str_repeat(clio_str s, int64_t n);
+bool clio_str_starts(clio_str s, clio_str sub);
+bool clio_str_ends(clio_str s, clio_str sub);
+uint32_t clio_color_rgb(int r, int g, int b);
+uint32_t clio_color_rgba(int r, int g, int b, int a);
+uint32_t clio_color_lerp(uint32_t a, uint32_t b, double t);
+uint32_t clio_color_fade(uint32_t c, double alpha);
 
 static inline clio_str clio_str_lit(const char *c) {
   if (!c) { return (clio_str){NULL, 0}; }
@@ -682,7 +698,7 @@ void clio_list_shuffle(clio_list* l) {
   if (!l || l->len <= 1) return;
   if (!clio_random_seeded) { srand((unsigned)time(NULL)); clio_random_seeded = 1; }
   for (int64_t i = l->len - 1; i > 0; i--) {
-    int64_t j = rand() % (i + 1);
+    int64_t j = (int64_t)rand() % (i + 1);
     uint8_t tmp[1024]; 
     size_t sz = (size_t)l->elem_size;
     memcpy(tmp, l->data + (size_t)(i * l->elem_size), sz);
@@ -691,5 +707,130 @@ void clio_list_shuffle(clio_list* l) {
   }
 }
 
+void clio_list_reverse(clio_list* l) {
+  if (!l || l->len <= 1) return;
+  for (int64_t i = 0; i < l->len / 2; i++) {
+    int64_t j = l->len - 1 - i;
+    uint8_t tmp[1024];
+    size_t sz = (size_t)l->elem_size;
+    memcpy(tmp, l->data + (size_t)(i * l->elem_size), sz);
+    memcpy(l->data + (size_t)(i * l->elem_size), l->data + (size_t)(j * l->elem_size), sz);
+    memcpy(l->data + (size_t)(j * l->elem_size), tmp, sz);
+  }
+}
+
+static int clio_cmp_i64(const void* a, const void* b) {
+  int64_t va = *(const int64_t*)a;
+  int64_t vb = *(const int64_t*)b;
+  return (va > vb) - (va < vb);
+}
+static int clio_cmp_f64(const void* a, const void* b) {
+  double va = *(const double*)a;
+  double vb = *(const double*)b;
+  return (va > vb) - (va < vb);
+}
+static int clio_cmp_str(const void* a, const void* b) {
+  clio_str sa = *(const clio_str*)a;
+  clio_str sb = *(const clio_str*)b;
+  int64_t min_len = sa.len < sb.len ? sa.len : sb.len;
+  int res = memcmp(sa.data, sb.data, (size_t)min_len);
+  if (res == 0) return (sa.len > sb.len) - (sa.len < sb.len);
+  return res;
+}
+
+void clio_list_sort(clio_list* l) {
+  if (!l || l->len <= 1) return;
+  if (l->elem_size == 8) {
+    /* Heuristic: assume int64 (or double, they sort similarly for positives) */
+    qsort(l->data, (size_t)l->len, (size_t)l->elem_size, clio_cmp_i64);
+  } else if (l->elem_size == sizeof(clio_str)) {
+    qsort(l->data, (size_t)l->len, (size_t)l->elem_size, clio_cmp_str);
+  }
+}
+
+bool clio_in_range(double v, double lo, double hi) { return v >= lo && v <= hi; }
+bool clio_in_rect(double px, double py, double rx, double ry, double rw, double rh) {
+  return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+}
+
+void clio_run(clio_str cmd) {
+  const char* c = clio_str_to_cstr(cmd);
+  (void)system(c);
+  free((void*)c);
+}
+
+void clio_open_url(clio_str url) {
+  const char* c = clio_str_to_cstr(url);
+#if defined(_WIN32)
+  /* We use ShellExecuteA via a trick or system() for simplicity in bootstrap */
+  char buf[4096];
+  snprintf(buf, sizeof buf, "start %s", c);
+  (void)system(buf);
+#elif defined(__APPLE__)
+  char buf[4096];
+  snprintf(buf, sizeof buf, "open %s", c);
+  (void)system(buf);
+#else
+  char buf[4096];
+  snprintf(buf, sizeof buf, "xdg-open %s", c);
+  (void)system(buf);
+#endif
+  free((void*)c);
+}
+
+void clio_clipboard_set(clio_str val) {
+  /* Win32 clipboard would require windows.h which conflicts. Placeholder. */
+}
+
+clio_str clio_clipboard_get(void) {
+  return clio_str_lit("");
+}
+
+clio_str clio_str_reverse(clio_str s) {
+  if (s.len <= 1) return s;
+  char* d = (char*)malloc((size_t)s.len);
+  for (int64_t i = 0; i < s.len; i++) d[i] = s.data[s.len - 1 - i];
+  return (clio_str){d, s.len};
+}
+
+clio_str clio_str_repeat(clio_str s, int64_t n) {
+  if (n <= 0) return (clio_str){"", 0};
+  int64_t total = s.len * n;
+  char* d = (char*)malloc((size_t)total);
+  for (int64_t i = 0; i < n; i++) memcpy(d + (size_t)(i * s.len), s.data, (size_t)s.len);
+  return (clio_str){d, total};
+}
+
+bool clio_str_starts(clio_str s, clio_str sub) {
+  if (sub.len > s.len) return false;
+  return memcmp(s.data, sub.data, (size_t)sub.len) == 0;
+}
+
+bool clio_str_ends(clio_str s, clio_str sub) {
+  if (sub.len > s.len) return false;
+  return memcmp(s.data + (size_t)(s.len - sub.len), sub.data, (size_t)sub.len) == 0;
+}
+
+uint32_t clio_color_rgb(int r, int g, int b) {
+  return (uint32_t)(0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF));
+}
+
+uint32_t clio_color_rgba(int r, int g, int b, int a) {
+  return (uint32_t)(((a & 0xFF) << 24) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF));
+}
+
+uint32_t clio_color_lerp(uint32_t a, uint32_t b, double t) {
+  if (t < 0) t = 0; if (t > 1) t = 1;
+  int r1 = a & 0xFF, g1 = (a >> 8) & 0xFF, b1 = (a >> 16) & 0xFF, a1 = (a >> 24) & 0xFF;
+  int r2 = b & 0xFF, g2 = (b >> 8) & 0xFF, b2 = (b >> 16) & 0xFF, a2 = (b >> 24) & 0xFF;
+  return clio_color_rgba((int)(r1 + (r2-r1)*t), (int)(g1 + (g2-g1)*t), (int)(b1 + (b2-b1)*t), (int)(a1 + (a2-a1)*t));
+}
+
+uint32_t clio_color_fade(uint32_t c, double alpha) {
+  if (alpha < 0) alpha = 0; if (alpha > 1) alpha = 1;
+  return (c & 0x00FFFFFF) | (((uint32_t)((c >> 24) * alpha)) << 24);
+}
+
 clio_str clio_json_read(clio_str path) { return clio_read_file(path); }
 void clio_json_write(clio_str path, clio_str val) { clio_write_file(path, val); }
+

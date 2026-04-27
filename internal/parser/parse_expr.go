@@ -38,7 +38,7 @@ func (p *Parser) parsePrefix() ast.Expr {
 		return nil
 	}
 	switch p.tok.Type {
-	case token.NOT, token.MINUS, token.PLUS:
+	case token.NOT, token.MINUS, token.PLUS, token.BITNOT:
 		op := p.tok
 		p.next()
 		return &ast.UnaryExpr{Op: tokToUnaryOp(op.Type), X: p.parseExprBP(6)}
@@ -302,7 +302,8 @@ func isBinaryOp(t token.Type) bool {
 	switch t {
 	case token.PLUS, token.MINUS, token.MUL, token.DIV, token.MOD,
 		token.EQ, token.NEQ, token.LT, token.GT, token.LEQ, token.GEQ,
-		token.AND, token.OR, token.ASSIGN, token.PLUSEQ, token.MINUSEQ, token.MULEQ, token.DIVEQ, token.MODEQ, token.DOTDOT:
+		token.AND, token.OR, token.ASSIGN, token.PLUSEQ, token.MINUSEQ, token.MULEQ, token.DIVEQ, token.MODEQ, token.DOTDOT,
+		token.BITAND, token.BITOR, token.BITXOR:
 		return true
 	default:
 		return false
@@ -351,6 +352,12 @@ func tokToOp(t token.Type) string {
 		return "%="
 	case token.DOTDOT:
 		return ".."
+	case token.BITAND:
+		return "&"
+	case token.BITOR:
+		return "|"
+	case token.BITXOR:
+		return "^"
 	default:
 		return "?"
 	}
@@ -364,6 +371,8 @@ func tokToUnaryOp(t token.Type) string {
 		return "-"
 	case token.PLUS:
 		return "+"
+	case token.BITNOT:
+		return "~"
 	default:
 		return "?"
 	}
@@ -383,6 +392,8 @@ func binPrec(t token.Type) int {
 		return 4
 	case token.MUL, token.DIV, token.MOD:
 		return 5
+	case token.BITAND, token.BITOR, token.BITXOR:
+		return 6 // tighter than math
 	case token.ASSIGN, token.PLUSEQ, token.MINUSEQ, token.MULEQ, token.DIVEQ, token.MODEQ:
 		return 0
 	default:

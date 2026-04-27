@@ -79,6 +79,11 @@ const (
 	ELLIPSIS
 	CONTINUE
 	DEFER
+	REPEAT
+	BITAND
+	BITOR
+	BITXOR
+	BITNOT
 )
 
 // String is a short debug name for a few token kinds; many kinds share a generic name.

@@ -71,3 +71,11 @@ type MatchArm struct {
 	Pat  Expr
 	Body *BlockStmt
 }
+
+type RepeatStmt struct {
+	Count Expr
+	Body  *BlockStmt
+}
+
+func (s *RepeatStmt) stmt() {}
+

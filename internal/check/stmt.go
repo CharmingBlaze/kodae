@@ -177,6 +177,21 @@ func (c *Checker) stmt(s ast.Stmt) {
 		}
 	case *ast.AssignStmt:
 		c.checkAssign(x)
+	case *ast.RepeatStmt:
+		tt, err := c.typeExpr(x.Count)
+		if err != nil {
+			c.setErr(err)
+			return
+		}
+		if tt == nil || tt.Kind != KInt {
+			c.setErr(fmt.Errorf("repeat: need int count, got %v", tt))
+			return
+		}
+		c.loopDepth++
+		if x.Body != nil {
+			c.stmt(x.Body)
+		}
+		c.loopDepth--
 	case *ast.MatchStmt:
 		c.checkMatch(x)
 	default:

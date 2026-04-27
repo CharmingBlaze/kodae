@@ -73,5 +73,9 @@ func (p *Parser) expect(t token.Type) {
 
 // Optional helper for numeric int literals
 func (p *Parser) intFromTok() (int64, error) {
-	return strconv.ParseInt(p.tok.Literal, 0, 64)
+	s := p.tok.Literal
+	if len(s) > 2 && s[0] == '0' && (s[1] == 'b' || s[1] == 'B') {
+		return strconv.ParseInt(s[2:], 2, 64)
+	}
+	return strconv.ParseInt(s, 0, 64)
 }

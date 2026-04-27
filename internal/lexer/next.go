@@ -150,14 +150,22 @@ func (l *Lexer) nextAfterSpace() token.Token {
 			l.advance()
 			return token.Token{Type: token.AND, Literal: "&&", Line: line, Col: col}
 		}
-		return l.illegal(line, col)
+		l.advance()
+		return token.Token{Type: token.BITAND, Literal: "&", Line: line, Col: col}
 	case '|':
 		if l.peek(1) == '|' {
 			l.advance()
 			l.advance()
 			return token.Token{Type: token.OR, Literal: "||", Line: line, Col: col}
 		}
-		return l.illegal(line, col)
+		l.advance()
+		return token.Token{Type: token.BITOR, Literal: "|", Line: line, Col: col}
+	case '^':
+		l.advance()
+		return token.Token{Type: token.BITXOR, Literal: "^", Line: line, Col: col}
+	case '~':
+		l.advance()
+		return token.Token{Type: token.BITNOT, Literal: "~", Line: line, Col: col}
 	case '.':
 		if l.peek(1) == '.' {
 			l.advance()

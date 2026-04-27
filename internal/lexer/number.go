@@ -17,6 +17,19 @@ func (l *Lexer) readNumber(line, col int) token.Token {
 		}
 		return token.Token{Type: token.INTLIT, Literal: l.input[start:l.pos], Line: line, Col: col}
 	}
+	// Binary: 0b1010
+	if l.ch == '0' && (l.peek(1) == 'b' || l.peek(1) == 'B') {
+		l.advance()
+		l.advance()
+		binStart := l.pos
+		for l.ch == '0' || l.ch == '1' {
+			l.advance()
+		}
+		if l.pos == binStart {
+			return l.illegal(line, col)
+		}
+		return token.Token{Type: token.INTLIT, Literal: l.input[start:l.pos], Line: line, Col: col}
+	}
 	typ := token.INTLIT
 	for l.isDigit() {
 		l.advance()

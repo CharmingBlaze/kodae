@@ -1,0 +1,51 @@
+
+fn test_bitwise() {
+    let a = 0b1010
+    let b = 0b1100
+    print("a & b = ${a & b}")  ' 1000 (8)
+    print("a | b = ${a | b}")  ' 1110 (14)
+    print("a ^ b = ${a ^ b}")  ' 0110 (6)
+    print("~a = ${~a}")
+}
+
+fn test_repeat() {
+    print("repeating 3 times:")
+    repeat(3) {
+        print("  hi")
+    }
+}
+
+fn test_swap() {
+    let x = 10
+    let y = 20
+    print("before swap: x=$x, y=$y")
+    swap(x, y)
+    print("after swap: x=$x, y=$y")
+}
+
+fn test_list_extras() {
+    let items = [30, 10, 20]
+    printn("list: ")
+    print(items)
+    items.sort()
+    printn("sorted: ")
+    print(items)
+    items.reverse()
+    printn("reversed: ")
+    print(items)
+    print("first: ${items.first()}, last: ${items.last()}")
+}
+
+fn test_logic() {
+    print("in_range(5, 1, 10): ${in_range(5, 1, 10)}")
+    print("in_rect(5, 5, 0, 0, 10, 10): ${in_rect(5, 5, 0, 0, 10, 10)}")
+}
+
+fn main() {
+    test_bitwise()
+    test_repeat()
+    test_swap()
+    test_list_extras()
+    test_logic()
+    print("done!")
+}

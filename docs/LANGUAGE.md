@@ -177,6 +177,43 @@ For working with C libraries (like Raylib), Clio provides sized types:
 
 These types are mainly for data layout in structs and function calls. You can usually pass a standard `int` or `float` to a function expecting these, and the compiler will handle the conversion automatically.
 
+### New in v1.1 (Standard Library & Language Expansion)
+
+#### Time & Timers
+- `time()` — seconds since program started (float)
+- `time_ms()` — milliseconds since program started (int)
+- `wait(seconds)`, `wait_ms(ms)`
+- `timer_start()`, `timer_elapsed(timer)`
+- `countdown(seconds)`, `countdown_done(cd)`
+
+#### Random & Logic
+- `chance(percentage)` — returns true with X% probability
+- `random_float(lo, hi)`, `random_pick(list)`
+- `in_range(val, min, max)`, `in_rect(px, py, rx, ry, rw, rh)`
+- `swap(a, b)` — swap values of two variables
+
+#### List Methods
+- `list.sort()`, `list.reverse()`, `list.shuffle()`
+- `list.first()`, `list.last()`
+- `list.push(item)`, `list.pop()`, `list.remove(index)`
+
+#### Bitwise Operators & Binary Literals
+- `&` (AND), `|` (OR), `^` (XOR), `~` (NOT)
+- Binary literals: `let b = 0b1010`
+
+#### OS & System
+- `run(command)` — execute a system command
+- `open_url(url)` — open a link in the browser
+- `os_name()` — returns "windows", "macos", or "linux"
+- `args()` — returns a list of command-line arguments
+- `env(name)` — returns an environment variable
+
+#### Advanced Controls
+- `repeat(n) { ... }` — repeat a block exactly `n` times.
+- `defer expression` — run an expression when the function ends.
+- `json_read(path)`, `json_write(path, value)` — basic JSON persistence.
+
+
 ## Runnable copy
 
 A checked-in version of the one-pager (with `fn main() { ... }`) is [examples/onepage.clio](../examples/onepage.clio) — you can `clio run` or `clio build` that file to verify your install.

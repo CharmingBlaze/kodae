@@ -1265,6 +1265,20 @@ func (em *emitter) emitStmt(out *bytes.Buffer, s ast.Stmt) error {
 		return em.emitAssign(out, x)
 	case *ast.MatchStmt:
 		return em.emitMatch(out, x)
+	case *ast.RepeatStmt:
+		c, err := em.emitExpr(x.Count)
+		if err != nil {
+			return err
+		}
+		em.flushTryPre(out)
+		em.rcN++
+		tmp := fmt.Sprintf("c_rep_%d", em.rcN)
+		fmt.Fprintf(out, "for (int64_t %s = 0; %s < (int64_t)(%s); %s++) {\n", tmp, tmp, c, tmp)
+		if err := em.emitBlock(out, x.Body.Stmts, false); err != nil {
+			return err
+		}
+		out.WriteString("}\n")
+		return nil
 	default:
 		return fmt.Errorf("unsupported statement %T", s)
 	}
@@ -1744,6 +1758,8 @@ func (em *emitter) emitUnary(x *ast.UnaryExpr) (string, error) {
 		return "(-(" + inner + "))", nil
 	case "+":
 		return "(+(" + inner + "))", nil
+	case "~":
+		return "(~((int64_t)(" + inner + ")))", nil
 	default:
 		return "", fmt.Errorf("unary %q", x.Op)
 	}
@@ -1791,6 +1807,8 @@ func (em *emitter) emitBinary(b *ast.BinaryExpr) (string, error) {
 	switch b.Op {
 	case "&&", "||":
 		return "(" + l + ")" + b.Op + "(" + r + ")", nil
+	case "&", "|", "^":
+		return "((" + l + ") " + b.Op + " (" + r + "))", nil
 	case "..":
 		return "", fmt.Errorf("range .. only valid in for-in")
 	}
@@ -2031,6 +2049,10 @@ func (em *emitter) emitCast(c *ast.CastExpr) (string, error) {
 			return fmt.Sprintf("(clio_float_to_str(%s))", arg), nil
 		case check.KBool:
 			return fmt.Sprintf("(clio_bool_to_str(%s))", arg), nil
+		case check.KList:
+			return fmt.Sprintf("clio_str_lit(\"[list]\")"), nil
+		case check.KStruct:
+			return fmt.Sprintf("clio_str_lit(\"[struct]\")"), nil
 		default:
 			return fmt.Sprintf("(clio_int_to_str((int64_t)(%s)))", arg), nil
 		}
@@ -2058,7 +2080,7 @@ func checkCoercesToString(t *check.Type) bool {
 		return false
 	}
 	switch t.Kind {
-	case check.KInt, check.KFloat, check.KBool, check.KEnum:
+	case check.KInt, check.KFloat, check.KBool, check.KEnum, check.KList, check.KStruct:
 		return true
 	default:
 		return false
@@ -2234,6 +2256,14 @@ func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *c
 		return tmp, nil
 	case "shuffle":
 		return fmt.Sprintf("clio_list_shuffle(&(%s))", base), nil
+	case "first":
+		return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), 0)))", cT(lt.Elem), base), nil
+	case "last":
+		return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), (int64_t)((%s).len - 1))))", cT(lt.Elem), base, base), nil
+	case "reverse":
+		return fmt.Sprintf("clio_list_reverse(&(%s))", base), nil
+	case "sort":
+		return fmt.Sprintf("clio_list_sort(&(%s))", base), nil
 	default:
 		return "", fmt.Errorf("list has no method %q", me.Field)
 	}
@@ -2519,6 +2549,23 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 	case "input_int", "input_float":
 		a0, _ := em.emitExpr(c.Args[0])
 		return "clio_" + name + "(" + a0 + ")", nil
+	case "swap":
+		a0, _ := em.emitLvalue(c.Args[0])
+		a1, _ := em.emitLvalue(c.Args[1])
+		t, _ := em.typeOf(c.Args[0])
+		return fmt.Sprintf("({ %s _tmp = %s; %s = %s; %s = _tmp; })", cT(t), a0, a0, a1, a1), nil
+	case "in_range":
+		args := make([]string, 3)
+		for i := 0; i < 3; i++ {
+			args[i], _ = em.emitExpr(c.Args[i])
+		}
+		return fmt.Sprintf("clio_in_range(%s, %s, %s)", args[0], args[1], args[2]), nil
+	case "in_rect":
+		args := make([]string, 6)
+		for i := 0; i < 6; i++ {
+			args[i], _ = em.emitExpr(c.Args[i])
+		}
+		return fmt.Sprintf("clio_in_rect(%s, %s, %s, %s, %s, %s)", args[0], args[1], args[2], args[3], args[4], args[5]), nil
 	case "exit":
 		a0, _ := em.emitExpr(c.Args[0])
 		return "exit((int)(" + a0 + "))", nil
@@ -2729,9 +2776,30 @@ func (em *emitter) appendShowValueC(b *strings.Builder, cexpr string, t *check.T
 		fmt.Fprintf(b, "clio_show_bool((bool)(%s));\n", cexpr)
 	case check.KStr:
 		fmt.Fprintf(b, "clio_show_str((%s));\n", cexpr)
+	case check.KList:
+		if t.Elem == nil {
+			return fmt.Errorf("list: missing element type")
+		}
+		if err := em.appendShowListBlock(b, cexpr, t); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("print: value type %s not supported", t)
 	}
+	return nil
+}
+
+func (em *emitter) appendShowListBlock(b *strings.Builder, varExpr string, t *check.Type) error {
+	em.rcN++
+	idx := fmt.Sprintf("c_li_%d", em.rcN)
+	fmt.Fprintf(b, "printf(\"[\"); ")
+	fmt.Fprintf(b, "for (int64_t %s = 0; %s < (int64_t)(%s).len; %s++) { ", idx, idx, varExpr, idx)
+	fmt.Fprintf(b, "if (%s > 0) printf(\", \"); ", idx)
+	elemAddr := fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), %s)))", cT(t.Elem), varExpr, idx)
+	if err := em.appendShowValueC(b, elemAddr, t.Elem); err != nil {
+		return err
+	}
+	fmt.Fprintf(b, "} printf(\"]\");")
 	return nil
 }
 
@@ -2818,6 +2886,10 @@ func (em *emitter) emitPrintInternal(c *ast.CallExpr, newline bool) (string, err
 				return "", fmt.Errorf("struct %s has no metadata", t)
 			}
 			if err := em.appendShowStructBlock(&b, av, t); err != nil {
+				return "", err
+			}
+		case check.KList:
+			if err := em.appendShowListBlock(&b, av, t); err != nil {
 				return "", err
 			}
 		case check.KVoid:

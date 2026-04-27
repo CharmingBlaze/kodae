@@ -219,7 +219,7 @@ func coercesToString(t *Type) bool {
 		return false
 	}
 	switch t.Kind {
-	case KInt, KFloat, KBool, KEnum, KI32, KU32, KU8, KF32:
+	case KInt, KFloat, KBool, KEnum, KI32, KU32, KU8, KF32, KList, KStruct:
 		return true
 	default:
 		return false

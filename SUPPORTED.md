@@ -12,7 +12,9 @@ For a beginner-friendly single-page introduction, see `docs/LANGUAGE.md`. Deeper
 | **extern fn** | Yes | C signatures; calls use the real C name (no `f_` prefix). stdio `printf` etc. skip redecl (see `<stdio.h>`). `str` → `ptr[byte]` uses `(s).data`. C `float` in `extern` is spelled **`f32`**; return values widen to Clio’s normal `float` (C `double`). |
 | **# link "…"** | Yes | Appended to the C link line after `-lm`. Bare names (e.g. `"raylib"`) become `-lraylib`; tokens starting with `-` pass through. CLI: `--ldflags` / `--ldflags=...`. |
 | **# linkpath "dir"** | Yes | Appends `-Ldir` so the linker finds `lib*.a` / import libs. |
-| **Int literals** | Yes | Decimal and `0x` / `0X` hex. |
+| **Int literals** | Yes | Decimal, `0x` hex, and **`0b`** binary literals. |
+| **Bitwise** | Yes | `&`, `|`, `^`, `~` operators. |
+| **repeat** | Yes | `repeat(n) { ... }` for exactly N iterations. |
 | **Link driver** | Yes | `clio` passes extra argv to the same C compiler line as the object file. |
 | **continue** | Yes | In loops. |
 | **defer** | Partial | Typechecker: `defer` may only sit at the **top** of a function body (v1). Emitted in reverse on return and at fallthrough end. |
@@ -45,6 +47,7 @@ Environment: `CLIO_CC` and `clio build --cc` select the C toolchain (see `intern
 | `examples/list_basic.clio` | `list[T]`, literals, index, `len`, `push`/`pop`/`append`/`remove` |
 | `examples/result_minimal.clio` | Simplified `catch` usage in v1 style |
 | `examples/textrpg.clio` | Larger sample |
+| `examples/stdlib_v2_test.clio` | Bitwise, `repeat`, `swap`, `sort`, `reverse`, etc. |
 | `examples/include/main.clio` + `helpers.clio` | `#include "helpers"` and `pub` for cross-file names (preferred for resolving `./libs` and `~/.clio/libs` too) |
 | `examples/multi/lib.clio` + `app.clio` | `use lib` in `app.clio` (run `clio run app.clio` from `examples/multi/`) or `clio build lib.clio app.clio` in order; `lib.clio` must `pub` export `double` |
 

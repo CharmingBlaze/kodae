@@ -63,6 +63,8 @@ func (p *Parser) parseStmt() ast.Stmt {
 			return nil
 		}
 		return &ast.DeferStmt{E: e}
+	case token.REPEAT:
+		return p.parseRepeat()
 	case token.LBRACE:
 		return p.parseBlock()
 	}
@@ -228,3 +230,13 @@ func (p *Parser) parseMatch() *ast.MatchStmt {
 	p.expect(token.RBRACE)
 	return &ast.MatchStmt{Scrutinee: s, Arms: arms}
 }
+
+func (p *Parser) parseRepeat() *ast.RepeatStmt {
+	p.expect(token.REPEAT)
+	p.expect(token.LPAREN)
+	count := p.parseExpr()
+	p.expect(token.RPAREN)
+	body := p.parseBlock()
+	return &ast.RepeatStmt{Count: count, Body: body}
+}
+
