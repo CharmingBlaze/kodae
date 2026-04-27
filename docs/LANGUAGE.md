@@ -2,6 +2,9 @@
 
 Clio is small on purpose. Line comments start with `'` (apostrophe) or `--`.
 
+**Quick Start:** The easiest way to use Clio is to download the **Portable Bundle** for your platform from the [Releases](https://github.com/CharmingBlaze/clio/releases) page. It includes a built-in C toolchain, so you can start coding immediately with no setup.
+
+
 **If you are new to the repo:** start with the root [README.md](../README.md) (how to run the compiler) and the [examples/README.md](../examples/README.md) (runnable files in order). This page is the **language** itself; a map of *all* docs is in [docs/README.md](README.md).
 
 Below is a **real, self-contained program** (Clio only allows *statements* like `print` and `let` *inside* a function, so the runnable one-pager uses `fn main() { ... }` after your types and functions are declared at file scope). You can also write `for (i in 0..10)` *or* the shorter `for i in 0..10` — both are supported.

@@ -2,25 +2,38 @@
 
 A small language that compiles to **C99** — one obvious way to do most things, with a Go-based compiler in this repository.
 
-## Quick start
+## Quick Start
 
-From a clone of this repo:
+### 1. Download & Run (No Toolchain Needed)
+The easiest way to use Clio is to download a **Portable Bundle** which includes the compiler and a built-in C toolchain (Zig).
+
+1. **Download** the latest release for Windows, Linux, or macOS from the [Releases](https://github.com/CharmingBlaze/clio/releases) page.
+2. **Extract** the archive to any folder.
+3. **Run** an example:
+   ```sh
+   # Windows
+   .\bin\clio.exe run examples\hello.clio
+
+   # Linux / macOS
+   ./bin/clio run examples/hello.clio
+   ```
+
+### 2. From Source (For Developers)
+If you have Go 1.21+ installed, you can run directly from the repository:
 
 ```sh
 go run ./cmd/clio run examples/hello.clio
 ```
 
-Build the `clio` tool and put it on your `PATH` if you prefer:
+Or build and install to your PATH:
 
 ```sh
 go build -o clio ./cmd/clio
 ./clio run examples/onepage.clio
-./clio check .
 ```
 
-(Use a concrete `.clio` path with `clio check`; the compiler merges multiple files when you list them.)
+**Note:** When running from source, you need a C compiler (`clang`, `gcc`, or `zig`) on your PATH. The Portable Bundles above handle this for you automatically.
 
-**Environment:** you need a C toolchain (`gcc`, `clang`, or a bundled `zig` — see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)). Set `CLIO_CC` to choose a compiler, or use `clio build --cc <cmd> …`.
 
 ## Documentation
 
