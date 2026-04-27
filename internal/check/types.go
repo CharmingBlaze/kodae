@@ -25,6 +25,7 @@ const (
 	KList   // .Elem is the list element type (list[Elem] in Clio)
 	// KResult: .Res is the success value type (result[Res] in Clio)
 	KResult
+	KAny // Dynamic/Any type (for JSON/Objects)
 )
 
 // Type in checker
@@ -199,6 +200,8 @@ var TpVoid = &Type{Kind: KVoid}
 var TpNil = &Type{Kind: KNil}
 var TpRange = &Type{Kind: KRange}
 var TpByte  = &Type{Kind: KByte}
+var TpAny   = &Type{Kind: KAny}
+var TpListStr = &Type{Kind: KList, Elem: TpStr}
 
 func optionalOf(inner *Type) *Type { return &Type{Kind: KOptional, Opt: inner} }
 

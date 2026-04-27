@@ -2120,6 +2120,9 @@ func (em *emitter) emitMethodCall(c *ast.CallExpr, me *ast.MemberExpr) (string, 
 	if lf != nil && lf.Kind == check.KList {
 		return em.emitListMethodCall(c, me, lf)
 	}
+	if lf != nil && lf.Kind == check.KStr {
+		return em.emitStringMethodCall(c, me)
+	}
 	if lf == nil || lf.Kind != check.KStruct {
 		return "", fmt.Errorf("method: need struct on left, got %v", lf)
 	}
@@ -2230,8 +2233,42 @@ func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *c
 			fmt.Sprintf("%s %s;\n", cT(lt.Elem), tmp),
 			fmt.Sprintf("clio_list_remove_at(&(%s), (int64_t)(%s), &%s);\n", base, i, tmp))
 		return tmp, nil
+	case "shuffle":
+		return fmt.Sprintf("clio_list_shuffle(&(%s))", base), nil
 	default:
 		return "", fmt.Errorf("list has no method %q", me.Field)
+	}
+}
+
+func (em *emitter) emitStringMethodCall(c *ast.CallExpr, me *ast.MemberExpr) (string, error) {
+	base, err := em.emitExpr(me.Left)
+	if err != nil {
+		return "", err
+	}
+	switch me.Field {
+	case "len":
+		return fmt.Sprintf("((int64_t)(%s).len)", base), nil
+	case "upper", "lower", "trim", "reverse", "is_empty", "is_number":
+		return fmt.Sprintf("clio_str_%s(%s)", me.Field, base), nil
+	case "repeat":
+		a0, _ := em.emitExpr(c.Args[0])
+		return fmt.Sprintf("clio_str_repeat(%s, (int64_t)%s)", base, a0), nil
+	case "contains", "starts", "ends":
+		a0, _ := em.emitExpr(c.Args[0])
+		return fmt.Sprintf("clio_str_%s(%s, %s)", me.Field, base, a0), nil
+	case "replace":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return fmt.Sprintf("clio_str_replace(%s, %s, %s)", base, a0, a1), nil
+	case "split":
+		a0, _ := em.emitExpr(c.Args[0])
+		return fmt.Sprintf("clio_str_split(%s, %s)", base, a0), nil
+	case "slice":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return fmt.Sprintf("clio_str_slice(%s, (int64_t)%s, (int64_t)%s)", base, a0, a1), nil
+	default:
+		return "", fmt.Errorf("str has no method %q", me.Field)
 	}
 }
 
@@ -2350,6 +2387,179 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 			return fmt.Sprintf("(((int64_t)(%s)) < ((int64_t)(%s)) ? (int64_t)(%s) : (int64_t)(%s))", a0, a1, a0, a1), nil
 		}
 		return fmt.Sprintf("(((int64_t)(%s)) > ((int64_t)(%s)) ? (int64_t)(%s) : (int64_t)(%s))", a0, a1, a0, a1), nil
+	case "sqrt", "floor", "ceil", "round", "sin", "cos", "tan", "log":
+		a0, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		if name == "log" {
+			t, _ := em.typeOf(c.Args[0])
+			if t.Kind == check.KStr {
+				return fmt.Sprintf("clio_log(%s)", a0), nil
+			}
+		}
+		cname := name
+		return fmt.Sprintf("(%s((double)(%s)))", cname, a0), nil
+	case "pow", "atan2":
+		a0, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		a1, err := em.emitExpr(c.Args[1])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("(%s((double)(%s), (double)(%s)))", name, a0, a1), nil
+	case "clamp":
+		a0, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		a1, err := em.emitExpr(c.Args[1])
+		if err != nil {
+			return "", err
+		}
+		a2, err := em.emitExpr(c.Args[2])
+		if err != nil {
+			return "", err
+		}
+		t, _ := em.typeOf(c)
+		if t.Kind == check.KFloat {
+			return fmt.Sprintf("clio_clamp_float(%s, %s, %s)", a0, a1, a2), nil
+		}
+		return fmt.Sprintf("clio_clamp_int(%s, %s, %s)", a0, a1, a2), nil
+	case "lerp":
+		a0, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		a1, err := em.emitExpr(c.Args[1])
+		if err != nil {
+			return "", err
+		}
+		a2, err := em.emitExpr(c.Args[2])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("clio_lerp(%s, %s, %s)", a0, a1, a2), nil
+	case "map":
+		args := make([]string, 5)
+		for i := 0; i < 5; i++ {
+			s, err := em.emitExpr(c.Args[i])
+			if err != nil {
+				return "", err
+			}
+			args[i] = s
+		}
+		return fmt.Sprintf("clio_map(%s, %s, %s, %s, %s)", args[0], args[1], args[2], args[3], args[4]), nil
+	case "distance":
+		args := make([]string, 4)
+		for i := 0; i < 4; i++ {
+			s, err := em.emitExpr(c.Args[i])
+			if err != nil {
+				return "", err
+			}
+			args[i] = s
+		}
+		return fmt.Sprintf("clio_distance(%s, %s, %s, %s)", args[0], args[1], args[2], args[3]), nil
+	case "angle_to":
+		args := make([]string, 4)
+		for i := 0; i < 4; i++ {
+			s, err := em.emitExpr(c.Args[i])
+			if err != nil {
+				return "", err
+			}
+			args[i] = s
+		}
+		return fmt.Sprintf("clio_angle_to(%s, %s, %s, %s)", args[0], args[1], args[2], args[3]), nil
+	case "time", "time_ms", "timer_start":
+		return "clio_" + name + "()", nil
+	case "timer_elapsed", "countdown", "wait", "wait_ms":
+		a0, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("clio_%s(%s)", name, a0), nil
+	case "countdown_done":
+		a0, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("clio_countdown_done(%s)", a0), nil
+	case "random_float", "random_bool":
+		if name == "random_bool" {
+			return "clio_random_bool()", nil
+		}
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return fmt.Sprintf("clio_random_float(%s, %s)", a0, a1), nil
+	case "chance":
+		a0, _ := em.emitExpr(c.Args[0])
+		return fmt.Sprintf("clio_chance(%s)", a0), nil
+	case "random_pick":
+		a0, _ := em.emitExpr(c.Args[0])
+		lt, _ := em.typeOf(c.Args[0])
+		return fmt.Sprintf("(*((%s*)clio_random_pick(&(%s))))", cT(lt.Elem), a0), nil
+	case "read_file", "file_exists", "delete_file", "make_folder", "delete_folder", "folder_exists", "os_name", "clipboard_get":
+		if len(c.Args) == 0 {
+			return "clio_" + name + "()", nil
+		}
+		a0, _ := em.emitExpr(c.Args[0])
+		return fmt.Sprintf("clio_%s(%s)", name, a0), nil
+	case "write_file", "append_file", "copy_file", "move_file", "clipboard_set", "open_url", "run":
+		args := make([]string, len(c.Args))
+		for i := 0; i < len(c.Args); i++ {
+			args[i], _ = em.emitExpr(c.Args[i])
+		}
+		return "clio_" + name + "(" + strings.Join(args, ", ") + ")", nil
+	case "list_files":
+		a0, _ := em.emitExpr(c.Args[0])
+		return fmt.Sprintf("clio_list_files(%s)", a0), nil
+	case "printn":
+		return em.emitPrintInternal(c, false)
+	case "input_int", "input_float":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "clio_" + name + "(" + a0 + ")", nil
+	case "exit":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "exit((int)(" + a0 + "))", nil
+	case "args":
+		return "clio_args()", nil
+	case "env":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "clio_env(" + a0 + ")", nil
+	case "is_windows", "is_mac", "is_linux":
+		return "clio_" + name + "()", nil
+	case "assert":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return "clio_assert(" + a0 + ", " + a1 + ")", nil
+	case "debug":
+		a0, _ := em.emitExpr(c.Args[0])
+		at, _ := em.typeOf(c.Args[0])
+		var b strings.Builder
+		if err := em.appendShowValueC(&b, a0, at); err != nil {
+			return "", err
+		}
+		b.WriteString("printf(\"\\n\");")
+		return b.String(), nil
+	case "todo":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "clio_" + name + "(" + a0 + ")", nil
+	case "benchmark_start":
+		return "clio_time()", nil
+	case "benchmark_end":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return "clio_benchmark_end(" + a0 + ", " + a1 + ")", nil
+	case "json_read":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "clio_json_read(" + a0 + ")", nil
+	case "json_write":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		// For now, only structs/lists/scalars are supported in json_write
+		return "clio_json_write(" + a0 + ", " + a1 + ")", nil
 	case "abs":
 		if len(c.Args) != 1 {
 			return "", fmt.Errorf("abs: need one argument")
@@ -2549,6 +2759,10 @@ func (em *emitter) appendShowStructBlock(b *strings.Builder, varExpr string, t *
 }
 
 func (em *emitter) emitPrint(c *ast.CallExpr) (string, error) {
+	return em.emitPrintInternal(c, true)
+}
+
+func (em *emitter) emitPrintInternal(c *ast.CallExpr, newline bool) (string, error) {
 	if len(c.Args) == 0 {
 		return "", fmt.Errorf("print: need at least one argument")
 	}
@@ -2569,23 +2783,23 @@ func (em *emitter) emitPrint(c *ast.CallExpr) (string, error) {
 			}
 			switch in.Kind {
 			case check.KInt, check.KEnum:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\\n\"); } else { clio_print_int((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_int((%s).v); }\n", av, av)
 			case check.KFloat:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\\n\"); } else { clio_print_float((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_float((%s).v); }\n", av, av)
 			case check.KStr:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\\n\"); } else { clio_print_str((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_str((%s).v); }\n", av, av)
 			case check.KBool:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\\n\"); } else { clio_print_bool((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_bool((%s).v); }\n", av, av)
 			case check.KStruct:
 				innerT := in
 				if innerT.StructDef == nil {
 					return "", fmt.Errorf("print: bad optional struct")
 				}
-				b.WriteString("if (!(" + av + ").has) { printf(\"none\\n\"); } else { ")
+				b.WriteString("if (!(" + av + ").has) { printf(\"none\"); } else { ")
 				if err := em.appendShowStructBlock(&b, "("+av+").v", innerT); err != nil {
 					return "", err
 				}
-				b.WriteString("clio_show_endl();}\n")
+				b.WriteString("}\n")
 			default:
 				return "", fmt.Errorf("print: cannot print optional of %s", in)
 			}
@@ -2607,12 +2821,14 @@ func (em *emitter) emitPrint(c *ast.CallExpr) (string, error) {
 			if err := em.appendShowStructBlock(&b, av, t); err != nil {
 				return "", err
 			}
-			b.WriteString("clio_show_endl();\n")
 		case check.KVoid:
 			return "", fmt.Errorf("print: void argument")
 		default:
 			return "", fmt.Errorf("print: type %s is not supported", t)
 		}
+	}
+	if newline {
+		b.WriteString("printf(\"\\n\");\n")
 	}
 	return strings.TrimSuffix(b.String(), "\n"), nil
 }

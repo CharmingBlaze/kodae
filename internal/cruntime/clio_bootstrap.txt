@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <locale.h>
+#include <math.h>
+#include <sys/stat.h>
+
 #if defined(_WIN32)
 /* Do not #include <windows.h> here: winuser.h declares Win32 CloseWindow, ShowCursor, and
  * DrawText, which conflict with Raylib’s same-named functions in a single C file. We only
@@ -16,8 +20,12 @@ __attribute__((dllimport)) int __attribute__((__stdcall__)) SetConsoleCP(unsigne
 __declspec(dllimport) int __stdcall SetConsoleOutputCP(unsigned int wParam);
 __declspec(dllimport) int __stdcall SetConsoleCP(unsigned int wParam);
 #  endif
+#include <direct.h>
+#include <io.h>
 #else
-#include <locale.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/types.h>
 #endif
 
 /* Call at program start (see generated main). Windows: UTF-8 console. POSIX: honor LANG/LC_* so
@@ -48,6 +56,46 @@ typedef struct {
   int64_t cap;
   int64_t elem_size;
 } clio_list;
+
+/* Forward declarations */
+static inline clio_str clio_str_lit(const char *c);
+const char* clio_str_to_cstr(clio_str s);
+clio_str clio_str_concat(clio_str a, clio_str b);
+clio_str clio_int_to_str(int64_t v);
+clio_str clio_float_to_str(double v);
+clio_str clio_bool_to_str(bool v);
+void clio_print_int(int64_t v);
+void clio_print_float(double v);
+void clio_print_bool(bool v);
+void clio_print_str(clio_str s);
+void clio_show_int(int64_t v);
+void clio_show_float(double v);
+void clio_show_bool(bool v);
+void clio_show_str(clio_str s);
+void clio_show_endl(void);
+void clio_clear_screen(void);
+clio_str clio_input(clio_str prompt);
+int64_t clio_input_int(clio_str prompt);
+double clio_input_float(clio_str prompt);
+int64_t clio_random(int64_t lo, int64_t hi);
+double clio_random_float(double lo, double hi);
+bool clio_random_bool(void);
+bool clio_chance(int64_t pct);
+clio_list clio_list_new(int64_t elem_size);
+void clio_list_push(clio_list* l, const void* elem);
+void* clio_list_at_ptr(clio_list* l, int64_t idx);
+double clio_time(void);
+int64_t clio_time_ms(void);
+void clio_wait(double secs);
+void clio_wait_ms(int64_t ms);
+bool clio_file_exists(clio_str path);
+clio_str clio_read_file(clio_str path);
+void clio_write_file(clio_str path, clio_str content);
+clio_str clio_os_name(void);
+void clio_log(clio_str msg);
+clio_list clio_args(void);
+clio_str clio_env(clio_str name);
+void clio_list_shuffle(clio_list* l);
 
 static inline clio_str clio_str_lit(const char *c) {
   if (!c) { return (clio_str){NULL, 0}; }
@@ -135,7 +183,7 @@ clio_str clio_input(clio_str prompt) {
   }
   char line[4096];
   if (fgets(line, (int)sizeof line, stdin) == NULL) {
-    return (clio_str){0};
+    return (clio_str){NULL, 0};
   }
   int64_t n = 0;
   while (n < (int64_t)sizeof line - 1 && line[n] && line[n] != '\n' && line[n] != '\r') {
@@ -148,14 +196,236 @@ clio_str clio_input(clio_str prompt) {
   return (clio_str){p, n};
 }
 
+int64_t clio_input_int(clio_str prompt) {
+  clio_str s = clio_input(prompt);
+  if (s.len == 0) return 0;
+  return strtoll(s.data, NULL, 10);
+}
+
+double clio_input_float(clio_str prompt) {
+  clio_str s = clio_input(prompt);
+  if (s.len == 0) return 0.0;
+  return strtod(s.data, NULL);
+}
+
 static int clio_random_seeded;
 int64_t clio_random(int64_t lo, int64_t hi) {
   if (!clio_random_seeded) { srand((unsigned)time(NULL)); clio_random_seeded = 1; }
   if (hi < lo) { int64_t t = lo; lo = hi; hi = t; }
   int64_t span = hi - lo + 1;
   if (span <= 0) { return lo; }
-  if (span > 2147483646) { span = 2147483646; }
-  return lo + (int64_t)(rand() % (int)span);
+  return lo + (int64_t)(rand() % span);
+}
+
+double clio_random_float(double lo, double hi) {
+  if (!clio_random_seeded) { srand((unsigned)time(NULL)); clio_random_seeded = 1; }
+  double r = (double)rand() / (double)RAND_MAX;
+  return lo + r * (hi - lo);
+}
+
+bool clio_random_bool(void) {
+  if (!clio_random_seeded) { srand((unsigned)time(NULL)); clio_random_seeded = 1; }
+  return rand() % 2 == 0;
+}
+
+bool clio_chance(int64_t pct) {
+  if (!clio_random_seeded) { srand((unsigned)time(NULL)); clio_random_seeded = 1; }
+  return (rand() % 100) < pct;
+}
+
+void* clio_random_pick(clio_list* l) {
+  if (!l || l->len <= 0) return NULL;
+  return clio_list_at_ptr(l, clio_random(0, l->len - 1));
+}
+
+double clio_time(void) {
+  return (double)time(NULL);
+}
+
+int64_t clio_time_ms(void) {
+  return (int64_t)time(NULL) * 1000;
+}
+
+double clio_timer_start(void) {
+  return clio_time();
+}
+
+double clio_timer_elapsed(double t) {
+  return clio_time() - t;
+}
+
+double clio_countdown(double secs) {
+  return clio_time() + secs;
+}
+
+bool clio_countdown_done(double t) {
+  return clio_time() >= t;
+}
+
+#if defined(_WIN32)
+__attribute__((dllimport)) void __attribute__((__stdcall__)) Sleep(unsigned int dwMilliseconds);
+#endif
+
+void clio_wait(double secs) {
+#if defined(_WIN32)
+  Sleep((unsigned int)(secs * 1000));
+#else
+  usleep((unsigned int)(secs * 1000000));
+#endif
+}
+
+void clio_wait_ms(int64_t ms) {
+#if defined(_WIN32)
+  Sleep((unsigned int)ms);
+#else
+  usleep((unsigned int)(ms * 1000));
+#endif
+}
+
+int64_t clio_clamp_int(int64_t v, int64_t lo, int64_t hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+double clio_clamp_float(double v, double lo, double hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+double clio_lerp(double a, double b, double t) {
+  return a + t * (b - a);
+}
+
+double clio_map(double v, double in_lo, double in_hi, double out_lo, double out_hi) {
+  return out_lo + (v - in_lo) * (out_hi - out_lo) / (in_hi - in_lo);
+}
+
+double clio_distance(double x1, double y1, double x2, double y2) {
+  double dx = x2 - x1;
+  double dy = y2 - y1;
+  return sqrt(dx * dx + dy * dy);
+}
+
+double clio_angle_to(double x1, double y1, double x2, double y2) {
+  return atan2(y2 - y1, x2 - x1);
+}
+
+bool clio_file_exists(clio_str path) {
+  const char* c = clio_str_to_cstr(path);
+  struct stat st;
+  bool ok = (stat(c, &st) == 0 && (st.st_mode & S_IFREG));
+  free((void*)c);
+  return ok;
+}
+
+bool clio_folder_exists(clio_str path) {
+  const char* c = clio_str_to_cstr(path);
+  struct stat st;
+  bool ok = (stat(c, &st) == 0 && (st.st_mode & S_IFDIR));
+  free((void*)c);
+  return ok;
+}
+
+clio_str clio_read_file(clio_str path) {
+  const char* c = clio_str_to_cstr(path);
+  FILE* f = fopen(c, "rb");
+  free((void*)c);
+  if (!f) return (clio_str){NULL, 0};
+  fseek(f, 0, SEEK_END);
+  long size = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  char* buf = (char*)malloc(size + 1);
+  if (!buf) { fclose(f); return (clio_str){NULL, 0}; }
+  fread(buf, 1, size, f);
+  buf[size] = 0;
+  fclose(f);
+  return (clio_str){buf, (int64_t)size};
+}
+
+void clio_write_file(clio_str path, clio_str content) {
+  const char* c = clio_str_to_cstr(path);
+  FILE* f = fopen(c, "wb");
+  free((void*)c);
+  if (!f) return;
+  if (content.len > 0) fwrite(content.data, 1, content.len, f);
+  fclose(f);
+}
+
+void clio_append_file(clio_str path, clio_str content) {
+  const char* c = clio_str_to_cstr(path);
+  FILE* f = fopen(c, "ab");
+  free((void*)c);
+  if (!f) return;
+  if (content.len > 0) fwrite(content.data, 1, content.len, f);
+  fclose(f);
+}
+
+void clio_delete_file(clio_str path) {
+  const char* c = clio_str_to_cstr(path);
+  remove(c);
+  free((void*)c);
+}
+
+void clio_delete_folder(clio_str path) {
+  const char* c = clio_str_to_cstr(path);
+#if defined(_WIN32)
+  _rmdir(c);
+#else
+  rmdir(c);
+#endif
+  free((void*)c);
+}
+
+
+clio_str clio_os_name(void) {
+#if defined(_WIN32)
+  return clio_str_lit("windows");
+#elif defined(__APPLE__)
+  return clio_str_lit("macos");
+#else
+  return clio_str_lit("linux");
+#endif
+}
+
+bool clio_is_windows(void) {
+#if defined(_WIN32)
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool clio_is_mac(void) {
+#if defined(__APPLE__)
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool clio_is_linux(void) {
+#if !defined(_WIN32) && !defined(__APPLE__)
+  return true;
+#else
+  return false;
+#endif
+}
+
+void clio_assert(bool cond, clio_str msg) {
+  if (!cond) {
+    fprintf(stderr, "Assertion failed: %.*s\n", (int)msg.len, msg.data);
+    exit(1);
+  }
+}
+
+void clio_log(clio_str msg) {
+  fprintf(stderr, "[LOG] %.*s\n", (int)msg.len, msg.data);
+}
+
+void clio_todo(clio_str msg) {
+  fprintf(stderr, "[TODO] %.*s\n", (int)msg.len, msg.data);
 }
 
 clio_list clio_list_new(int64_t elem_size) {
@@ -232,3 +502,194 @@ void* clio_list_at_ptr(clio_list* l, int64_t idx) {
   }
   return l->data + (size_t)(idx * l->elem_size);
 }
+
+clio_str clio_str_upper(clio_str s) {
+  if (s.len <= 0) return s;
+  char* p = (char*)malloc(s.len + 1);
+  for (int64_t i = 0; i < s.len; i++) {
+    char c = s.data[i];
+    if (c >= 'a' && c <= 'z') c -= 32;
+    p[i] = c;
+  }
+  p[s.len] = 0;
+  return (clio_str){p, s.len};
+}
+
+clio_str clio_str_lower(clio_str s) {
+  if (s.len <= 0) return s;
+  char* p = (char*)malloc(s.len + 1);
+  for (int64_t i = 0; i < s.len; i++) {
+    char c = s.data[i];
+    if (c >= 'A' && c <= 'Z') c += 32;
+    p[i] = c;
+  }
+  p[s.len] = 0;
+  return (clio_str){p, s.len};
+}
+
+clio_str clio_str_trim(clio_str s) {
+  if (s.len <= 0) return s;
+  int64_t start = 0;
+  while (start < s.len && (unsigned char)s.data[start] <= 32) start++;
+  int64_t end = s.len - 1;
+  while (end >= start && (unsigned char)s.data[end] <= 32) end--;
+  int64_t n = end - start + 1;
+  if (n <= 0) return (clio_str){"", 0};
+  char* p = (char*)malloc(n + 1);
+  memcpy(p, s.data + start, n);
+  p[n] = 0;
+  return (clio_str){p, n};
+}
+
+bool clio_str_contains(clio_str s, clio_str sub) {
+  if (sub.len == 0) return true;
+  if (s.len < sub.len) return false;
+  for (int64_t i = 0; i <= s.len - sub.len; i++) {
+    if (memcmp(s.data + i, sub.data, sub.len) == 0) return true;
+  }
+  return false;
+}
+
+clio_str clio_str_replace(clio_str s, clio_str old_s, clio_str new_s) {
+  if (old_s.len == 0) return s;
+  int64_t count = 0;
+  for (int64_t i = 0; i <= s.len - old_s.len; ) {
+    if (memcmp(s.data + i, old_s.data, old_s.len) == 0) {
+      count++;
+      i += old_s.len;
+    } else {
+      i++;
+    }
+  }
+  if (count == 0) return s;
+  int64_t new_len = s.len + count * (new_s.len - old_s.len);
+  char* p = (char*)malloc(new_len + 1);
+  char* dest = p;
+  for (int64_t i = 0; i < s.len; ) {
+    if (i <= s.len - old_s.len && memcmp(s.data + i, old_s.data, old_s.len) == 0) {
+      memcpy(dest, new_s.data, new_s.len);
+      dest += new_s.len;
+      i += old_s.len;
+    } else {
+      *dest++ = s.data[i++];
+    }
+  }
+  *dest = 0;
+  return (clio_str){p, new_len};
+}
+
+clio_list clio_str_split(clio_str s, clio_str delim) {
+  clio_list l = clio_list_new(sizeof(clio_str));
+  if (s.len == 0) return l;
+  if (delim.len == 0) {
+    for (int64_t i = 0; i < s.len; i++) {
+      clio_str sub = {s.data + i, 1};
+      clio_list_push(&l, &sub);
+    }
+    return l;
+  }
+  int64_t start = 0;
+  for (int64_t i = 0; i <= s.len - delim.len; ) {
+    if (memcmp(s.data + i, delim.data, delim.len) == 0) {
+      clio_str sub = {s.data + start, i - start};
+      clio_list_push(&l, &sub);
+      i += delim.len;
+      start = i;
+    } else {
+      i++;
+    }
+  }
+  clio_str last = {s.data + start, s.len - start};
+  clio_list_push(&l, &last);
+  return l;
+}
+
+clio_str clio_str_slice(clio_str s, int64_t start, int64_t end) {
+  if (start < 0) start = 0;
+  if (end > s.len) end = s.len;
+  if (start >= end) return (clio_str){"", 0};
+  int64_t n = end - start;
+  char* p = (char*)malloc(n + 1);
+  memcpy(p, s.data + start, n);
+  p[n] = 0;
+  return (clio_str){p, n};
+}
+
+bool clio_make_folder(clio_str path) {
+  const char* c = clio_str_to_cstr(path);
+#if defined(_WIN32)
+  int res = _mkdir(c);
+#else
+  int res = mkdir(c, 0755);
+#endif
+  free((void*)c);
+  return res == 0;
+}
+
+clio_list clio_list_files(clio_str path) {
+  clio_list l = clio_list_new(sizeof(clio_str));
+  const char* c = clio_str_to_cstr(path);
+#if defined(_WIN32)
+  struct _finddata_t fd;
+  char pattern[4096];
+  snprintf(pattern, sizeof pattern, "%s/*", c);
+  intptr_t h = _findfirst(pattern, &fd);
+  if (h != -1) {
+    do {
+      if (strcmp(fd.name, ".") != 0 && strcmp(fd.name, "..") != 0) {
+        clio_str s = clio_str_lit(strdup(fd.name));
+        clio_list_push(&l, &s);
+      }
+    } while (_findnext(h, &fd) == 0);
+    _findclose(h);
+  }
+#else
+  DIR* d = opendir(c);
+  if (d) {
+    struct dirent* de;
+    while ((de = readdir(d))) {
+      if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
+        clio_str s = clio_str_lit(strdup(de->d_name));
+        clio_list_push(&l, &s);
+      }
+    }
+    closedir(d);
+  }
+#endif
+  free((void*)c);
+  return l;
+}
+
+int clio_argc;
+char** clio_argv;
+clio_list clio_args(void) {
+  clio_list l = clio_list_new(sizeof(clio_str));
+  for (int i = 0; i < clio_argc; i++) {
+    clio_str s = clio_str_lit(clio_argv[i]);
+    clio_list_push(&l, &s);
+  }
+  return l;
+}
+
+clio_str clio_env(clio_str name) {
+  const char* c = clio_str_to_cstr(name);
+  char* v = getenv(c);
+  free((void*)c);
+  return clio_str_lit(v);
+}
+
+void clio_list_shuffle(clio_list* l) {
+  if (!l || l->len <= 1) return;
+  if (!clio_random_seeded) { srand((unsigned)time(NULL)); clio_random_seeded = 1; }
+  for (int64_t i = l->len - 1; i > 0; i--) {
+    int64_t j = rand() % (i + 1);
+    uint8_t tmp[1024]; 
+    size_t sz = (size_t)l->elem_size;
+    memcpy(tmp, l->data + (size_t)(i * l->elem_size), sz);
+    memcpy(l->data + (size_t)(i * l->elem_size), l->data + (size_t)(j * l->elem_size), sz);
+    memcpy(l->data + (size_t)(j * l->elem_size), tmp, sz);
+  }
+}
+
+clio_str clio_json_read(clio_str path) { return clio_read_file(path); }
+void clio_json_write(clio_str path, clio_str val) { clio_write_file(path, val); }

@@ -296,11 +296,7 @@ func (c *Checker) checkEnumConst(enName, variant string, e ast.Expr) (*Type, err
 	return et, nil
 }
 
-// typeBinary: assign case handled elsewhere (AssignStmt) — for expr we don't see raw =
 func (c *Checker) typeBinary(b *ast.BinaryExpr) (*Type, error) {
-	// disambiguation: parse produced (a = b) as binary with op "=" for assign — actually assign is AssignStmt, not in typeExpr. Good.
-	// a +=  b as Assign. Good.
-	// a == b, etc.
 	switch b.Op {
 	case "&&", "||":
 		l, err := c.typeExpr(b.L)
@@ -312,8 +308,6 @@ func (c *Checker) typeBinary(b *ast.BinaryExpr) (*Type, error) {
 			return nil, err2
 		}
 		if l.Kind != KBool || r.Kind != KBool {
-			// C-style: allow && on ints? no — for Clio, bool
-			// if user used word `and` token maps to && — we still require bool? Spec says boolean logic. For MVP require bool; user can use comparisons.
 			return nil, fmt.Errorf("%s: expected bool, got %s and %s", b.Op, l, r)
 		}
 		c.setType(b, TpBool)
@@ -354,9 +348,9 @@ func (c *Checker) typeEq(b *ast.BinaryExpr) (*Type, error) {
 		var tOpt *Type
 		var err error
 		if rNone {
-			tOpt, err = c.typeExpr(b.L) // t == none, t != none: optional t on left
+			tOpt, err = c.typeExpr(b.L)
 		} else {
-			tOpt, err = c.typeExpr(b.R) // none == t, none != t
+			tOpt, err = c.typeExpr(b.R)
 		}
 		if err != nil {
 			return nil, err
@@ -413,7 +407,6 @@ func (c *Checker) typeEq(b *ast.BinaryExpr) (*Type, error) {
 	return nil, fmt.Errorf("incompatible in %s: %s vs %s", b.Op, l, r)
 }
 
-// typeCompare: numeric or enum same type? Spec: only numeric comparison for < — enums?
 func (c *Checker) typeCompare(b *ast.BinaryExpr) (*Type, error) {
 	l, e1 := c.typeExpr(b.L)
 	if e1 != nil {
@@ -448,7 +441,6 @@ func (c *Checker) typeArith(b *ast.BinaryExpr) (*Type, error) {
 			c.setType(b, TpStr)
 			return TpStr, nil
 		}
-		// str + (int|float|bool|enum) or symmetric — value coerced to str
 		if ls.Kind == KStr && coercesToString(rs) {
 			c.setType(b, TpStr)
 			return TpStr, nil
@@ -481,7 +473,6 @@ func (c *Checker) typeArith(b *ast.BinaryExpr) (*Type, error) {
 		}
 		return nil, fmt.Errorf("arithmetic: need two numbers, got %s and %s", l, r)
 	}
-	// promote to float
 	k := KInt
 	if l.Kind == KFloat || r.Kind == KFloat {
 		k = KFloat
@@ -496,7 +487,6 @@ func (c *Checker) typeArith(b *ast.BinaryExpr) (*Type, error) {
 	return t, nil
 }
 
-// peelCallFunc strips grouping parens and returns the callee name for a direct call f(...).
 func peelCallFunc(e ast.Expr) (name string, ok bool) {
 	for {
 		if pe, o := e.(*ast.ParenExpr); o {
@@ -510,11 +500,99 @@ func peelCallFunc(e ast.Expr) (name string, ok bool) {
 	}
 }
 
-// typeMethodCall: x.m(args) -> fn mangle(Struct, m) with (receiver, args...)
 func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, error) {
 	recvT, err := c.typeExpr(me.Left)
 	if err != nil {
 		return nil, err
+	}
+	if recvT != nil && recvT.Kind == KStr {
+		switch me.Field {
+		case "len":
+			if len(x.Args) != 0 {
+				return nil, fmt.Errorf("str.len: no arguments")
+			}
+			c.setType(x, TpInt)
+			return TpInt, nil
+		case "upper", "lower", "trim", "reverse", "repeat":
+			if (me.Field == "repeat" && len(x.Args) != 1) || (me.Field != "repeat" && len(x.Args) != 0) {
+				return nil, fmt.Errorf("str.%s: wrong number of arguments", me.Field)
+			}
+			if me.Field == "repeat" {
+				at, err := c.typeExpr(x.Args[0])
+				if err != nil {
+					return nil, err
+				}
+				if at == nil || at.Kind != KInt {
+					return nil, fmt.Errorf("str.repeat: int expected")
+				}
+			}
+			c.setType(x, TpStr)
+			return TpStr, nil
+		case "contains", "starts", "ends":
+			if len(x.Args) != 1 {
+				return nil, fmt.Errorf("str.%s: need one string", me.Field)
+			}
+			at, err := c.typeExpr(x.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			if at == nil || at.Kind != KStr {
+				return nil, fmt.Errorf("str.%s: string expected", me.Field)
+			}
+			c.setType(x, TpBool)
+			return TpBool, nil
+		case "replace":
+			if len(x.Args) != 2 {
+				return nil, fmt.Errorf("str.replace: need two strings (old, new)")
+			}
+			for _, a := range x.Args {
+				at, err := c.typeExpr(a)
+				if err != nil {
+					return nil, err
+				}
+				if at == nil || at.Kind != KStr {
+					return nil, fmt.Errorf("str.replace: strings expected")
+				}
+			}
+			c.setType(x, TpStr)
+			return TpStr, nil
+		case "split":
+			if len(x.Args) != 1 {
+				return nil, fmt.Errorf("str.split: need delimiter string")
+			}
+			at, err := c.typeExpr(x.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			if at == nil || at.Kind != KStr {
+				return nil, fmt.Errorf("str.split: string expected")
+			}
+			c.setType(x, TpListStr)
+			return TpListStr, nil
+		case "slice":
+			if len(x.Args) != 2 {
+				return nil, fmt.Errorf("str.slice: need start and end indices")
+			}
+			for _, a := range x.Args {
+				at, err := c.typeExpr(a)
+				if err != nil {
+					return nil, err
+				}
+				if at == nil || at.Kind != KInt {
+					return nil, fmt.Errorf("str.slice: indices must be int")
+				}
+			}
+			c.setType(x, TpStr)
+			return TpStr, nil
+		case "is_empty", "is_number":
+			if len(x.Args) != 0 {
+				return nil, fmt.Errorf("str.%s: no arguments", me.Field)
+			}
+			c.setType(x, TpBool)
+			return TpBool, nil
+		default:
+			return nil, fmt.Errorf("str has no method %q", me.Field)
+		}
 	}
 	if recvT != nil && recvT.Kind == KList {
 		switch me.Field {
@@ -566,6 +644,12 @@ func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, er
 			}
 			c.setType(x, recvT.Elem)
 			return recvT.Elem, nil
+		case "shuffle":
+			if len(x.Args) != 0 {
+				return nil, fmt.Errorf("shuffle: no arguments")
+			}
+			c.setType(x, TpVoid)
+			return TpVoid, nil
 		default:
 			return nil, fmt.Errorf("list has no method %q", me.Field)
 		}
@@ -675,7 +759,6 @@ func (c *Checker) typeExternCall(x *ast.CallExpr, ex *ast.ExternDecl) (*Type, er
 	if rt == nil {
 		rt = TpVoid
 	}
-	// C float widens to Clio float (double); fixed-width ints widen to Clio int
 	if rt != nil && rt.Kind == KF32 {
 		c.setType(x, TpFloat)
 		return TpFloat, nil
@@ -688,7 +771,6 @@ func (c *Checker) typeExternCall(x *ast.CallExpr, ex *ast.ExternDecl) (*Type, er
 	return rt, nil
 }
 
-// assignableExtern allows str to ptr[byte] for C interop.
 func (c *Checker) assignableExtern(want, got *Type) error {
 	if want == nil || got == nil {
 		return nil
@@ -719,12 +801,26 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 	if !ok {
 		return nil, fmt.Errorf("only direct calls f(...), (f)(...), or o.method(...)")
 	}
+
+	checkStrArg := func(name string) error {
+		if len(x.Args) != 1 {
+			return fmt.Errorf("%s: need one string argument", name)
+		}
+		at, err := c.typeExpr(x.Args[0])
+		if err != nil {
+			return err
+		}
+		if at == nil || at.Kind != KStr {
+			return fmt.Errorf("%s: string expected", name)
+		}
+		return nil
+	}
+
 	// built-ins
 	switch name {
-	case "print":
+	case "print", "printn":
 		c.inf.UsesConsole = true
-		// 1..n args, each any printable, entire thing is a statement; type void — use void as "unit"
-		if len(x.Args) == 0 {
+		if name == "print" && len(x.Args) == 0 {
 			return nil, fmt.Errorf("print needs at least one argument")
 		}
 		for _, a := range x.Args {
@@ -732,41 +828,145 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 				return nil, err
 			}
 		}
-		// "void" call used as expression — disallow?
-		// in Clio, print(...) as ExprStmt, not in expression position usually; if in `let x = print(1)` — error at assign
 		c.setType(x, TpVoid)
 		return TpVoid, nil
-	case "input":
+	case "input", "input_int", "input_float":
 		c.inf.UsesConsole = true
-		if len(x.Args) != 1 {
-			return nil, fmt.Errorf("input: need one string (prompt)")
-		}
-		pT, err := c.typeExpr(x.Args[0])
-		if err != nil {
+		if err := checkStrArg(name); err != nil {
 			return nil, err
 		}
-		if pT == nil || pT.Kind != KStr {
-			return nil, fmt.Errorf("input: prompt must be str")
+		res := TpStr
+		if name == "input_int" {
+			res = TpInt
+		} else if name == "input_float" {
+			res = TpFloat
 		}
-		c.setType(x, TpStr)
-		return TpStr, nil
+		c.setType(x, res)
+		return res, nil
 	case "random":
 		if len(x.Args) != 2 {
 			return nil, fmt.Errorf("random: need two int bounds (inclusive)")
 		}
 		a, e1 := c.typeExpr(x.Args[0])
-		if e1 != nil {
-			return nil, e1
-		}
 		b, e2 := c.typeExpr(x.Args[1])
-		if e2 != nil {
-			return nil, e2
+		if e1 != nil || e2 != nil {
+			return nil, firstErr(e1, e2)
 		}
 		if a == nil || a.Kind != KInt || b == nil || b.Kind != KInt {
 			return nil, fmt.Errorf("random: both bounds must be int")
 		}
 		c.setType(x, TpInt)
 		return TpInt, nil
+	case "random_float":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("random_float: need two float bounds")
+		}
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if !at.isNumeric() {
+				return nil, fmt.Errorf("random_float: numbers expected")
+			}
+		}
+		c.setType(x, TpFloat)
+		return TpFloat, nil
+	case "chance":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("chance: need one int (percentage 0-100)")
+		}
+		at, err := c.typeExpr(x.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		if at == nil || at.Kind != KInt {
+			return nil, fmt.Errorf("chance: int expected")
+		}
+		c.setType(x, TpBool)
+		return TpBool, nil
+	case "random_bool":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("random_bool: no arguments")
+		}
+		c.setType(x, TpBool)
+		return TpBool, nil
+	case "random_pick":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("random_pick: need one list")
+		}
+		at, err := c.typeExpr(x.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		if at == nil || at.Kind != KList || at.Elem == nil {
+			return nil, fmt.Errorf("random_pick: list expected")
+		}
+		c.setType(x, at.Elem)
+		return at.Elem, nil
+	case "time", "timer_start":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("%s: no arguments", name)
+		}
+		c.setType(x, TpFloat)
+		return TpFloat, nil
+	case "time_ms":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("time_ms: no arguments")
+		}
+		c.setType(x, TpInt)
+		return TpInt, nil
+	case "wait", "countdown":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("%s: need one number", name)
+		}
+		at, err := c.typeExpr(x.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		if !at.isNumeric() {
+			return nil, fmt.Errorf("%s: number expected", name)
+		}
+		res := TpVoid
+		if name == "countdown" {
+			res = TpFloat
+		}
+		c.setType(x, res)
+		return res, nil
+	case "wait_ms":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("wait_ms: need one int (milliseconds)")
+		}
+		at, err := c.typeExpr(x.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		if at == nil || at.Kind != KInt {
+			return nil, fmt.Errorf("wait_ms: int expected")
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "timer_elapsed", "countdown_done":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("%s: need one argument", name)
+		}
+		at, err := c.typeExpr(x.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		if name == "timer_elapsed" {
+			if at == nil || at.Kind != KFloat {
+				return nil, fmt.Errorf("timer_elapsed: float expected")
+			}
+			c.setType(x, TpFloat)
+			return TpFloat, nil
+		} else {
+			if at == nil || at.Kind != KFloat {
+				return nil, fmt.Errorf("countdown_done: float expected")
+			}
+			c.setType(x, TpBool)
+			return TpBool, nil
+		}
 	case "clear_screen":
 		c.inf.UsesConsole = true
 		if len(x.Args) != 0 {
@@ -810,31 +1010,37 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		}
 		c.setType(x, t)
 		return t, nil
-	case "min", "max", "abs":
-		if name == "abs" {
+	case "min", "max", "abs", "sqrt", "floor", "ceil", "round", "sin", "cos", "tan", "log":
+		unary := name == "abs" || name == "sqrt" || name == "floor" || name == "ceil" || name == "round" || name == "sin" || name == "cos" || name == "tan" || name == "log"
+		if unary {
 			if len(x.Args) != 1 {
-				return nil, fmt.Errorf("abs: need one number")
+				return nil, fmt.Errorf("%s: need one number", name)
 			}
 			tt, err := c.typeExpr(x.Args[0])
 			if err != nil {
 				return nil, err
 			}
-			if !tt.isNumeric() {
-				return nil, fmt.Errorf("abs: number expected")
+			if name == "log" && tt.Kind == KStr {
+				c.setType(x, TpVoid)
+				return TpVoid, nil
 			}
-			c.setType(x, tt)
-			return tt, nil
+			if !tt.isNumeric() {
+				return nil, fmt.Errorf("%s: number expected", name)
+			}
+			res := TpFloat
+			if name == "abs" && tt.Kind == KInt {
+				res = TpInt
+			}
+			c.setType(x, res)
+			return res, nil
 		}
 		if len(x.Args) != 2 {
 			return nil, fmt.Errorf("%s: need two numbers", name)
 		}
 		a, e1 := c.typeExpr(x.Args[0])
-		if e1 != nil {
-			return nil, e1
-		}
 		b, e2 := c.typeExpr(x.Args[1])
-		if e2 != nil {
-			return nil, e2
+		if e1 != nil || e2 != nil {
+			return nil, firstErr(e1, e2)
 		}
 		if !a.isNumeric() || !b.isNumeric() {
 			return nil, fmt.Errorf("%s: need numbers", name)
@@ -845,11 +1051,225 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		}
 		c.setType(x, tt)
 		return tt, nil
+	case "pow", "atan2":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("%s: need two arguments", name)
+		}
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if !at.isNumeric() {
+				return nil, fmt.Errorf("%s: numbers expected", name)
+			}
+		}
+		c.setType(x, TpFloat)
+		return TpFloat, nil
+	case "clamp":
+		if len(x.Args) != 3 {
+			return nil, fmt.Errorf("clamp: need 3 numbers (val, min, max)")
+		}
+		isFloat := false
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if !at.isNumeric() {
+				return nil, fmt.Errorf("clamp: numbers expected")
+			}
+			if at.Kind == KFloat {
+				isFloat = true
+			}
+		}
+		res := TpInt
+		if isFloat {
+			res = TpFloat
+		}
+		c.setType(x, res)
+		return res, nil
+	case "lerp", "map":
+		expected := 3
+		if name == "map" {
+			expected = 5
+		}
+		if len(x.Args) != expected {
+			return nil, fmt.Errorf("%s: wrong number of arguments", name)
+		}
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if !at.isNumeric() {
+				return nil, fmt.Errorf("%s: numbers expected", name)
+			}
+		}
+		c.setType(x, TpFloat)
+		return TpFloat, nil
+	case "distance", "angle_to":
+		if len(x.Args) != 4 {
+			return nil, fmt.Errorf("%s: need 4 numbers (x1, y1, x2, y2)", name)
+		}
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if !at.isNumeric() {
+				return nil, fmt.Errorf("%s: numbers expected", name)
+			}
+		}
+		c.setType(x, TpFloat)
+		return TpFloat, nil
+	case "read_file", "delete_file", "make_folder", "delete_folder", "folder_exists", "file_exists", "os_name", "clipboard_get":
+		if name == "os_name" || name == "clipboard_get" {
+			if len(x.Args) != 0 {
+				return nil, fmt.Errorf("%s: no arguments", name)
+			}
+		} else {
+			if err := checkStrArg(name); err != nil {
+				return nil, err
+			}
+		}
+		res := TpStr
+		if name == "file_exists" || name == "folder_exists" || name == "delete_file" || name == "delete_folder" || name == "make_folder" {
+			res = TpBool
+		}
+		c.setType(x, res)
+		return res, nil
+	case "write_file", "append_file", "copy_file", "move_file", "clipboard_set", "open_url", "run":
+		argCount := 1
+		if name == "write_file" || name == "append_file" || name == "copy_file" || name == "move_file" {
+			argCount = 2
+		}
+		if len(x.Args) != argCount {
+			return nil, fmt.Errorf("%s: need %d arguments", name, argCount)
+		}
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if at == nil || at.Kind != KStr {
+				return nil, fmt.Errorf("%s: strings expected", name)
+			}
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "list_files":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpListStr)
+		return TpListStr, nil
+	case "exit":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("exit: need exit code (int)")
+		}
+		at, err := c.typeExpr(x.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		if at == nil || at.Kind != KInt {
+			return nil, fmt.Errorf("exit: int expected")
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "args":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("args: no arguments")
+		}
+		c.setType(x, TpListStr)
+		return TpListStr, nil
+	case "env":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpStr)
+		return TpStr, nil
+	case "is_windows", "is_mac", "is_linux":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("%s: no arguments", name)
+		}
+		c.setType(x, TpBool)
+		return TpBool, nil
+	case "assert":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("assert: need condition (bool) and message (str)")
+		}
+		cond, e1 := c.typeExpr(x.Args[0])
+		msg, e2 := c.typeExpr(x.Args[1])
+		if e1 != nil || e2 != nil {
+			return nil, firstErr(e1, e2)
+		}
+		if cond == nil || cond.Kind != KBool || msg == nil || msg.Kind != KStr {
+			return nil, fmt.Errorf("assert: need (bool, str)")
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "debug":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("debug: need one value")
+		}
+		if _, err := c.typeExpr(x.Args[0]); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "todo":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "benchmark_start":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("benchmark_start: no arguments")
+		}
+		c.setType(x, TpFloat)
+		return TpFloat, nil
+	case "benchmark_end":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("benchmark_end: need timer (float) and label (str)")
+		}
+		t, e1 := c.typeExpr(x.Args[0])
+		l, e2 := c.typeExpr(x.Args[1])
+		if e1 != nil || e2 != nil {
+			return nil, firstErr(e1, e2)
+		}
+		if t == nil || t.Kind != KFloat || l == nil || l.Kind != KStr {
+			return nil, fmt.Errorf("benchmark_end: need (float, str)")
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "json_read":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpAny)
+		return TpAny, nil
+	case "json_write":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("json_write: need path string and value")
+		}
+		path, e1 := c.typeExpr(x.Args[0])
+		if e1 != nil {
+			return nil, e1
+		}
+		if path == nil || path.Kind != KStr {
+			return nil, fmt.Errorf("json_write: path must be string")
+		}
+		if _, err := c.typeExpr(x.Args[1]); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
 	default:
 		if ex := c.externs[name]; ex != nil {
 			return c.typeExternCall(x, ex)
 		}
-		// user fn
 		f := c.fns[name]
 		if f == nil {
 			if sug, ok := suggestName(name, c.callableNameCandidates()); ok {
@@ -889,4 +1309,13 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		c.setType(x, rt)
 		return rt, nil
 	}
+}
+
+func firstErr(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }

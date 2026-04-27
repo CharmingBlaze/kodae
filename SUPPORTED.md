@@ -25,6 +25,7 @@ For a beginner-friendly single-page introduction, see `docs/LANGUAGE.md`. Deeper
 | **`build --lib`** | Yes (v1) | Emits `.c`, `.h`, static (`.a`) and shared (`.so`/`.dll`/`.dylib`) artifacts. |
 | **Portable bundle (no global C install)** | Yes | If `toolchain/zig/zig(.exe)` exists next to `clio`, compiler auto-uses bundled `zig cc`. |
 | **`list[T]`** | Yes (v1) | Type syntax `list[T]`, literals `[a, b]`, index read/write `xs[i]`, `len(xs)`, methods `push`, `pop`, `append`, `remove`, and `for (x in list)` iteration. |
+| **Standard Library** | Yes (v1) | ~50 built-in functions: Time (`time`, `wait`, `timer`), Random (`random`, `chance`, `random_pick`), Files (`read_file`, `write_file`, `file_exists`), Strings (`.upper`, `.lower`, `.trim`, `.contains`, `.replace`, `.split`), Math (`sqrt`, `abs`, `clamp`, `lerp`, `map`), IO (`print`, `input`, `clear_screen`), OS (`os_name`, `args`, `env`), and JSON placeholders. |
 | **Match on enums** | Yes | **Exhaustiveness** is checked (all variants or error). |
 | **-- (decrement)** | Yes | Postfix, like `++`. |
 | **`clio bind` (Generic)** | Yes | Uses LLVM/Clang (`-ast-dump=json`) to generate robust `pub struct`, `pub enum`, and `extern fn` bindings for any C library header. Handles nested types and complex C signatures. |
