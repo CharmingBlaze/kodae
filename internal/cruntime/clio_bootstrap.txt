@@ -33,6 +33,13 @@ typedef struct { double value; clio_str err; bool ok; } clio_res_f64;
 typedef struct { clio_str value; clio_str err; bool ok; } clio_res_str;
 typedef struct { bool value; clio_str err; bool ok; } clio_res_bool;
 
+typedef struct {
+  uint8_t* data;
+  int64_t len;
+  int64_t cap;
+  int64_t elem_size;
+} clio_list;
+
 static inline clio_str clio_str_lit(const char *c) {
   if (!c) { return (clio_str){NULL, 0}; }
   return (clio_str){c, (int64_t)strlen(c)};
@@ -131,4 +138,79 @@ int64_t clio_random(int64_t lo, int64_t hi) {
   if (span <= 0) { return lo; }
   if (span > 2147483646) { span = 2147483646; }
   return lo + (int64_t)(rand() % (int)span);
+}
+
+clio_list clio_list_new(int64_t elem_size) {
+  clio_list l;
+  l.data = NULL;
+  l.len = 0;
+  l.cap = 0;
+  l.elem_size = elem_size;
+  return l;
+}
+
+static void clio_list_reserve(clio_list* l, int64_t need) {
+  if (!l || need <= l->cap) { return; }
+  int64_t nc = l->cap > 0 ? l->cap : 4;
+  while (nc < need) { nc *= 2; }
+  size_t bytes = (size_t)(nc * l->elem_size);
+  uint8_t* p = (uint8_t*)realloc(l->data, bytes);
+  if (!p) {
+    fprintf(stderr, "clio: oom in list reserve\n");
+    exit(1);
+  }
+  l->data = p;
+  l->cap = nc;
+}
+
+void clio_list_push(clio_list* l, const void* elem) {
+  if (!l || !elem) { return; }
+  clio_list_reserve(l, l->len + 1);
+  memcpy(l->data + (size_t)(l->len * l->elem_size), elem, (size_t)l->elem_size);
+  l->len++;
+}
+
+void clio_list_append(clio_list* l, const clio_list* other) {
+  if (!l || !other) { return; }
+  if (l->elem_size != other->elem_size) {
+    fprintf(stderr, "clio: append element-size mismatch\n");
+    exit(1);
+  }
+  clio_list_reserve(l, l->len + other->len);
+  if (other->len > 0) {
+    memcpy(l->data + (size_t)(l->len * l->elem_size), other->data, (size_t)(other->len * other->elem_size));
+  }
+  l->len += other->len;
+}
+
+void clio_list_pop(clio_list* l, void* out) {
+  if (!l || !out || l->len <= 0) {
+    fprintf(stderr, "clio: pop from empty list\n");
+    exit(1);
+  }
+  l->len--;
+  memcpy(out, l->data + (size_t)(l->len * l->elem_size), (size_t)l->elem_size);
+}
+
+void clio_list_remove_at(clio_list* l, int64_t idx, void* out) {
+  if (!l || !out || idx < 0 || idx >= l->len) {
+    fprintf(stderr, "clio: remove index out of range\n");
+    exit(1);
+  }
+  memcpy(out, l->data + (size_t)(idx * l->elem_size), (size_t)l->elem_size);
+  int64_t tail = l->len - idx - 1;
+  if (tail > 0) {
+    memmove(l->data + (size_t)(idx * l->elem_size),
+            l->data + (size_t)((idx + 1) * l->elem_size),
+            (size_t)(tail * l->elem_size));
+  }
+  l->len--;
+}
+
+void* clio_list_at_ptr(clio_list* l, int64_t idx) {
+  if (!l || idx < 0 || idx >= l->len) {
+    fprintf(stderr, "clio: index out of range\n");
+    exit(1);
+  }
+  return l->data + (size_t)(idx * l->elem_size);
 }

@@ -14,6 +14,12 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 	case *ast.IdentExpr:
 		t := c.get(x.Name)
 		if t == nil {
+			if x.Name == "this" {
+				return nil, fmt.Errorf("this can only be used inside a method")
+			}
+			if x.Name == "ok" || x.Name == "err" {
+				return nil, fmt.Errorf("%s(...) is not supported in Clio v1; use catch", x.Name)
+			}
 			if c.enums[x.Name] != nil {
 				return nil, fmt.Errorf("expected %q as value (use %q.Variant for enum value)", x.Name, x.Name)
 			}
@@ -93,6 +99,47 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		return out, nil
 	case *ast.StructLit:
 		return c.typeStructLit(x, e)
+	case *ast.ListLit:
+		if len(x.Elems) == 0 {
+			return nil, fmt.Errorf("list literal: cannot infer element type from [] (use an annotation)")
+		}
+		var elemT *Type
+		for i, el := range x.Elems {
+			et, err := c.typeExpr(el)
+			if err != nil {
+				return nil, err
+			}
+			if et == nil || et.Kind == KNil {
+				return nil, fmt.Errorf("list literal: element %d cannot be none without an explicit list type", i)
+			}
+			if elemT == nil {
+				elemT = et
+				continue
+			}
+			if err := c.assignable(elemT, et); err != nil {
+				return nil, fmt.Errorf("list literal: element %d: %v", i, err)
+			}
+		}
+		out := &Type{Kind: KList, Elem: elemT}
+		c.setType(e, out)
+		return out, nil
+	case *ast.IndexExpr:
+		lt, err := c.typeExpr(x.Left)
+		if err != nil {
+			return nil, err
+		}
+		if lt == nil || lt.Kind != KList || lt.Elem == nil {
+			return nil, fmt.Errorf("indexing requires list value, got %v", lt)
+		}
+		it, err := c.typeExpr(x.Index)
+		if err != nil {
+			return nil, err
+		}
+		if it == nil || it.Kind != KInt {
+			return nil, fmt.Errorf("list index must be int, got %v", it)
+		}
+		c.setType(e, lt.Elem)
+		return lt.Elem, nil
 	case *ast.MemberExpr:
 		// enum const: EnumName.Variant (EnumName is not a binding)
 		if li, isId := x.Left.(*ast.IdentExpr); isId {
@@ -107,26 +154,11 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		if tL != nil && tL.Kind == KResult {
-			var ft *Type
-			switch x.Field {
-			case "ok":
-				ft = TpBool
-			case "value":
-				if tL.Res == nil {
-					return nil, fmt.Errorf("result: value field needs inner type")
-				}
-				ft = tL.Res
-			case "err":
-				ft = TpStr
-			default:
-				return nil, fmt.Errorf("result has no field %q (use .ok, .value, .err)", x.Field)
-			}
-			c.setType(e, ft)
-			return ft, nil
-		}
 		if tL == nil || tL.Kind != KStruct || tL.StructDef == nil {
-			return nil, fmt.Errorf("field access .%q on %s (need struct or result value)", x.Field, tL)
+			if x.Field == "ok" || x.Field == "value" || x.Field == "err" {
+				return nil, fmt.Errorf("result field access (.ok/.value/.err) is not part of Clio v1; use catch")
+			}
+			return nil, fmt.Errorf("field access .%q on %s (need struct value)", x.Field, tL)
 		}
 		fdt, ok := tL.StructDef.Fields[x.Field]
 		if !ok {
@@ -135,25 +167,7 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		c.setType(e, fdt)
 		return fdt, nil
 	case *ast.TryUnwrapExpr:
-		if !c.tryOK {
-			return nil, fmt.Errorf("? on result is only valid in: let init, return value, = right-hand side, or expression statement")
-		}
-		if c.returnWant == nil || c.returnWant.Kind != KResult {
-			return nil, fmt.Errorf("? requires the enclosing function to return a result type (propagate errors to caller)")
-		}
-		t, err := c.typeExpr(x.X)
-		if err != nil {
-			return nil, err
-		}
-		if t == nil || t.Kind != KResult {
-			return nil, fmt.Errorf("? expects a result[...] value, got %v", t)
-		}
-		if t.Res == nil {
-			return nil, fmt.Errorf("? on malformed result type")
-		}
-		inner := t.Res
-		c.setType(e, inner)
-		return inner, nil
+		return nil, fmt.Errorf("? is not supported in Clio v1; use catch")
 	case *ast.ResultCatchExpr:
 		if !c.tryOK {
 			return nil, fmt.Errorf("result catch: only valid in let init, return value, = right-hand side, or expression statement")
@@ -162,10 +176,10 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		if t == nil || t.Kind != KResult || t.Res == nil {
-			return nil, fmt.Errorf("catch: left side must be a result[...] value, got %v", t)
+		if t == nil || t.Kind == KVoid {
+			return nil, fmt.Errorf("catch: left side must produce a value, got %v", t)
 		}
-		inner := t.Res
+		inner := t
 		c.push()
 		if x.ErrName == "" {
 			return nil, fmt.Errorf("catch: need (name) for the error str")
@@ -468,6 +482,60 @@ func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, er
 	if err != nil {
 		return nil, err
 	}
+	if recvT != nil && recvT.Kind == KList {
+		switch me.Field {
+		case "push":
+			if len(x.Args) != 1 {
+				return nil, fmt.Errorf("push: need 1 argument")
+			}
+			at, err := c.typeExpr(x.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			if err := c.assignable(recvT.Elem, at); err != nil {
+				return nil, fmt.Errorf("push: %v", err)
+			}
+			c.setType(x, TpVoid)
+			return TpVoid, nil
+		case "append":
+			if len(x.Args) != 1 {
+				return nil, fmt.Errorf("append: need 1 argument")
+			}
+			at, err := c.typeExpr(x.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			if at == nil || at.Kind != KList {
+				return nil, fmt.Errorf("append: argument must be list, got %v", at)
+			}
+			if err := c.assignable(recvT, at); err != nil {
+				return nil, fmt.Errorf("append: %v", err)
+			}
+			c.setType(x, TpVoid)
+			return TpVoid, nil
+		case "pop":
+			if len(x.Args) != 0 {
+				return nil, fmt.Errorf("pop: no arguments")
+			}
+			c.setType(x, recvT.Elem)
+			return recvT.Elem, nil
+		case "remove":
+			if len(x.Args) != 1 {
+				return nil, fmt.Errorf("remove: need index argument")
+			}
+			it, err := c.typeExpr(x.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			if it == nil || it.Kind != KInt {
+				return nil, fmt.Errorf("remove: index must be int")
+			}
+			c.setType(x, recvT.Elem)
+			return recvT.Elem, nil
+		default:
+			return nil, fmt.Errorf("list has no method %q", me.Field)
+		}
+	}
 	if recvT == nil || recvT.Kind != KStruct || recvT.StructDef == nil {
 		return nil, fmt.Errorf("method call: receiver must be a struct, got %v", recvT)
 	}
@@ -643,44 +711,21 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		}
 		c.setType(x, TpVoid)
 		return TpVoid, nil
-	case "ok":
+	case "len":
 		if len(x.Args) != 1 {
-			return nil, fmt.Errorf("ok: need one argument")
+			return nil, fmt.Errorf("len: need one argument")
 		}
 		at, err := c.typeExpr(x.Args[0])
 		if err != nil {
 			return nil, err
 		}
-		if c.inReturn && c.returnWant != nil && c.returnWant.Kind == KResult {
-			if want := c.returnWant.Res; want != nil {
-				if e := c.assignable(want, at); e != nil {
-					return nil, fmt.Errorf("ok: %v", e)
-				}
-			}
-			c.setType(x, c.returnWant)
-			return c.returnWant, nil
+		if at == nil || at.Kind != KList {
+			return nil, fmt.Errorf("len: argument must be list")
 		}
-		r := &Type{Kind: KResult, Res: at}
-		c.setType(x, r)
-		return r, nil
-	case "err":
-		if len(x.Args) != 1 {
-			return nil, fmt.Errorf("err: need one string argument")
-		}
-		st, err := c.typeExpr(x.Args[0])
-		if err != nil {
-			return nil, err
-		}
-		if st == nil || st.Kind != KStr {
-			return nil, fmt.Errorf("err: message must be str")
-		}
-		if c.inReturn && c.returnWant != nil && c.returnWant.Kind == KResult {
-			c.setType(x, c.returnWant)
-			return c.returnWant, nil
-		}
-		r := &Type{Kind: KResult, Res: TpStr}
-		c.setType(x, r)
-		return r, nil
+		c.setType(x, TpInt)
+		return TpInt, nil
+	case "ok", "err":
+		return nil, fmt.Errorf("%s(...) is not supported in Clio v1; use catch", name)
 	case "int", "float", "str", "bool":
 		if len(x.Args) != 1 {
 			return nil, fmt.Errorf("%s: need one argument", name)

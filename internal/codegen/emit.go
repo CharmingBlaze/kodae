@@ -86,6 +86,8 @@ func cT(t *check.Type) string {
 			return "bool*"
 		}
 		return "const void*"
+	case check.KList:
+		return "clio_list"
 	case check.KResult:
 		return cResultCName(t.Res)
 	default:
@@ -226,6 +228,17 @@ func (em *emitter) resolveTypeExpr(tx *ast.TypeExpr) (*check.Type, error) {
 			return &check.Type{Kind: check.KOptional, Opt: pt}, nil
 		}
 		return pt, nil
+	}
+	if tx.ListInner != nil {
+		inner, err := em.resolveTypeExpr(tx.ListInner)
+		if err != nil {
+			return nil, err
+		}
+		lt := &check.Type{Kind: check.KList, Elem: inner}
+		if tx.Optional {
+			return &check.Type{Kind: check.KOptional, Opt: lt}, nil
+		}
+		return lt, nil
 	}
 	if tx.ResultInner != nil {
 		inner, err := em.resolveTypeExpr(tx.ResultInner)
@@ -554,6 +567,11 @@ func (em *emitter) cZeroValue(t *check.Type) string {
 		return "false"
 	case check.KStruct:
 		return fmt.Sprintf("((%s){0})", cStructCName(t.StructName))
+	case check.KList:
+		if t.Elem == nil {
+			return "clio_list_new((int64_t)sizeof(int64_t))"
+		}
+		return fmt.Sprintf("clio_list_new((int64_t)sizeof(%s))", cT(t.Elem))
 	case check.KResult:
 		return fmt.Sprintf("((%s){0})", cResultCName(t.Res))
 	case check.KVoid:
@@ -796,7 +814,18 @@ func (em *emitter) emitLetResultCatch(out *bytes.Buffer, ls *ast.LetStmt, rce *a
 		return err
 	}
 	if rT == nil || rT.Kind != check.KResult {
-		return fmt.Errorf("catch: need result on the left (checker should catch)")
+		sub, err := em.emitExpr(rce.Subj)
+		if err != nil {
+			return err
+		}
+		em.flushTryPre(out)
+		em.addLocal(ls.Name)
+		if ls.Const {
+			fmt.Fprintf(out, "const %s %s = %s;\n", cT(ty), cid(ls.Name), sub)
+		} else {
+			fmt.Fprintf(out, "%s %s = %s;\n", cT(ty), cid(ls.Name), sub)
+		}
+		return nil
 	}
 	resC := cT(rT)
 	em.rcN++
@@ -880,19 +909,49 @@ func (em *emitter) emitStmt(out *bytes.Buffer, s ast.Stmt) error {
 		return em.emitBlock(out, x.Body.Stmts, true)
 	case *ast.ForInStmt:
 		bin, ok := x.In.(*ast.BinaryExpr)
-		if !ok || bin.Op != ".." {
-			return fmt.Errorf("for-in: expected int range ..")
+		if ok && bin.Op == ".." {
+			lo, err := em.emitExpr(bin.L)
+			if err != nil {
+				return err
+			}
+			hi, err := em.emitExpr(bin.R)
+			if err != nil {
+				return err
+			}
+			v := cid(x.Var)
+			fmt.Fprintf(out, "for (int64_t %s = %s; %s < %s; %s++) ", v, lo, v, hi, v)
+			if x.Body == nil {
+				out.WriteString(";\n")
+				return nil
+			}
+			em.pushScope()
+			em.addLocal(x.Var)
+			out.WriteString("{\n")
+			for _, st := range x.Body.Stmts {
+				if err := em.emitStmt(out, st); err != nil {
+					em.popScope()
+					return err
+				}
+			}
+			em.popScope()
+			out.WriteString("}\n")
+			return nil
 		}
-		lo, err := em.emitExpr(bin.L)
+		it, err := em.typeOf(x.In)
 		if err != nil {
 			return err
 		}
-		hi, err := em.emitExpr(bin.R)
+		if it == nil || it.Kind != check.KList || it.Elem == nil {
+			return fmt.Errorf("for-in: expected int range or list")
+		}
+		lv, err := em.emitExpr(x.In)
 		if err != nil {
 			return err
 		}
-		v := cid(x.Var)
-		fmt.Fprintf(out, "for (int64_t %s = %s; %s < %s; %s++) ", v, lo, v, hi, v)
+		em.tryN++
+		idx := fmt.Sprintf("c_i_%d", em.tryN)
+		iv := cid(x.Var)
+		fmt.Fprintf(out, "for (int64_t %s = 0; %s < (%s).len; %s++) ", idx, idx, lv, idx)
 		if x.Body == nil {
 			out.WriteString(";\n")
 			return nil
@@ -900,6 +959,7 @@ func (em *emitter) emitStmt(out *bytes.Buffer, s ast.Stmt) error {
 		em.pushScope()
 		em.addLocal(x.Var)
 		out.WriteString("{\n")
+		fmt.Fprintf(out, "%s %s = (*((%s*)clio_list_at_ptr(&(%s), %s)));\n", cT(it.Elem), iv, cT(it.Elem), lv, idx)
 		for _, st := range x.Body.Stmts {
 			if err := em.emitStmt(out, st); err != nil {
 				em.popScope()
@@ -1055,13 +1115,30 @@ func (em *emitter) emitLvalue(e ast.Expr) (string, error) {
 			return "", fmt.Errorf("left of . in assignment must be a struct, got %v", lt)
 		}
 		if id, ok := v.Left.(*ast.IdentExpr); ok && em.isStructParam(id.Name) {
-			return fmt.Sprintf("((%s)->u_%s)", cid(id.Name), cid(v.Field)), nil
+			return fmt.Sprintf("((%s)->u_%s)", cid(em.maybeThisAlias(id.Name)), cid(v.Field)), nil
 		}
 		base, err := em.emitLvalue(v.Left)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("((%s).u_%s)", base, cid(v.Field)), nil
+	case *ast.IndexExpr:
+		lt, err := em.typeOf(v.Left)
+		if err != nil {
+			return "", err
+		}
+		if lt == nil || lt.Kind != check.KList || lt.Elem == nil {
+			return "", fmt.Errorf("assign index: left must be list value")
+		}
+		base, err := em.emitLvalue(v.Left)
+		if err != nil {
+			return "", err
+		}
+		ix, err := em.emitExpr(v.Index)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), (int64_t)(%s))))", cT(lt.Elem), base, ix), nil
 	default:
 		return "", fmt.Errorf("assign: need identifier or x.y field path on the left, got %T", e)
 	}
@@ -1074,7 +1151,13 @@ func (em *emitter) emitReturnResultCatch(out *bytes.Buffer, rce *ast.ResultCatch
 		return err
 	}
 	if rT == nil || rT.Kind != check.KResult {
-		return fmt.Errorf("return catch: need result on the left (checker should catch)")
+		sub, err := em.emitExpr(rce.Subj)
+		if err != nil {
+			return err
+		}
+		em.flushTryPre(out)
+		fmt.Fprintf(out, "return %s;\n", sub)
+		return nil
 	}
 	resC := cT(rT)
 	em.rcN++
@@ -1121,7 +1204,13 @@ func (em *emitter) emitExprResultCatch(out *bytes.Buffer, rce *ast.ResultCatchEx
 		return err
 	}
 	if rT == nil || rT.Kind != check.KResult {
-		return fmt.Errorf("catch: need result (checker should catch)")
+		sub, err := em.emitExpr(rce.Subj)
+		if err != nil {
+			return err
+		}
+		em.flushTryPre(out)
+		fmt.Fprintf(out, "((void)(%s));\n", sub)
+		return nil
 	}
 	resC := cT(rT)
 	em.rcN++
@@ -1161,7 +1250,17 @@ func (em *emitter) emitAssignResultCatch(out *bytes.Buffer, a *ast.AssignStmt, r
 		return err
 	}
 	if rT == nil || rT.Kind != check.KResult {
-		return fmt.Errorf("catch: need result")
+		lhs, err := em.emitLvalue(a.Left)
+		if err != nil {
+			return err
+		}
+		sub, err := em.emitExpr(rce.Subj)
+		if err != nil {
+			return err
+		}
+		em.flushTryPre(out)
+		fmt.Fprintf(out, "%s = %s;\n", lhs, sub)
+		return nil
 	}
 	lhs, err := em.emitLvalue(a.Left)
 	if err != nil {
@@ -1235,6 +1334,7 @@ func (em *emitter) emitAssign(out *bytes.Buffer, x *ast.AssignStmt) error {
 }
 
 func (em *emitter) lvalueName(name string) string {
+	name = em.maybeThisAlias(name)
 	if em.isLocal(name) {
 		return cid(name)
 	}
@@ -1248,10 +1348,18 @@ func (em *emitter) lvalueName(name string) string {
 }
 
 func (em *emitter) isStructParam(name string) bool {
+	name = em.maybeThisAlias(name)
 	if em == nil || em.structPtrParam == nil {
 		return false
 	}
 	return em.structPtrParam[name]
+}
+
+func (em *emitter) maybeThisAlias(name string) string {
+	if name == "this" && em.isParam("self") {
+		return "self"
+	}
+	return name
 }
 
 func (em *emitter) emitMatch(out *bytes.Buffer, m *ast.MatchStmt) error {
@@ -1290,31 +1398,9 @@ func (em *emitter) flushTryPre(out *bytes.Buffer) {
 	em.tryPre = em.tryPre[:0]
 }
 
-// emitTryUnwrap: append C prefix that returns a failed result on !ok, then return (.value) ref.
 func (em *emitter) emitTryUnwrap(x *ast.TryUnwrapExpr) (string, error) {
-	if em.retWant == nil || em.retWant.Kind != check.KResult {
-		return "", fmt.Errorf("?: not in a result-returning function (codegen)")
-	}
-	tx, err := em.typeOf(x.X)
-	if err != nil {
-		return "", err
-	}
-	if tx == nil || tx.Kind != check.KResult {
-		return "", fmt.Errorf("?: expected result value")
-	}
-	sub, err := em.emitExpr(x.X)
-	if err != nil {
-		return "", err
-	}
-	rC := cT(tx)
-	em.tryN++
-	tmp := fmt.Sprintf("c_try_%d", em.tryN)
-	retC := cT(em.retWant)
-	z := valueZeroC(em.retWant.Res)
-	em.tryPre = append(em.tryPre,
-		fmt.Sprintf("%s %s = %s;\n", rC, tmp, sub),
-		fmt.Sprintf("if (!(%s).ok) { return ((%s){ .ok = false, .err = (%s).err, .value = %s }); }\n", tmp, retC, tmp, z))
-	return "(" + tmp + ".value)", nil
+	_ = x
+	return "", fmt.Errorf("? is not supported in Clio v1; use catch")
 }
 
 func (em *emitter) emitExpr(e ast.Expr) (string, error) {
@@ -1383,6 +1469,10 @@ func (em *emitter) emitExpr(e ast.Expr) (string, error) {
 		return em.emitCast(x)
 	case *ast.StructLit:
 		return em.emitStructLit(x)
+	case *ast.ListLit:
+		return em.emitListLit(x)
+	case *ast.IndexExpr:
+		return em.emitIndexExpr(x)
 	case *ast.MemberExpr:
 		return em.emitMember(x)
 	case *ast.TryUnwrapExpr:
@@ -1438,6 +1528,7 @@ func (em *emitter) emitStructLit(slit *ast.StructLit) (string, error) {
 }
 
 func (em *emitter) emitIdentLoad(name string, t *check.Type) string {
+	name = em.maybeThisAlias(name)
 	if em.isLocal(name) {
 		return cid(name)
 	}
@@ -1655,27 +1746,14 @@ func (em *emitter) emitMember(m *ast.MemberExpr) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if lt != nil && lt.Kind == check.KResult {
-		inner, err2 := em.emitExpr(m.Left)
-		if err2 != nil {
-			return "", err2
-		}
-		switch m.Field {
-		case "ok":
-			return fmt.Sprintf("((%s).ok)", inner), nil
-		case "value":
-			return fmt.Sprintf("((%s).value)", inner), nil
-		case "err":
-			return fmt.Sprintf("((%s).err)", inner), nil
-		default:
-			return "", fmt.Errorf("result: no field %q", m.Field)
-		}
-	}
 	if lt == nil || lt.Kind != check.KStruct {
-		return "", fmt.Errorf("member: expected struct or result value on left, got %v", lt)
+		if m.Field == "ok" || m.Field == "value" || m.Field == "err" {
+			return "", fmt.Errorf("result field access (.ok/.value/.err) is not part of Clio v1; use catch")
+		}
+		return "", fmt.Errorf("member: expected struct value on left, got %v", lt)
 	}
 	if id, ok := m.Left.(*ast.IdentExpr); ok && em.isStructParam(id.Name) {
-		return fmt.Sprintf("((%s)->u_%s)", cid(id.Name), cid(m.Field)), nil
+		return fmt.Sprintf("((%s)->u_%s)", cid(em.maybeThisAlias(id.Name)), cid(m.Field)), nil
 	}
 	if me, ok := m.Left.(*ast.MemberExpr); ok {
 		inner, err2 := em.emitMember(me)
@@ -1837,6 +1915,9 @@ func (em *emitter) emitMethodCall(c *ast.CallExpr, me *ast.MemberExpr) (string, 
 	if err != nil {
 		return "", err
 	}
+	if lf != nil && lf.Kind == check.KList {
+		return em.emitListMethodCall(c, me, lf)
+	}
 	if lf == nil || lf.Kind != check.KStruct {
 		return "", fmt.Errorf("method: need struct on left, got %v", lf)
 	}
@@ -1845,6 +1926,109 @@ func (em *emitter) emitMethodCall(c *ast.CallExpr, me *ast.MemberExpr) (string, 
 	args = append(args, me.Left)
 	args = append(args, c.Args...)
 	return em.emitUserCallMangled(mangled, args)
+}
+
+func (em *emitter) emitIndexExpr(ix *ast.IndexExpr) (string, error) {
+	lt, err := em.typeOf(ix.Left)
+	if err != nil {
+		return "", err
+	}
+	if lt == nil || lt.Kind != check.KList || lt.Elem == nil {
+		return "", fmt.Errorf("indexing requires list value")
+	}
+	base, err := em.emitLvalue(ix.Left)
+	if err != nil {
+		return "", err
+	}
+	i, err := em.emitExpr(ix.Index)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), (int64_t)(%s))))", cT(lt.Elem), base, i), nil
+}
+
+func (em *emitter) emitListElemAddr(et *check.Type, arg string) string {
+	return fmt.Sprintf("&((%s){%s})", cT(et), arg)
+}
+
+func (em *emitter) emitListLit(ll *ast.ListLit) (string, error) {
+	if em.curFn == nil {
+		return "", fmt.Errorf("global list literals are not supported yet")
+	}
+	tt, err := em.typeOf(ll)
+	if err != nil {
+		return "", err
+	}
+	if tt == nil || tt.Kind != check.KList || tt.Elem == nil {
+		return "", fmt.Errorf("list literal: missing inferred list type")
+	}
+	em.tryN++
+	tmp := fmt.Sprintf("c_list_%d", em.tryN)
+	em.tryPre = append(em.tryPre, fmt.Sprintf("clio_list %s = clio_list_new((int64_t)sizeof(%s));\n", tmp, cT(tt.Elem)))
+	for _, el := range ll.Elems {
+		ev, err := em.emitExpr(el)
+		if err != nil {
+			return "", err
+		}
+		em.tryPre = append(em.tryPre, fmt.Sprintf("clio_list_push(&%s, %s);\n", tmp, em.emitListElemAddr(tt.Elem, ev)))
+	}
+	return tmp, nil
+}
+
+func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *check.Type) (string, error) {
+	if lt == nil || lt.Kind != check.KList || lt.Elem == nil {
+		return "", fmt.Errorf("list method: receiver must be list")
+	}
+	base, err := em.emitLvalue(me.Left)
+	if err != nil {
+		return "", err
+	}
+	switch me.Field {
+	case "push":
+		if len(c.Args) != 1 {
+			return "", fmt.Errorf("push: need 1 argument")
+		}
+		v, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("clio_list_push(&(%s), %s)", base, em.emitListElemAddr(lt.Elem, v)), nil
+	case "append":
+		if len(c.Args) != 1 {
+			return "", fmt.Errorf("append: need 1 argument")
+		}
+		r, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("clio_list_append(&(%s), &(%s))", base, r), nil
+	case "pop":
+		if len(c.Args) != 0 {
+			return "", fmt.Errorf("pop: no arguments")
+		}
+		em.tryN++
+		tmp := fmt.Sprintf("c_pop_%d", em.tryN)
+		em.tryPre = append(em.tryPre,
+			fmt.Sprintf("%s %s;\n", cT(lt.Elem), tmp),
+			fmt.Sprintf("clio_list_pop(&(%s), &%s);\n", base, tmp))
+		return tmp, nil
+	case "remove":
+		if len(c.Args) != 1 {
+			return "", fmt.Errorf("remove: need index argument")
+		}
+		i, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		em.tryN++
+		tmp := fmt.Sprintf("c_rem_%d", em.tryN)
+		em.tryPre = append(em.tryPre,
+			fmt.Sprintf("%s %s;\n", cT(lt.Elem), tmp),
+			fmt.Sprintf("clio_list_remove_at(&(%s), (int64_t)(%s), &%s);\n", base, i, tmp))
+		return tmp, nil
+	default:
+		return "", fmt.Errorf("list has no method %q", me.Field)
+	}
 }
 
 // emitUserCallMangled shares logic with top-level fns; name is the mangled symbol.
@@ -1876,52 +2060,6 @@ func (em *emitter) emitUserCallMangled(mangled string, args []ast.Expr) (string,
 	}
 	b.WriteByte(')')
 	return b.String(), nil
-}
-
-func valueZeroC(t *check.Type) string {
-	if t == nil {
-		return "0"
-	}
-	switch t.Kind {
-	case check.KInt, check.KEnum:
-		return "0"
-	case check.KFloat:
-		return "0.0"
-	case check.KStr:
-		return "(clio_str){0}"
-	case check.KBool:
-		return "false"
-	default:
-		return "0"
-	}
-}
-
-func (em *emitter) emitResultOk(rt *check.Type, argC string) (string, error) {
-	name := cResultCName(rt.Res)
-	var v string
-	if rt.Res == nil {
-		v = fmt.Sprintf("((int64_t)(%s))", argC)
-	} else {
-		switch rt.Res.Kind {
-		case check.KInt, check.KEnum:
-			v = fmt.Sprintf("((int64_t)(%s))", argC)
-		case check.KFloat:
-			v = fmt.Sprintf("((double)(%s))", argC)
-		case check.KStr:
-			v = argC
-		case check.KBool:
-			v = fmt.Sprintf("((bool)(%s))", argC)
-		default:
-			v = argC
-		}
-	}
-	return fmt.Sprintf("((%s){ .value = %s, .err = (clio_str){0}, .ok = true })", name, v), nil
-}
-
-func (em *emitter) emitResultErr(rt *check.Type, errStrC string) (string, error) {
-	name := cResultCName(rt.Res)
-	z := valueZeroC(rt.Res)
-	return fmt.Sprintf("((%s){ .value = %s, .err = %s, .ok = false })", name, z, errStrC), nil
 }
 
 func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
@@ -1957,43 +2095,22 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 			return "", e2
 		}
 		return fmt.Sprintf("(clio_random((int64_t)(%s), (int64_t)(%s)))", a0, a1), nil
+	case "len":
+		if len(c.Args) != 1 {
+			return "", fmt.Errorf("len: need one argument")
+		}
+		a0, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("((int64_t)((%s).len))", a0), nil
 	case "clear_screen":
 		if len(c.Args) != 0 {
 			return "", fmt.Errorf("clear_screen: no arguments")
 		}
 		return "clio_clear_screen()", nil
-	case "ok":
-		if len(c.Args) != 1 {
-			return "", fmt.Errorf("ok: need one argument")
-		}
-		a0, e1 := em.emitExpr(c.Args[0])
-		if e1 != nil {
-			return "", e1
-		}
-		t, e2 := em.typeOf(c)
-		if e2 != nil {
-			return "", e2
-		}
-		if t == nil || t.Kind != check.KResult {
-			return "", fmt.Errorf("ok: internal: expected result type")
-		}
-		return em.emitResultOk(t, a0)
-	case "err":
-		if len(c.Args) != 1 {
-			return "", fmt.Errorf("err: need one str argument")
-		}
-		a0, e1 := em.emitExpr(c.Args[0])
-		if e1 != nil {
-			return "", e1
-		}
-		t, e2 := em.typeOf(c)
-		if e2 != nil {
-			return "", e2
-		}
-		if t == nil || t.Kind != check.KResult {
-			return "", fmt.Errorf("err: internal: expected result type")
-		}
-		return em.emitResultErr(t, a0)
+	case "ok", "err":
+		return "", fmt.Errorf("%s(...) is not supported in Clio v1; use catch", name)
 	case "int", "float", "str", "bool":
 		if len(c.Args) != 1 {
 			return "", fmt.Errorf("%s: need one argument", name)

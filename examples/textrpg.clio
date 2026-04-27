@@ -27,56 +27,56 @@ enum Choice    { Fight, Run, Heal, Invalid }
 
 ' -- Player methods
 
-fn Player.show_stats(self) {
+fn Player.show_stats() {
     print("-----------------------------")
-    print("  $self.name   Lv.$self.level")
-    print("  HP:  $self.health / $self.max_hp")
-    print("  ATK: $self.attack   XP: $self.xp   Gold: $self.gold")
+    print("  $this.name   Lv.$this.level")
+    print("  HP:  $this.health / $this.max_hp")
+    print("  ATK: $this.attack   XP: $this.xp   Gold: $this.gold")
     print("-----------------------------")
 }
 
-fn Player.is_alive(self) -> bool {
-    return self.health > 0
+fn Player.is_alive() -> bool {
+    return this.health > 0
 }
 
-fn Player.take_damage(self, dmg: int) {
-    self.health -= dmg
-    self.health = max(self.health, 0)
+fn Player.take_damage(dmg: int) {
+    this.health -= dmg
+    this.health = max(this.health, 0)
 }
 
-fn Player.heal(self) {
-    if (self.gold < 10) {
+fn Player.heal() {
+    if (this.gold < 10) {
         print("  Not enough gold! (need 10)")
         return
     }
-    self.gold -= 10
+    this.gold -= 10
     let amount = random(15, 30)
-    self.health += amount
-    self.health = min(self.health, self.max_hp)
+    this.health += amount
+    this.health = min(this.health, this.max_hp)
     print("  You drink a potion and recover $amount HP!")
 }
 
-fn Player.gain_xp(self, amount: int) {
-    self.xp += amount
-    if (self.xp >= self.level * 100) {
-        self.level++
-        self.attack += 3
-        self.max_hp += 15
-        self.health = self.max_hp
-        print("  *** LEVEL UP! You are now level $self.level! ***")
+fn Player.gain_xp(amount: int) {
+    this.xp += amount
+    if (this.xp >= this.level * 100) {
+        this.level++
+        this.attack += 3
+        this.max_hp += 15
+        this.health = this.max_hp
+        print("  *** LEVEL UP! You are now level $this.level! ***")
         print("  ATK +3, Max HP +15, HP fully restored!")
     }
 }
 
 ' -- Enemy methods
 
-fn Enemy.is_alive(self) -> bool {
-    return self.health > 0
+fn Enemy.is_alive() -> bool {
+    return this.health > 0
 }
 
-fn Enemy.take_damage(self, dmg: int) {
-    self.health -= dmg
-    self.health = max(self.health, 0)
+fn Enemy.take_damage(dmg: int) {
+    this.health -= dmg
+    this.health = max(this.health, 0)
 }
 
 ' -- Combat

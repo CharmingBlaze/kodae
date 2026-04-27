@@ -8,12 +8,10 @@ func TestLookup_Keywords(t *testing.T) {
 		"let":    LET,
 		"return": RETURN,
 		"struct": STRUCT,
-		"result": RESULT,
-		"ok":     OK,
-		"err":    ERR,
 		"enum":   ENUM,
 		"match":  MATCH,
 		"none":   NONE,
+		"this":   THIS,
 		"true":   TRUE,
 		"false":  FALSE,
 	}
@@ -30,5 +28,14 @@ func TestLookup_IdentFallsBack(t *testing.T) {
 	}
 	if got := Lookup("print"); got != IDENT {
 		t.Errorf("expected IDENT for 'print', got %v", got)
+	}
+	if got := Lookup("result"); got != IDENT {
+		t.Errorf("expected IDENT for 'result', got %v", got)
+	}
+	if got := Lookup("ok"); got != IDENT {
+		t.Errorf("expected IDENT for 'ok', got %v", got)
+	}
+	if got := Lookup("err"); got != IDENT {
+		t.Errorf("expected IDENT for 'err', got %v", got)
 	}
 }

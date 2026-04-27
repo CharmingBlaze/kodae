@@ -1,44 +1,11 @@
-' result[int]: ok, err, .ok / .value / .err, ? and catch (in let + return)
-fn one() -> result[int] {
-  return ok(1)
-}
-
-fn unwrap_or_zero() -> int {
-  return one() catch (e) {
-    return 0
-  }
-}
-fn with_catch() {
-  let s = one() catch (e) {
-    print( "catch" )
-  }
-  print( str( s ) )
-}
-fn via_q() -> result[int] {
-  return ok( one()? + 1 )
-}
-
-fn neg() -> result[int] {
-  return err("bad")
+' v1 catch-style sample (no result[T], ok/err, or ?)
+fn read_file(path: str) -> str {
+  return path
 }
 
 fn main() {
-  let a = one()
-  if (a.ok) {
-    print( str( a.value ) )
-  } else {
-    print( "x" )
+  let save_data = read_file("save.dat") catch (err) {
+    print("Failed: " + err)
   }
-  let b = neg()
-  if (b.ok) {
-    print( "y" )
-  } else {
-    print( "got error branch" )
-  }
-  let w = via_q()
-  if (w.ok) {
-    print( str( w.value ) )
-  }
-  with_catch()
-  print( str( unwrap_or_zero() ) )
+  print("Loaded: " + save_data)
 }

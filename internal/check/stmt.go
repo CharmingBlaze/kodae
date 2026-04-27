@@ -100,6 +100,21 @@ func (c *Checker) stmt(s ast.Stmt) {
 			c.pop()
 			return
 		}
+		if inn.Kind == KList {
+			c.push()
+			elem := inn.Elem
+			if elem == nil {
+				elem = TpInt
+			}
+			c.set(x.Var, elem)
+			c.loopDepth++
+			if x.Body != nil {
+				c.stmt(&ast.BlockStmt{Stmts: x.Body.Stmts})
+			}
+			c.loopDepth--
+			c.pop()
+			return
+		}
 		c.setErr(fmt.Errorf("for-in: only for (i in a..b) (integer range) is supported; got %s", inn))
 	case *ast.ReturnStmt:
 		if c.returnWant == nil {
@@ -214,6 +229,15 @@ func containsResultCatch(e ast.Expr) bool {
 			}
 		}
 		return false
+	case *ast.ListLit:
+		for _, el := range t.Elems {
+			if containsResultCatch(el) {
+				return true
+			}
+		}
+		return false
+	case *ast.IndexExpr:
+		return containsResultCatch(t.Left) || containsResultCatch(t.Index)
 	default:
 		return false
 	}
@@ -242,6 +266,19 @@ func (c *Checker) inferLocal(x *ast.LetStmt) (*Type, error) {
 		}
 	}
 	c.tryOK = true
+	if ll, ok := x.Init.(*ast.ListLit); ok && len(ll.Elems) == 0 && x.T != nil {
+		want, e := c.resolveType(x.T)
+		c.tryOK = false
+		if e != nil {
+			return nil, e
+		}
+		if want == nil || want.Kind != KList {
+			return nil, fmt.Errorf("list literal [] requires list[...] annotation")
+		}
+		c.setType(x.Init, want)
+		c.set(x.Name, want)
+		return want, nil
+	}
 	tt, err := c.typeExpr(x.Init)
 	c.tryOK = false
 	if err != nil {
@@ -251,6 +288,9 @@ func (c *Checker) inferLocal(x *ast.LetStmt) (*Type, error) {
 		want, e := c.resolveType(x.T)
 		if e != nil {
 			return nil, e
+		}
+		if tt != nil && tt.Kind == KNil {
+			want = optionalOf(want)
 		}
 		if e := c.assignable(want, tt); e != nil {
 			return want, e

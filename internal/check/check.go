@@ -8,6 +8,40 @@ import (
 	"clio/internal/ast"
 )
 
+func methodReceiverType(fn *ast.FnDecl, structs map[string]*Struct) *Type {
+	if fn == nil || len(fn.Params) == 0 || fn.Params[0].Name != "self" || fn.Params[0].T == nil {
+		return nil
+	}
+	recvName := fn.Params[0].T.Name
+	if recvName == "" {
+		return nil
+	}
+	if _, ok := structs[recvName]; !ok {
+		return nil
+	}
+	prefix := recvName + "_"
+	if !strings.HasPrefix(fn.Name, prefix) {
+		return nil
+	}
+	return StructType(structs[recvName])
+}
+
+func typeExprHasPtr(tx *ast.TypeExpr) bool {
+	if tx == nil {
+		return false
+	}
+	if tx.PtrInner != nil {
+		return true
+	}
+	if tx.ResultInner != nil {
+		return typeExprHasPtr(tx.ResultInner)
+	}
+	if tx.ListInner != nil {
+		return typeExprHasPtr(tx.ListInner)
+	}
+	return false
+}
+
 // Info holds type info for the whole program, used by codegen
 type Info struct {
 	Types   map[uintptr]*Type
@@ -121,6 +155,10 @@ func Check(pr *ast.Program) (*Info, error) {
 				c.setErr(fmt.Errorf("struct %s: duplicate field %q", sdecl.Name, f.Name))
 				continue
 			}
+			if typeExprHasPtr(f.T) {
+				c.setErr(fmt.Errorf("type: ptr[...] is only allowed in extern fn signatures"))
+				break
+			}
 			ft, err := c.resolveType(f.T)
 			if err != nil {
 				c.setErr(err)
@@ -164,6 +202,14 @@ func Check(pr *ast.Program) (*Info, error) {
 			continue
 		}
 		if fn, ok := d.(*ast.FnDecl); ok {
+			for _, p := range fn.Params {
+				if typeExprHasPtr(p.T) {
+					c.setErr(fmt.Errorf("type: ptr[...] is only allowed in extern fn signatures"))
+				}
+			}
+			if typeExprHasPtr(fn.Return) {
+				c.setErr(fmt.Errorf("type: ptr[...] is only allowed in extern fn signatures"))
+			}
 			if c.fns[fn.Name] != nil {
 				c.setErr(fmt.Errorf("duplicate function %q", fn.Name))
 				continue
@@ -187,6 +233,10 @@ func Check(pr *ast.Program) (*Info, error) {
 		if l, ok := d.(*ast.LetDecl); ok {
 			if l.Name == "main" {
 				c.setErr(fmt.Errorf("cannot declare 'main' as a variable; use fn main()"))
+				continue
+			}
+			if typeExprHasPtr(l.T) {
+				c.setErr(fmt.Errorf("type: ptr[...] is only allowed in extern fn signatures"))
 				continue
 			}
 			if c.structs[l.Name] != nil {
@@ -241,6 +291,9 @@ func Check(pr *ast.Program) (*Info, error) {
 			}
 			c.set(p.Name, tt)
 		}
+		if recvT := methodReceiverType(fn, c.structs); recvT != nil {
+			c.set("this", recvT)
+		}
 		if fn.Body != nil {
 			c.stmts(fn.Body.Stmts)
 		}
@@ -265,6 +318,20 @@ func (c *Checker) checkGlobalInit(l *ast.LetDecl) (*Type, error) {
 	for k, t := range c.globals {
 		c.set(k, t)
 	}
+	if ll, ok := l.Init.(*ast.ListLit); ok && len(ll.Elems) == 0 && l.T != nil {
+		want, e := c.resolveType(l.T)
+		if e != nil {
+			c.pop()
+			return nil, e
+		}
+		if want == nil || want.Kind != KList {
+			c.pop()
+			return nil, fmt.Errorf("list literal [] requires list[...] annotation")
+		}
+		c.setType(l.Init, want)
+		c.pop()
+		return want, nil
+	}
 	ti, err := c.typeExpr(l.Init)
 	if err != nil {
 		c.pop()
@@ -275,6 +342,9 @@ func (c *Checker) checkGlobalInit(l *ast.LetDecl) (*Type, error) {
 		if e != nil {
 			c.pop()
 			return nil, e
+		}
+		if ti != nil && ti.Kind == KNil {
+			want = optionalOf(want)
 		}
 		if e := c.assignable(want, ti); e != nil {
 			c.pop()

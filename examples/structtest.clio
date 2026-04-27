@@ -21,7 +21,7 @@ fn main() {
   pair.a = 1
   print((pair))
   print(none == none)
-  let n: int? = none
+  let n: int = none
   print(n)
   print((bool(1)) == (bool(0)))
 }

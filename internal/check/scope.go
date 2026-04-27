@@ -36,7 +36,7 @@ func (c *Checker) get(n string) *Type {
 func (c *Checker) isBuiltin(name string) bool {
 	switch name {
 	case "print", "int", "float", "str", "bool", "min", "max", "abs",
-		"input", "random", "clear_screen", "ok", "err":
+		"input", "random", "clear_screen", "len", "ok", "err":
 		return true
 	default:
 		return false
@@ -59,16 +59,19 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		}
 		return pt, nil
 	}
-	if tx.ResultInner != nil {
-		inner, err := c.resolveType(tx.ResultInner)
+	if tx.ListInner != nil {
+		inner, err := c.resolveType(tx.ListInner)
 		if err != nil {
 			return nil, err
 		}
-		rt := &Type{Kind: KResult, Res: inner}
+		lt := &Type{Kind: KList, Elem: inner}
 		if tx.Optional {
-			return optionalOf(rt), nil
+			return optionalOf(lt), nil
 		}
-		return rt, nil
+		return lt, nil
+	}
+	if tx.ResultInner != nil {
+		return nil, fmt.Errorf("type: result[...] is not part of Clio v1; use catch")
 	}
 	if tx.Name == "void" {
 		if tx.Optional {
@@ -114,7 +117,7 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		return nil, fmt.Errorf("unknown type %q", tx.Name)
 	}
 	if tx.Optional {
-		return optionalOf(base), nil
+		return nil, fmt.Errorf("type: T? is not part of Clio v1; use plain none with implicit nullable values")
 	}
 	return base, nil
 }

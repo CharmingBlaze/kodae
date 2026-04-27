@@ -82,6 +82,21 @@ type StructLit struct {
 
 func (e *StructLit) expr() {}
 
+// ListLit: [a, b, c]
+type ListLit struct {
+	Elems []Expr
+}
+
+func (e *ListLit) expr() {}
+
+// IndexExpr: listExpr[indexExpr]
+type IndexExpr struct {
+	Left  Expr
+	Index Expr
+}
+
+func (e *IndexExpr) expr() {}
+
 // TryUnwrap: expr? — propagate error if result is not ok, otherwise unwrap to T.
 type TryUnwrapExpr struct{ X Expr }
 
@@ -154,6 +169,17 @@ func ExprString(e Expr) string {
 			s += fi.Name + ": " + ExprString(fi.Init)
 		}
 		return s + "}"
+	case *ListLit:
+		s := "["
+		for i, el := range x.Elems {
+			if i > 0 {
+				s += ", "
+			}
+			s += ExprString(el)
+		}
+		return s + "]"
+	case *IndexExpr:
+		return ExprString(x.Left) + "[" + ExprString(x.Index) + "]"
 	default:
 		return "?"
 	}

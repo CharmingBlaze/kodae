@@ -70,9 +70,9 @@ func (p *Parser) parseFnWithPub(pub bool) *ast.FnDecl {
 		name = first
 	}
 	p.expect(token.LPAREN)
-	params := p.parseParamList(recv, false)
+	params := p.parseParamList(recv, false, false)
 	if recv != "" {
-		p.fixMethodSelfType(recv, params)
+		params = p.fixMethodSelfType(recv, params)
 	}
 	var ret *ast.TypeExpr
 	if p.tok.Type == token.ARROW {
@@ -94,11 +94,11 @@ func (p *Parser) parseExtern() *ast.ExternDecl {
 	name := p.tok.Literal
 	p.next()
 	p.expect(token.LPAREN)
-	params := p.parseParamList("", true)
+	params := p.parseParamList("", true, true)
 	var ret *ast.TypeExpr
 	if p.tok.Type == token.ARROW {
 		p.next()
-		ret = p.parseType()
+		ret = p.parseExternType()
 	} else {
 		p.failf("extern: need -> return type (use void for none)")
 		return nil
@@ -110,26 +110,23 @@ func (p *Parser) parseExtern() *ast.ExternDecl {
 	return &ast.ExternDecl{Name: name, Params: params, Return: ret}
 }
 
-func (p *Parser) fixMethodSelfType(recv string, params []ast.Param) {
+func (p *Parser) fixMethodSelfType(recv string, params []ast.Param) []ast.Param {
 	if p.err != nil {
-		return
+		return params
 	}
-	if len(params) < 1 {
-		p.failf("method on %q: need at least (self) parameter", recv)
-		return
-	}
-	if params[0].Name != "self" {
-		p.failf("method: first parameter must be named self")
-		return
+	if len(params) == 0 || params[0].Name != "self" {
+		self := ast.Param{Name: "self", T: &ast.TypeExpr{Name: recv, Optional: false}}
+		return append([]ast.Param{self}, params...)
 	}
 	if params[0].T == nil {
 		params[0].T = &ast.TypeExpr{Name: recv, Optional: false}
 	}
+	return params
 }
 
 // parseParamList reads parameters until ")".
 // If allowVararg, a trailing "..." is allowed. If methodRecv is set, bare `self` may omit a type.
-func (p *Parser) parseParamList(methodRecv string, allowVararg bool) []ast.Param {
+func (p *Parser) parseParamList(methodRecv string, allowVararg bool, allowPtr bool) []ast.Param {
 	var ps []ast.Param
 	if p.tok.Type == token.RPAREN {
 		p.next()
@@ -169,7 +166,12 @@ func (p *Parser) parseParamList(methodRecv string, allowVararg bool) []ast.Param
 			return ps
 		}
 		p.next()
-		ty := p.parseType()
+		var ty *ast.TypeExpr
+		if allowPtr {
+			ty = p.parseExternType()
+		} else {
+			ty = p.parseType()
+		}
 		ps = append(ps, ast.Param{Name: pn, T: ty})
 		if p.tok.Type == token.RPAREN {
 			p.next()

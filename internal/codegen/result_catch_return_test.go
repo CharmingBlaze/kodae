@@ -9,10 +9,14 @@ import (
 	"clio/internal/parser"
 )
 
-func TestEmit_ReturnResultCatch(t *testing.T) {
-	const src = `fn g() -> result[int] { return ok(1) }
-fn f() -> int { return g() catch (e) { return 0 } }
-fn main() { }`
+func TestEmit_CatchOnPlainValueLowersToValue(t *testing.T) {
+	const src = `fn read_file(path: str) -> str { return path }
+fn main() {
+  let data = read_file("save.dat") catch (err) {
+    print("Failed: " + err)
+  }
+  print(data)
+}`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
 	if p.Err() != nil {
@@ -26,7 +30,7 @@ fn main() { }`
 	if err != nil {
 		t.Fatalf("codegen: %v", err)
 	}
-	if !strings.Contains(c, "c_rc_") || !strings.Contains(c, "return (") {
-		t.Fatalf("expected c_rc_ temp and return in else, got:\n%s", c)
+	if !strings.Contains(c, "read_file") || !strings.Contains(c, "save.dat") {
+		t.Fatalf("expected C emission for catch expression subject, got:\n%s", c)
 	}
 }

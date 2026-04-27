@@ -51,6 +51,8 @@ func (p *Parser) parsePrefix() ast.Expr {
 		}
 		p.next()
 		return &ast.ParenExpr{Inner: e}
+	case token.LBRACK:
+		return p.parseListLiteral()
 	case token.INTLIT:
 		i, e := p.intFromTok()
 		if e != nil {
@@ -85,15 +87,16 @@ func (p *Parser) parsePrefix() ast.Expr {
 		id := &ast.IdentExpr{Name: p.tok.Literal}
 		p.next()
 		return p.parsePostfix(id)
-	case token.OK, token.ERR:
-		// Lexer maps ok/err to keyword tokens, but they are value constructors
-		// in expression position: ok(1), err("msg").
-		name := "ok"
-		if p.tok.Type == token.ERR {
-			name = "err"
-		}
+	case token.THIS:
 		p.next()
-		return p.parsePostfix(&ast.IdentExpr{Name: name})
+		return p.parsePostfix(&ast.IdentExpr{Name: "this"})
+	case token.OK, token.ERR:
+		if p.tok.Type == token.OK {
+			p.failf("ok(...) is not supported in Clio v1; use catch")
+		} else {
+			p.failf("err(...) is not supported in Clio v1; use catch")
+		}
+		return nil
 	default:
 		p.failf("unexpected token in expr: %v", p.tok.Type)
 		return nil
@@ -110,12 +113,9 @@ func (p *Parser) parsePostfix(lhs ast.Expr) ast.Expr {
 			case token.IDENT:
 				f = p.tok.Literal
 				p.next()
-			case token.OK:
-				f = "ok"
-				p.next()
-			case token.ERR:
-				f = "err"
-				p.next()
+			case token.OK, token.ERR:
+				p.failf("result field access (.ok/.err) is not part of Clio v1; use catch")
+				return lhs
 			default:
 				p.failf("field name after .")
 				return lhs
@@ -138,13 +138,20 @@ func (p *Parser) parsePostfix(lhs ast.Expr) ast.Expr {
 				return &ast.StructLit{TypeName: id.Name, Inits: inits}
 			}
 			return lhs
+		case token.LBRACK:
+			p.next()
+			p.skipNewlines()
+			idx := p.parseExpr()
+			p.skipNewlines()
+			p.expect(token.RBRACK)
+			lhs = &ast.IndexExpr{Left: lhs, Index: idx}
 		case token.LPAREN:
 			// call
 			args := p.parseArgList()
 			lhs = p.finishCall(lhs, args)
 		case token.QUEST:
-			p.next()
-			lhs = &ast.TryUnwrapExpr{X: lhs}
+			p.failf("? is not supported in Clio v1; use catch")
+			return lhs
 		case token.CATCH:
 			p.next()
 			p.expect(token.LPAREN)
@@ -173,6 +180,33 @@ func (p *Parser) parsePostfix(lhs ast.Expr) ast.Expr {
 		}
 	}
 	return lhs
+}
+
+func (p *Parser) parseListLiteral() ast.Expr {
+	p.expect(token.LBRACK)
+	p.skipNewlines()
+	if p.tok.Type == token.RBRACK {
+		p.next()
+		return &ast.ListLit{Elems: nil}
+	}
+	var elems []ast.Expr
+	for p.err == nil {
+		el := p.parseExpr()
+		elems = append(elems, el)
+		p.skipNewlines()
+		if p.tok.Type == token.RBRACK {
+			p.next()
+			return &ast.ListLit{Elems: elems}
+		}
+		if p.tok.Type == token.COMMA {
+			p.next()
+			p.skipNewlines()
+			continue
+		}
+		p.failf("list literal: expected , or ]")
+		return &ast.ListLit{Elems: elems}
+	}
+	return &ast.ListLit{Elems: elems}
 }
 
 // parseStructFieldInits: field: expr, ...; current is first token after `{`.

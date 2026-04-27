@@ -7,12 +7,13 @@ import (
 	"clio/internal/parser"
 )
 
-func TestResultCatch_OK(t *testing.T) {
-	const src = `fn okf() -> result[str] { return ok("hi") }
-fn with_c() {
-  let data = okf() catch (e) {
-    print("fail")
+func TestCatch_OnPlainValue_OK(t *testing.T) {
+	const src = `fn read_file(path: str) -> str { return path }
+fn main() {
+  let data = read_file("save.dat") catch (err) {
+    print("Failed: " + err)
   }
+  print(data)
 }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
@@ -25,25 +26,10 @@ fn with_c() {
 	}
 }
 
-func TestResultCatch_ReturnValue(t *testing.T) {
-	const src = `fn g() -> result[int] { return ok(1) }
-fn f() -> int { return g() catch (e) { return 0 } }
-fn main() { }`
-	p := parser.New(lex.New(src))
-	pr := p.ParseProgram()
-	if p.Err() != nil {
-		t.Fatalf("parse: %v", p.Err())
-	}
-	_, err := Check(pr)
-	if err != nil {
-		t.Fatalf("check: %v", err)
-	}
-}
-
-func TestResultCatch_NestedInAdd(t *testing.T) {
-	const src = `fn okf() -> result[str] { return ok("a") }
-fn f() {
-  let x = 1 + okf() catch (e) { }
+func TestCatch_OnVoidRejected(t *testing.T) {
+	const src = `fn log_msg() { print("x") }
+fn main() {
+  let x = log_msg() catch (err) { print(err) }
 }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
@@ -52,6 +38,6 @@ fn f() {
 	}
 	_, err := Check(pr)
 	if err == nil {
-		t.Fatal("expected error: catch not full expression")
+		t.Fatalf("expected check error for catch on void expression")
 	}
 }

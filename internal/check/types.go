@@ -18,6 +18,7 @@ const (
 	KOptional // .Opt is inner type; EnumName empty
 	KByte   // 8-bit byte (C uint8)
 	KPtr    // .Pointee is *Type (ptr[Pointee] in Clio)
+	KList   // .Elem is the list element type (list[Elem] in Clio)
 	// KResult: .Res is the success value type (result[Res] in Clio)
 	KResult
 )
@@ -30,8 +31,10 @@ type Type struct {
 	StructName string
 	StructDef  *Struct
 	Opt        *Type // for KOptional
-	// Pointee is the referent for KPtr; Res for KResult; optional fields only for the kinds that use them.
+	// Pointee is the referent for KPtr; Elem for KList; Res for KResult.
+	// These fields are used only for kinds that need them.
 	Pointee   *Type
+	Elem      *Type
 	Res       *Type
 	Variants  map[string]int // unused on Type; in Enum
 }
@@ -90,6 +93,11 @@ func (t *Type) String() string {
 			return "ptr[" + t.Pointee.String() + "]"
 		}
 		return "ptr[?]"
+	case KList:
+		if t.Elem != nil {
+			return "list[" + t.Elem.String() + "]"
+		}
+		return "list[?]"
 	case KResult:
 		if t.Res != nil {
 			return "result[" + t.Res.String() + "]"
@@ -137,6 +145,14 @@ func (a *Type) equal(b *Type) bool {
 		return a.Pointee.equal(b.Pointee)
 	case KByte:
 		return true
+	case KList:
+		if a.Elem == nil && b.Elem == nil {
+			return true
+		}
+		if a.Elem == nil || b.Elem == nil {
+			return false
+		}
+		return a.Elem.equal(b.Elem)
 	case KResult:
 		if a.Res == nil && b.Res == nil {
 			return true

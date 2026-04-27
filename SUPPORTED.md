@@ -2,6 +2,8 @@
 
 This document tracks what the Go compiler in this repo supports relative to `docs/build-spec.js`. It is a living checklist, not a normative spec.
 
+For user-facing language syntax and examples, see `docs/LANGUAGE.md`.
+
 | Area | Status | Notes |
 |------|--------|--------|
 | **Single / multi file** | Partial | `clio build|check|cgen|parse` all accept `a.clio b.clio` in order (same `parseBuildFlags` as build; extra `-o` / `--cc` / `--ldflags` are ignored for check/cgen/parse). |
@@ -12,7 +14,11 @@ This document tracks what the Go compiler in this repo supports relative to `doc
 | **continue** | Yes | In loops. |
 | **defer** | Partial | Typechecker: `defer` may only sit at the **top** of a function body (v1). Emitted in reverse on return and at fallthrough end. |
 | **and / or** | Yes | Spelled `and` / `or` (same precedence as in the Pratt table). |
-| **result [T]**, `ok` / `err` | Yes (v1) | C layout `value`, `err`, `ok` per `clio_bootstrap` typedefs. **Access**: `.ok` / `.value` / `.err` on a `result` rvalue. **`?`**: unwrapper + propagate (enclosing `-> result[...]`). **`catch`**: as the whole of `let` / `return` / `assign` / expr; success type is the inner `T` (return catch generates `if (!ok) { … } else { return value; }`). **Not** embedded: e.g. not `1 + f() catch { }`. |
+| **`catch`** | Yes (simplified) | `catch` is supported as a full `let` init / return value / assignment RHS / expression statement. |
+| **`result[T]`, `ok/err`, `.ok/.value/.err`, `?`** | No (removed) | Not part of Clio v1 surface syntax. Use `catch`. |
+| **`T?` optional syntax** | No (removed) | V1 uses implicit nullable behavior with `none`; explicit `T?` is rejected. |
+| **`ptr[T]`** | Restricted | Only allowed in `extern fn` signatures. |
+| **`list[T]`** | Yes (v1) | Type syntax `list[T]`, literals `[a, b]`, index read/write `xs[i]`, `len(xs)`, methods `push`, `pop`, `append`, `remove`, and `for (x in list)` iteration. |
 | **Match on enums** | Yes | **Exhaustiveness** is checked (all variants or error). |
 | **-- (decrement)** | Yes | Postfix, like `++`. |
 | **Arrays, clio bind** | No / stub | `cmd/clio-bind` exits 1 with a message. |
@@ -26,7 +32,8 @@ Environment: `CLIO_CC` and `clio build --cc` select the C toolchain (see `intern
 | `examples/hello.clio` | Minimal program |
 | `examples/extern_hello.clio` | `extern fn` + `printf` + varargs |
 | `examples/features.clio` | `defer`, `continue`, `and` / `or`, `++` / `--`, enums + `match` |
-| `examples/result_minimal.clio` | `result[int]`, `ok` / `err`, field access, postfix `?`, and `catch` (including `return` … `catch`) |
+| `examples/list_basic.clio` | `list[T]`, literals, index, `len`, `push`/`pop`/`append`/`remove` |
+| `examples/result_minimal.clio` | Simplified `catch` usage in v1 style |
 | `examples/textrpg.clio` | Larger sample |
 | `examples/multi/lib.clio` + `app.clio` | `use lib` in `app.clio` (build with `clio build app.clio` from that folder) or `clio build lib.clio app.clio` without `use` |
 

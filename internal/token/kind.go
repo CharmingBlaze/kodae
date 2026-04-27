@@ -38,6 +38,7 @@ const (
 	ENUM
 	MATCH
 	NONE
+	THIS
 	COMMA
 	COLON
 	SEMI
