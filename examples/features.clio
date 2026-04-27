@@ -1,4 +1,5 @@
-' enums, match, casts, compound assign, continue, defer, and/or, ++/--
+' Language extras: enum + match, casts, compound assign, continue, defer, and/or, ++/--
+' Run:  clio run examples/features.clio
 enum GameState { Menu, Playing, Paused, GameOver }
 
 fn main() {

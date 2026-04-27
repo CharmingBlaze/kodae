@@ -44,6 +44,7 @@ Environment: `CLIO_CC` and `clio build --cc` select the C toolchain (see `intern
 | `examples/list_basic.clio` | `list[T]`, literals, index, `len`, `push`/`pop`/`append`/`remove` |
 | `examples/result_minimal.clio` | Simplified `catch` usage in v1 style |
 | `examples/textrpg.clio` | Larger sample |
-| `examples/multi/lib.clio` + `app.clio` | `use lib` in `app.clio` (build with `clio build app.clio` from that folder) or `clio build lib.clio app.clio` without `use` |
+| `examples/include/main.clio` + `helpers.clio` | `#include "helpers"` and `pub` for cross-file names (preferred for resolving `./libs` and `~/.clio/libs` too) |
+| `examples/multi/lib.clio` + `app.clio` | `use lib` in `app.clio` (run `clio run app.clio` from `examples/multi/`) or `clio build lib.clio app.clio` in order; `lib.clio` must `pub` export `double` |
 
 **Syntax note:** `if` always uses a parenthesized condition: `if (cond) { }`. For combined booleans, wrap the full expression, e.g. `if ((a) and (b)) { }` (not `if (a) and (b)`).

@@ -2,6 +2,8 @@
 
 All of these are **file-level** lines starting with `#` followed by a name and a string (or, for `link`, a linker argument string). Line comments use `'` or `--`.
 
+**Runnable sample:** a two-file program using `#include` and `pub` is in the repo at `examples/include/` (run `clio run examples/include/main.clio` from the project root). The older `use name` form is in `examples/multi/`.
+
 | Directive | Meaning |
 |-----------|---------|
 | `#library "name"` | Declares that this translation unit is a **named library** (used with `clio build --lib` and metadata like generated headers). |

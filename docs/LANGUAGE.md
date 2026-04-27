@@ -2,6 +2,8 @@
 
 Clio is small on purpose. Line comments start with `'` (apostrophe) or `--`.
 
+**If you are new to the repo:** start with the root [README.md](../README.md) (how to run the compiler) and the [examples/README.md](../examples/README.md) (runnable files in order). This page is the **language** itself; a map of *all* docs is in [docs/README.md](README.md).
+
 Below is a **real, self-contained program** (Clio only allows *statements* like `print` and `let` *inside* a function, so the runnable one-pager uses `fn main() { ... }` after your types and functions are declared at file scope). You can also write `for (i in 0..10)` *or* the shorter `for i in 0..10` — both are supported.
 
 ## One page of Clio
@@ -121,9 +123,10 @@ That is the full beginner surface. Everything else in the compiler and repo is *
 4. **Day 2** — `list`  
 5. **Day 3** — structs, methods, `this`  
 6. **Day 3** — enums and `match`  
-7. **Day 4** — games: link a C library and call it with `extern fn` (see [C_LIBRARIES.md](C_LIBRARIES.md) for the full Raylib-style flow: `# link`, `# linkpath`, and a small sample in [examples/raylib_minimal.clio](../examples/raylib_minimal.clio); [examples/extern_hello.clio](../examples/extern_hello.clio) is the minimal `printf` interop test)
+7. **Any time after functions (optional)** — **multi-file** programs: `#include` and `pub` in [examples/include/](../examples/include/); the older `use` style is [examples/multi/](../examples/multi/) (see [DIRECTIVES.md](DIRECTIVES.md)).  
+8. **Day 4** — games: link a C library and call it with `extern fn` (see [C_LIBRARIES.md](C_LIBRARIES.md) for the full Raylib-style flow: `# link`, `# linkpath`, and a small sample in [examples/raylib_minimal.clio](../examples/raylib_minimal.clio); [examples/extern_hello.clio](../examples/extern_hello.clio) is the minimal `printf` interop test)
 
-Everything else — C libraries, interop, portable compiler bundles, `catch` — is **advanced** and can wait.
+Everything else — portable compiler bundles and `catch` — is **advanced** and can wait.
 
 ## The three rules for friendly Clio
 
@@ -151,6 +154,7 @@ Everything else — C libraries, interop, portable compiler bundles, `catch` —
 
 | Topic | Where to read |
 |--------|----------------|
+| Runnable examples in order | [examples/README.md](../examples/README.md) |
 | `catch` on calls you define or link | `examples/result_minimal.clio`, [SUPPORTED.md](../SUPPORTED.md) |
 | C interop and linking a game lib (Raylib, etc.) | [C_LIBRARIES.md](C_LIBRARIES.md), [examples/extern_hello.clio](../examples/extern_hello.clio) |
 | `pub` and C library export | [LIBRARIES.md](LIBRARIES.md) |
