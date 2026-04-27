@@ -33,6 +33,80 @@ func (c *Checker) get(n string) *Type {
 	return nil
 }
 
+// typeNameCandidates is used for "did you mean" on unknown type names.
+func (c *Checker) typeNameCandidates() []string {
+	out := make([]string, 0, len(c.enums)+len(c.structs)+12)
+	for k := range c.enums {
+		out = append(out, k)
+	}
+	for k := range c.structs {
+		out = append(out, k)
+	}
+	out = append(out, "int", "float", "str", "string", "bool", "byte", "void", "f64", "float64", "double")
+	return out
+}
+
+// visibleNameCandidates collects names in scope for typo suggestions on unknown identifiers.
+func (c *Checker) visibleNameCandidates() []string {
+	var out []string
+	for i := 0; i < len(c.scopes); i++ {
+		for k := range c.scopes[i] {
+			out = append(out, k)
+		}
+	}
+	for k := range c.globals {
+		out = append(out, k)
+	}
+	for k := range c.enums {
+		out = append(out, k)
+	}
+	for k := range c.structs {
+		out = append(out, k)
+	}
+	for k := range c.fns {
+		out = append(out, k)
+	}
+	// callables and builtins (usually written as a call, but help typos in expressions)
+	for k := range c.externs {
+		out = append(out, k)
+	}
+	out = append(out,
+		"print", "int", "float", "str", "bool", "min", "max", "abs",
+		"input", "random", "clear_screen", "len", "this",
+	)
+	return out
+}
+
+// callableNameCandidates for typo suggestions on unknown function calls.
+func (c *Checker) callableNameCandidates() []string {
+	var out []string
+	for k := range c.fns {
+		out = append(out, k)
+	}
+	for k := range c.externs {
+		out = append(out, k)
+	}
+	out = append(out,
+		"print", "int", "float", "str", "bool", "min", "max", "abs",
+		"input", "random", "clear_screen", "len",
+	)
+	return out
+}
+
+// canSeeRemote: def in defFile is visible from c.curFile if same file, or if pub, or if defFile empty (legacy).
+func (c *Checker) canSeeRemote(pub bool, defFile string) bool {
+	if defFile == "" {
+		return true
+	}
+	if c.curFile == "" {
+		return true
+	}
+	if c.curFile == defFile {
+		return true
+	}
+	return pub
+}
+
 func (c *Checker) isBuiltin(name string) bool {
 	switch name {
 	case "print", "int", "float", "str", "bool", "min", "max", "abs",
@@ -81,6 +155,9 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 	}
 	en, hasEnum := c.enums[tx.Name]
 	if hasEnum {
+		if !c.canSeeRemote(en.Pub, en.File) {
+			return nil, fmt.Errorf("enum %q is not visible in this file (use pub enum in the defining file)", en.Name)
+		}
 		t := c.enumTypeFor(en)
 		if tx.Optional {
 			return optionalOf(t), nil
@@ -88,6 +165,9 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		return t, nil
 	}
 	if sdef, ok := c.structs[tx.Name]; ok {
+		if !c.canSeeRemote(sdef.Pub, sdef.SrcFile) {
+			return nil, fmt.Errorf("struct %q is not visible in this file (use pub struct in the defining file)", sdef.Name)
+		}
 		t := StructType(sdef)
 		if t == nil {
 			return nil, fmt.Errorf("struct %q", tx.Name)
@@ -114,6 +194,9 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 	case "byte":
 		base = TpByte
 	default:
+		if sug, ok := suggestName(tx.Name, c.typeNameCandidates()); ok {
+			return nil, fmt.Errorf("unknown type %q — did you mean %q?", tx.Name, sug)
+		}
 		return nil, fmt.Errorf("unknown type %q", tx.Name)
 	}
 	if tx.Optional {

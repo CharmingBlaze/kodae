@@ -136,17 +136,46 @@ func (p *Parser) parseWhile() *ast.WhileStmt {
 
 func (p *Parser) parseFor() *ast.ForInStmt {
 	p.expect(token.FOR)
-	p.expect(token.LPAREN)
+	// for (i in 0..10) { }  or  for i in 0..10 { }
+	if p.tok.Type == token.LPAREN {
+		p.next()
+		if p.tok.Type != token.IDENT {
+			p.failf("for: var")
+			return nil
+		}
+		v := p.tok.Literal
+		p.next()
+		p.expect(token.IN)
+		inn := p.parseExpr()
+		if p.err != nil {
+			return nil
+		}
+		p.expect(token.RPAREN)
+		p.skipNewlines()
+		b := p.parseBlock()
+		if p.err != nil {
+			return nil
+		}
+		return &ast.ForInStmt{Var: v, In: inn, Body: b}
+	}
 	if p.tok.Type != token.IDENT {
-		p.failf("for: var")
+		p.failf("for: need (name in range) or name in range before {")
 		return nil
 	}
 	v := p.tok.Literal
 	p.next()
 	p.expect(token.IN)
+	p.forInHeader = true
 	inn := p.parseExpr()
-	p.expect(token.RPAREN)
+	p.forInHeader = false
+	if p.err != nil {
+		return nil
+	}
+	p.skipNewlines()
 	b := p.parseBlock()
+	if p.err != nil {
+		return nil
+	}
 	return &ast.ForInStmt{Var: v, In: inn, Body: b}
 }
 

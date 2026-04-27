@@ -1849,6 +1849,16 @@ func (em *emitter) emitMember(m *ast.MemberExpr) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if lt != nil && lt.Kind == check.KList {
+		if m.Field == "len" {
+			inner, e2 := em.emitExpr(m.Left)
+			if e2 != nil {
+				return "", e2
+			}
+			return fmt.Sprintf("((int64_t)((%s).len))", inner), nil
+		}
+		return "", fmt.Errorf("list has no field %q (use [i], len(x), or .len)", m.Field)
+	}
 	if lt == nil || lt.Kind != check.KStruct {
 		if m.Field == "ok" || m.Field == "value" || m.Field == "err" {
 			return "", fmt.Errorf("result field access (.ok/.value/.err) is not part of Clio v1; use catch")

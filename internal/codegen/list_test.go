@@ -18,7 +18,8 @@ func TestEmit_ListOperations(t *testing.T) {
   xs[1] = 9
   let x = xs.pop()
   let y = xs.remove(0)
-  print(str(x + y + len(xs)))
+  let w = xs.len
+  print(str(x + y + len(xs) + w))
 }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()

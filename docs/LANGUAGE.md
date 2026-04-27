@@ -1,215 +1,174 @@
-# Clio Language Guide (V1)
+# Clio: the whole language in one page
 
-Clio V1 is intentionally small and beginner-friendly.
+Clio is small on purpose. Line comments start with `'` (apostrophe) or `--`.
 
-## Data Type Quick Map
+Below is a **real, self-contained program** (Clio only allows *statements* like `print` and `let` *inside* a function, so the runnable one-pager uses `fn main() { ... }` after your types and functions are declared at file scope). You can also write `for (i in 0..10)` *or* the shorter `for i in 0..10` — both are supported.
 
-- `int`, `float`, `str`, `bool`: plain values
-- `struct`: named-field data (config, entities, settings)
-- `enum`: named states
-- `list[T]`: ordered homogeneous collection
-
-## Core Syntax
+## One page of Clio
 
 ```clio
-let x = 10
-const MAX = 100
+' --- Data (file scope: structs, enums, methods, functions)
+struct Player {
+  name: str
+  health: int
+  score: int
+}
+
+enum Direction { Up, Down, Left, Right }
+
+fn Player.heal(amount: int) {
+  this.health += amount
+  if (this.health > 100) {
+    this.health = 100
+  }
+}
 
 fn add(a: int, b: int) -> int {
   return a + b
 }
-```
 
-## Structs and Nested Structs
+' --- Program
+fn main() {
+  ' Variables
+  let name = "Ada"
+  let score = 0
+  let speed = 1.5
+  let alive = true
+  const MAX = 100
 
-```clio
-struct Config {
-  speed: int
-  lives: int
-  name: str
-}
+  ' Print
+  print("Hello $name!")
+  print("Score: $score")
 
-struct GameSettings {
-  volume: int
-  fullscreen: bool
-}
+  ' Math
+  score += 10
+  score++
+  let total = score + 100
 
-struct Game {
-  title: str
-  settings: GameSettings
-}
-```
+  ' If / else
+  if (score > 50) {
+    print("winning!")
+  } else {
+    print("keep going")
+  }
 
-Usage:
+  ' While
+  while (alive) {
+    score += 1
+    if (score >= MAX) {
+      break
+    }
+  }
 
-```clio
-let config = Config { speed: 5, lives: 3, name: "Ada" }
-config.speed = 10
-config.lives -= 1
-print(config.name)
+  ' For (range) — with or without outer ( ): same meaning
+  for i in 0..10 {
+    print("$i")
+  }
 
-let game = Game {
-  title: "Dragon Cave",
-  settings: GameSettings { volume: 80, fullscreen: false }
-}
-game.settings.volume = 50
-```
+  ' List
+  let items: list[str] = ["sword", "shield", "potion"]
+  items.push("bow")
+  print(items[0])
+  print(items.len)
 
-### Methods (`this`)
+  for item in items {
+    print("$item")
+  }
 
-```clio
-fn Config.boost(delta: int) {
-  this.speed += delta
-}
-```
+  ' Struct
+  let p = Player { name: "Hero", health: 100, score: 0 }
+  print(p.name)
+  p.health -= 10
 
-- `this` is automatically in scope inside methods.
-- `this` outside methods is a compile error.
+  p.heal(25)
 
-## Enums and Match
+  ' Enum + match
+  let dir = Direction.Up
 
-```clio
-enum State { Menu, Playing, Dead }
+  match (dir) {
+    Direction.Up    => { print("going up") }
+    Direction.Down  => { print("going down") }
+    Direction.Left  => { print("going left") }
+    Direction.Right => { print("going right") }
+  }
 
-match (state) {
-  State.Menu => { show_menu() }
-  State.Playing => { update() }
-  State.Dead => { game_over() }
-}
-```
-
-Enum matches are exhaustive.
-
-## Lists
-
-List type syntax:
-
-```clio
-let xs: list[int] = [1, 2, 3]
-```
-
-Supported list operations:
-
-```clio
-xs.push(4)
-let ys: list[int] = [5, 6]
-xs.append(ys)
-
-let a = xs.pop()
-let b = xs.remove(0)
-
-xs[0] = a + b
-print(str(len(xs)))
-```
-
-- Index read/write: `xs[i]`, `xs[i] = v`
-- Methods: `push`, `pop`, `append`, `remove`
-- Built-in length: `len(xs)`
-- Lists are homogeneous (`list[T]`)
-
-## Control Flow
-
-```clio
-if ((x > 10) and (not dead)) { }
-while (alive) { }
-for (i in 0..10) { }
-loop { if (done) { break } }
-```
-
-Boolean operators:
-
-- `and`
-- `or`
-- `not` / `NOT`
-
-## Errors (`catch`)
-
-Clio V1 uses `catch` as the visible error-flow construct:
-
-```clio
-let data = read_file("save.dat") catch (err) {
-  print("Failed: " + err)
+  ' Function
+  let result = add(10, 20)
+  print("$result")
 }
 ```
 
-`catch` is valid as the full expression in:
+That is the full beginner surface. Everything else in the compiler and repo is **optional** until you need it (see the table below).
 
-- `let` initializer
-- assignment right-hand side
-- `return` value
-- expression statement
+## What we skip at first (keep the language easy)
 
-Not in V1:
+| Cut / hide | Why |
+|------------|-----|
+| `result[T]`, `ok()`, `err()`, `?` | Beginners do not need error *types* — you can use `catch` later. |
+| `ptr[...]` in your own code | C interop only: shows up in `extern fn` (e.g. games / Raylib). |
+| `module` / `use` | One file is enough to start. |
+| `pub`, `#library`, `build --lib` | “Ship a C library” is advanced. |
+| `extern fn` | Advanced; day 4 / games. |
+| `#mode library` | C export pipeline — not for lesson one. |
+| Opaque / low-level C concepts | Not part of the beginner path. |
+| A type on every `let` | Let the compiler infer: `let x = 10` is enough. |
 
-- `result[T]`
-- `.ok`, `.value`, `.err`
-- `ok(...)`, `err(...)`
-- `?` propagation
-- `T?` syntax (use `none` with implicit nullable behavior)
+## Beginner learning path
 
-## C Interop
+1. **Day 1** — `print` and variables  
+2. **Day 1** — `if`, `while`, `for`  
+3. **Day 2** — functions  
+4. **Day 2** — `list`  
+5. **Day 3** — structs, methods, `this`  
+6. **Day 3** — enums and `match`  
+7. **Day 4** — games: link a C library and call it with `extern fn` (see [C_LIBRARIES.md](C_LIBRARIES.md) for the full Raylib-style flow: `# link`, `# linkpath`, and a small sample in [examples/raylib_minimal.clio](../examples/raylib_minimal.clio); [examples/extern_hello.clio](../examples/extern_hello.clio) is the minimal `printf` interop test)
 
-Use `extern fn` for C calls:
+Everything else — C libraries, interop, portable compiler bundles, `catch` — is **advanced** and can wait.
 
-```clio
-extern fn InitWindow(w: int, h: int, title: ptr[byte]) -> void
-```
+## The three rules for friendly Clio
 
-`ptr[...]` is only allowed in `extern fn` signatures.
+1. **Types are optional. The compiler figures out what it can.**  
 
-## Building C Libraries
+   ```clio
+   let x = 10
+   let name = "Ada"
+   let items: list[str] = []
+   ```  
 
-Clio can export C-consumable library APIs via `pub`:
+   (Empty `[]` needs a type: `list[str]` or another `list[...]`.)
 
-```clio
-#mode "library"
-#library "mymath"
+2. **One obvious way.** No `result[T]` and `?` and `catch` in the *beginner* story—when you add errors, Clio v1 is **just `catch`**, not a visible result type. There is no separate array type — use **`list[T]`** only.
 
-pub struct Rect {
-  x: float
-  y: float
-  w: float
-  h: float
-}
+3. **Errors should read like English.** The compiler gives short, readable messages, for example:
 
-pub fn add(a: int, b: int) -> int {
-  return a + b
-}
-```
+   - `unknown name "scre" — did you mean "score"?`
+   - `cannot add int and str (use str(...) on the number, or use "..." for text)`
+   - `struct Player has no field "heath" — did you mean "health"?`
 
-Build command:
+   (Exact wording can vary slightly by release.)
 
-`clio build --lib mymath.clio`
+## Optional later topics (not for page one)
 
-Generated outputs:
+| Topic | Where to read |
+|--------|----------------|
+| `catch` on calls you define or link | `examples/result_minimal.clio`, [SUPPORTED.md](../SUPPORTED.md) |
+| C interop and linking a game lib (Raylib, etc.) | [C_LIBRARIES.md](C_LIBRARIES.md), [examples/extern_hello.clio](../examples/extern_hello.clio) |
+| `pub` and C library export | [LIBRARIES.md](LIBRARIES.md) |
+| Multi-file, `#include`, and installable `.clio` | [DIRECTIVES.md](DIRECTIVES.md) |
+| Portable `clio` + bundled toolchain | [DISTRIBUTION.md](DISTRIBUTION.md) |
 
-- `mymath.c`
-- `mymath.h`
-- `mymath.a` (static)
-- platform shared lib (`.so` / `.dll` / `.dylib`)
+## Built-ins (quick reference)
 
-Export ABI mapping:
+- `print(...)` — strings can use `"Hello $name"` and `"$i"`-style **simple** names inside the quotes where the compiler supports it  
+- `input(prompt)`, `random(lo, hi)`, `clear_screen()`  
+- `len(list)` — same as `list.len` on a list value  
+- Casts: `int(x)`, `float(x)`, `str(x)`, `bool(x)`  
+- Helpers: `min`, `max`, `abs`
 
-- `int -> int64_t`
-- `float -> double`
-- `bool -> bool`
-- `str -> const char*`
-- `struct -> exported C struct`
-- `list[T]` is not exportable in `pub` signatures
+## Runnable copy
 
-## Built-ins
+A checked-in version of the one-pager (with `fn main() { ... }`) is [examples/onepage.clio](../examples/onepage.clio) — you can `clio run` or `clio build` that file to verify your install.
 
-- `print(...)`
-- `input(prompt)`
-- `random(lo, hi)`
-- `clear_screen()`
-- `len(listValue)`
-- casts: `int(x)`, `float(x)`, `str(x)`, `bool(x)`
-- numeric helpers: `min`, `max`, `abs`
+## Implementation status
 
-## Out of Scope (Current)
-
-- arrays
-- completed `clio-bind`
-
-See `SUPPORTED.md` for implementation status details.
+See [SUPPORTED.md](../SUPPORTED.md) for the feature checklist and details.

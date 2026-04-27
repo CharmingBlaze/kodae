@@ -61,8 +61,10 @@ func (p *Parser) parseTopDecl() ast.Decl {
 			return p.parseFnWithPub(true)
 		case token.STRUCT:
 			return p.parseStructDeclWithPub(true)
+		case token.ENUM:
+			return p.parseEnumWithPub(true)
 		default:
-			p.failf("pub: expected fn or struct")
+			p.failf("pub: expected fn, struct, or enum")
 			return nil
 		}
 	case token.HASH:
@@ -167,6 +169,10 @@ func (p *Parser) parseLink() ast.Decl {
 	switch key {
 	case "link":
 		return &ast.LinkDecl{Flags: s}
+	case "linkpath":
+		return &ast.LinkPathDecl{Path: s}
+	case "include":
+		return &ast.IncludeDecl{Path: s}
 	case "mode", "library", "version", "author":
 		return &ast.MetaDecl{Key: key, Value: s}
 	default:

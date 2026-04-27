@@ -123,6 +123,10 @@ func (p *Parser) parsePostfix(lhs ast.Expr) ast.Expr {
 			lhs = &ast.MemberExpr{Left: lhs, Field: f}
 		case token.LBRACE:
 			// struct literal: TypeName { a: 1, b: 2 }
+			// In "for v in e {", the `{` after e starts the for-body, not a struct literal.
+			if p.forInHeader {
+				return lhs
+			}
 			if id, ok := lhs.(*ast.IdentExpr); ok {
 				p.next() // {
 				p.skipNewlines()

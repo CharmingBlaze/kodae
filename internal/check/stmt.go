@@ -75,7 +75,10 @@ func (c *Checker) stmt(s ast.Stmt) {
 		if c.deferNesting != 0 {
 			c.setErr(fmt.Errorf("defer is only allowed at the top of a function body (v1)"))
 		} else {
-			_, _ = c.typeExpr(x.E) // e.g. void call
+			_, e := c.typeExpr(x.E) // e.g. void call
+			if e != nil {
+				c.setErr(e)
+			}
 		}
 	case *ast.ForInStmt:
 		inn, e := c.typeExpr(x.In)
@@ -167,8 +170,11 @@ func (c *Checker) stmt(s ast.Stmt) {
 			}
 		}
 		c.tryOK = true
-		_, _ = c.typeExpr(x.E) // e.g. call, f()? propagate, or f() catch
+		_, err := c.typeExpr(x.E) // e.g. call, f()? propagate, or f() catch
 		c.tryOK = false
+		if err != nil {
+			c.setErr(err)
+		}
 	case *ast.AssignStmt:
 		c.checkAssign(x)
 	case *ast.MatchStmt:

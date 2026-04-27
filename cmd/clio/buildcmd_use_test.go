@@ -12,7 +12,7 @@ import (
 func TestLoadProgram_UseResolvesSameDir(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, "lib.clio"), `fn double(n: int) -> int { return n * 2 }`)
+	write(t, filepath.Join(dir, "lib.clio"), `pub fn double(n: int) -> int { return n * 2 }`)
 	write(t, filepath.Join(dir, "app.clio"), `use lib
 fn main() {
   let v: int = double(3)

@@ -22,6 +22,8 @@ func TestTokenize_Operators(t *testing.T) {
 		{"!", []token.Type{token.NOT, token.EOF}},
 		{"=", []token.Type{token.ASSIGN, token.EOF}},
 		{".", []token.Type{token.DOT, token.EOF}},
+		{"0..2", []token.Type{token.INTLIT, token.DOTDOT, token.INTLIT, token.EOF}},
+		{"10..20", []token.Type{token.INTLIT, token.DOTDOT, token.INTLIT, token.EOF}},
 		{"+=", []token.Type{token.PLUSEQ, token.EOF}},
 		{"=>", []token.Type{token.FATARROW, token.EOF}},
 	}

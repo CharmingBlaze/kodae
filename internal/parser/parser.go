@@ -15,6 +15,9 @@ type Parser struct {
 	lex *lex.Lexer
 	tok token.Token
 	err error
+	// forInHeader: while parsing "for x in <expr>" without parens, <expr> must not
+	// consume a following `{` as a struct literal (e.g. "for item in items { print(...) }").
+	forInHeader bool
 }
 
 // New creates a parser. The lexer must be fresh.
@@ -70,5 +73,5 @@ func (p *Parser) expect(t token.Type) {
 
 // Optional helper for numeric int literals
 func (p *Parser) intFromTok() (int64, error) {
-	return strconv.ParseInt(p.tok.Literal, 10, 64)
+	return strconv.ParseInt(p.tok.Literal, 0, 64)
 }

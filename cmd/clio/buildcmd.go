@@ -14,6 +14,7 @@ import (
 	"clio/internal/codegen"
 	"clio/internal/headergen"
 	lexapi "clio/internal/lexer"
+	"clio/internal/loader"
 	"clio/internal/parser"
 )
 
@@ -235,16 +236,31 @@ func parseBuildFlagsExt(in []string) (files []string, out, cc, ld string, opt bu
 	return
 }
 
-// programLoader follows `use name` to same-dir `name.clio` (depth-first, dedup, cycle check).
-// UseDecl nodes are resolved and omitted from the merged program.
+// programLoader follows `# include "p"` and `use name` (same-dir + libs + ~/.clio/libs), depth-first, dedup, cycle check.
+// Include and Use are resolved and omitted from the merged program.
 type programLoader struct {
 	loaded  map[string]struct{}
 	loading map[string]struct{}
 	out     *ast.Program
 }
 
-// loadProgram parses one or more .clio file paths in order. Each file’s `use` names load
-// sibling `name.clio` before the rest of that file’s decls. Absolute paths are deduplicated.
+func setDeclFile(d ast.Decl, abs string) {
+	switch t := d.(type) {
+	case *ast.FnDecl:
+		t.File = abs
+	case *ast.StructDecl:
+		t.File = abs
+	case *ast.EnumDecl:
+		t.File = abs
+	case *ast.ExternDecl:
+		t.File = abs
+	case *ast.LetDecl:
+		t.File = abs
+	}
+}
+
+// loadProgram parses one or more .clio file paths in order. Each file’s #include and `use` load
+// dependencies first. Absolute paths are deduplicated.
 func loadProgram(paths []string) (*ast.Program, error) {
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("no source files")
@@ -269,7 +285,7 @@ func loadProgram(paths []string) (*ast.Program, error) {
 	return l.out, nil
 }
 
-// loadFile reads and merges one translation unit, recursively loading `use` targets first.
+// loadFile reads and merges one translation unit, loading #include and use targets first.
 func (l *programLoader) loadFile(path string) error {
 	abs, err := filepath.Abs(filepath.Clean(path))
 	if err != nil {
@@ -279,7 +295,7 @@ func (l *programLoader) loadFile(path string) error {
 		return nil
 	}
 	if _, ok := l.loading[abs]; ok {
-		return fmt.Errorf("use cycle: re-entering %q", abs)
+		return fmt.Errorf("include/use cycle: re-entering %q", abs)
 	}
 	l.loading[abs] = struct{}{}
 	defer delete(l.loading, abs)
@@ -292,22 +308,31 @@ func (l *programLoader) loadFile(path string) error {
 	if err != nil {
 		return err
 	}
-
-	// `use` first in source order (so deps load before this file’s non-use decls).
 	for _, d := range p.Decls {
-		u, ok := d.(*ast.UseDecl)
-		if !ok {
-			continue
-		}
-		dep := filepath.Join(filepath.Dir(abs), u.Name+".clio")
-		if err := l.loadFile(dep); err != nil {
-			return fmt.Errorf("%q: use %q: %w", abs, u.Name, err)
+		switch t := d.(type) {
+		case *ast.IncludeDecl:
+			inc, e := loader.ResolveClioInclude(filepath.Dir(abs), t.Path)
+			if e != nil {
+				return e
+			}
+			if e2 := l.loadFile(inc); e2 != nil {
+				return fmt.Errorf("%q: # include %q: %w", abs, t.Path, e2)
+			}
+		case *ast.UseDecl:
+			dep := filepath.Join(filepath.Dir(abs), t.Name+".clio")
+			if e2 := l.loadFile(dep); e2 != nil {
+				return fmt.Errorf("%q: use %q: %w", abs, t.Name, e2)
+			}
 		}
 	}
 	for _, d := range p.Decls {
+		if _, ok := d.(*ast.IncludeDecl); ok {
+			continue
+		}
 		if _, ok := d.(*ast.UseDecl); ok {
 			continue
 		}
+		setDeclFile(d, abs)
 		l.out.Decls = append(l.out.Decls, d)
 	}
 	l.out.Statements = append(l.out.Statements, p.Statements...)

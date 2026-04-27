@@ -26,6 +26,9 @@ func Find(override string) (CCmd, error) {
 	if s := strings.TrimSpace(os.Getenv("CLIO_CC")); s != "" {
 		return parseOne(s)
 	}
+	if b, ok := bundledZigCC(); ok {
+		return b, nil
+	}
 	// Order: prefer LLVM/Clang, then common GCC, then "cc", then Zig (bundles libc + lld for easy distribution).
 	//
 	// Users who install the official LLVM/Clang build get `clang` on PATH — that is the usual "use LLVM" setup.
@@ -75,6 +78,31 @@ func zigCC() (CCmd, error) {
 		return CCmd{}, fmt.Errorf("CLIO_CC=zig: zig not found on PATH: %v", err)
 	}
 	return CCmd{Prog: p, Prefix: []string{"cc"}}, nil
+}
+
+func bundledZigCC() (CCmd, bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		return CCmd{}, false
+	}
+	base := filepath.Dir(exe)
+	candidates := []string{
+		filepath.Join(base, "toolchain", "zig", zigExeName()),
+		filepath.Join(base, "..", "toolchain", "zig", zigExeName()),
+	}
+	for _, c := range candidates {
+		if st, e := os.Stat(c); e == nil && !st.IsDir() {
+			return CCmd{Prog: c, Prefix: []string{"cc"}}, true
+		}
+	}
+	return CCmd{}, false
+}
+
+func zigExeName() string {
+	if runtime.GOOS == "windows" {
+		return "zig.exe"
+	}
+	return "zig"
 }
 
 func hintText() string {

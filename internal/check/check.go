@@ -73,6 +73,8 @@ type Checker struct {
 	returnWant   *Type
 	inReturn     bool // type-checking a return's expression (for err() → result[T])
 	tryOK        bool // set while type-checking let init, return value, assign RHS, or expr-stmt
+	// curFile: absolute .clio path of the function / let being checked (for pub / cross-file rules)
+	curFile string
 }
 
 // Check type-checks a program
@@ -108,7 +110,13 @@ func Check(pr *ast.Program) (*Info, error) {
 		case *ast.UseDecl:
 			_ = t
 		case *ast.LinkDecl:
-			c.inf.LinkFlags = append(c.inf.LinkFlags, splitLinkFlagString(t.Flags)...)
+			c.inf.LinkFlags = append(c.inf.LinkFlags, expandLinkArgs(splitLinkFlagString(t.Flags))...)
+		case *ast.LinkPathDecl:
+			if strings.TrimSpace(t.Path) == "" {
+				c.setErr(fmt.Errorf("# linkpath: path is empty"))
+			} else {
+				c.inf.LinkFlags = append(c.inf.LinkFlags, "-L"+t.Path)
+			}
 		case *ast.MetaDecl:
 			c.inf.Meta[t.Key] = t.Value
 		}
@@ -127,7 +135,7 @@ func Check(pr *ast.Program) (*Info, error) {
 			if c.err != nil {
 				break
 			}
-			e := &Enum{Name: t.Name, Index: idx}
+			e := &Enum{Name: t.Name, Index: idx, Pub: t.Pub, File: t.File}
 			c.enums[t.Name] = e
 			c.inf.Enums[t.Name] = e
 		}
@@ -149,6 +157,7 @@ func Check(pr *ast.Program) (*Info, error) {
 			c.setErr(fmt.Errorf("duplicate struct name %q", sdecl.Name))
 			continue
 		}
+		c.curFile = sdecl.File
 		m := make(map[string]*Type, len(sdecl.Fields))
 		var order []string
 		for _, f := range sdecl.Fields {
@@ -178,15 +187,18 @@ func Check(pr *ast.Program) (*Info, error) {
 			m[f.Name] = ft
 		}
 		if c.err != nil {
+			c.curFile = ""
 			break
 		}
-		sd := &Struct{Name: sdecl.Name, Order: order, Fields: m}
+		c.curFile = ""
+		sd := &Struct{Name: sdecl.Name, Order: order, Fields: m, Pub: sdecl.Pub, SrcFile: sdecl.File}
 		c.structs[sdecl.Name] = sd
 		c.inf.Struct[sdecl.Name] = sd
 	}
 	if c.err != nil {
 		return c.inf, c.err
 	}
+	c.curFile = ""
 	for _, d := range pr.Decls {
 		if ex, ok := d.(*ast.ExternDecl); ok {
 			if c.externs[ex.Name] != nil {
@@ -271,6 +283,7 @@ func Check(pr *ast.Program) (*Info, error) {
 		if !ok {
 			continue
 		}
+		c.curFile = fn.File
 		c.scopes = nil
 		c.push()
 		c.loopDepth = 0
@@ -301,16 +314,19 @@ func Check(pr *ast.Program) (*Info, error) {
 		if fn.Body != nil {
 			c.stmts(fn.Body.Stmts)
 		}
+		c.curFile = ""
 	}
 	if c.err != nil {
 		return c.inf, c.err
 	}
+	c.curFile = ""
 	for _, d := range pr.Decls {
 		switch t := d.(type) {
 		case *ast.StructDecl:
 			if !t.Pub {
 				continue
 			}
+			c.curFile = t.File
 			for _, f := range t.Fields {
 				ft, err := c.resolveType(f.T)
 				if err != nil {
@@ -322,10 +338,12 @@ func Check(pr *ast.Program) (*Info, error) {
 					break
 				}
 			}
+			c.curFile = ""
 		case *ast.FnDecl:
 			if !t.Pub {
 				continue
 			}
+			c.curFile = t.File
 			for _, p := range t.Params {
 				pt, err := c.resolveType(p.T)
 				if err != nil {
@@ -345,6 +363,7 @@ func Check(pr *ast.Program) (*Info, error) {
 					c.setErr(fmt.Errorf("pub fn %s return: %v", t.Name, err))
 				}
 			}
+			c.curFile = ""
 		}
 	}
 	if c.err != nil {
@@ -385,6 +404,8 @@ func (c *Checker) failf(format string, a ...any) { c.setErr(fmt.Errorf(format, a
 func (c *Checker) setType(e ast.Expr, t *Type) { c.inf.Types[exprKey(e)] = t }
 
 func (c *Checker) checkGlobalInit(l *ast.LetDecl) (*Type, error) {
+	c.curFile = l.File
+	defer func() { c.curFile = "" }()
 	c.push()
 	for k, t := range c.globals {
 		c.set(k, t)
@@ -485,3 +506,20 @@ func (c *Checker) checkMatch(m *ast.MatchStmt) {
 
 // splitLinkFlagString splits a # link "..." string into argv tokens (whitespace; no quoting yet).
 func splitLinkFlagString(s string) []string { return strings.Fields(s) }
+
+// expandLinkArgs turns bare names (e.g. "raylib" from # link "raylib") into "-lraylib";
+// tokens that already start with '-' are left unchanged.
+func expandLinkArgs(parts []string) []string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		if p[0] == '-' {
+			out = append(out, p)
+			continue
+		}
+		out = append(out, "-l"+p)
+	}
+	return out
+}

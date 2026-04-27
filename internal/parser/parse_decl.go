@@ -5,7 +5,9 @@ import (
 	"clio/internal/ast"
 	"clio/internal/token"
 )
-func (p *Parser) parseEnum() *ast.EnumDecl {
+func (p *Parser) parseEnum() *ast.EnumDecl { return p.parseEnumWithPub(false) }
+
+func (p *Parser) parseEnumWithPub(pub bool) *ast.EnumDecl {
 	p.expect(token.ENUM)
 	if p.tok.Type != token.IDENT {
 		p.failf("enum: name")
@@ -38,7 +40,7 @@ func (p *Parser) parseEnum() *ast.EnumDecl {
 		}
 	}
 	p.expect(token.RBRACE)
-	return &ast.EnumDecl{Name: name, Variants: vars}
+	return &ast.EnumDecl{Pub: pub, Name: name, Variants: vars}
 }
 
 // MangleMethod is the top-level function name for fn Receiver.method

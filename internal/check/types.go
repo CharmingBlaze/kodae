@@ -44,12 +44,17 @@ type Struct struct {
 	Name   string
 	Order  []string
 	Fields map[string]*Type
+	// Pub / SrcFile: if !Pub, the struct type is only usable in SrcFile; if Pub, any file.
+	Pub     bool
+	SrcFile string
 }
 
 // Enum is a file-scope enum
 type Enum struct {
 	Name  string
 	Index map[string]int
+	Pub   bool
+	File  string
 }
 
 func (t *Type) String() string {

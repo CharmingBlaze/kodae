@@ -20,6 +20,15 @@ func TestNumber_Int(t *testing.T) {
 	}
 }
 
+func TestNumber_Hex(t *testing.T) {
+	toks := readNoNL(t, "0xFF 0X10 0x181818FF")
+	for i := 0; i < 3; i++ {
+		if toks[i].Type != token.INTLIT {
+			t.Fatalf("i=%d: want int, got %v", i, toks[i].Type)
+		}
+	}
+}
+
 func TestNumber_Float(t *testing.T) {
 	toks := readNoNL(t, "3.14 1.2e3 5E-2")
 	for _, tk := range toks[:3] {

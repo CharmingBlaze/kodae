@@ -17,7 +17,8 @@ func TestList_CoreTypingAndMethods(t *testing.T) {
   let a = xs.pop()
   let b = xs.remove(0)
   let n = len(xs)
-  xs[0] = a + b + n
+  let m = xs.len
+  xs[0] = a + b + n + m
 }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()

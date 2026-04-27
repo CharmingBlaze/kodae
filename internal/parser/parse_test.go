@@ -106,6 +106,22 @@ func TestParse_ListTypeLiteralAndIndex(t *testing.T) {
 	}
 }
 
+func TestParse_LinkAndLinkpath(t *testing.T) {
+	t.Parallel()
+	const src = `# link "raylib"
+# linkpath "./raylib"
+extern fn X() -> void
+fn main() { }`
+	p := New(lex.New(src))
+	pr := p.ParseProgram()
+	if p.Err() != nil {
+		t.Fatalf("parse: %v", p.Err())
+	}
+	if len(pr.Decls) < 4 {
+		t.Fatalf("expected link + linkpath + extern + fn, got %d", len(pr.Decls))
+	}
+}
+
 func TestParse_PubStructAndMetaDirectives(t *testing.T) {
 	const src = `#mode "library"
 #library "mylib"
@@ -118,5 +134,27 @@ pub fn add(a: int, b: int) -> int { return a + b }`
 	}
 	if len(pr.Decls) < 4 {
 		t.Fatalf("expected metadata + pub struct + pub fn, got %d decls", len(pr.Decls))
+	}
+}
+
+func TestParse_ForInWithOrWithoutParens(t *testing.T) {
+	t.Parallel()
+	for i, src := range []string{
+		`fn a() { for (i in 0..3) { print( str( i ) ) } }`,
+		`fn b() { for i in 0..3 { print( str( i ) ) } }`,
+		`fn c() {
+  let xs: list[str] = ["a"]
+  for (item in xs) { print( item ) }
+}`,
+		`fn d() {
+  let xs: list[str] = ["a"]
+  for item in xs { print( item ) }
+}`,
+	} {
+		p := New(lex.New(src))
+		_ = p.ParseProgram()
+		if p.Err() != nil {
+			t.Fatalf("%d: parse: %v", i, p.Err())
+		}
 	}
 }

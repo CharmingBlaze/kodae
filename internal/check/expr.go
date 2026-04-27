@@ -26,6 +26,9 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 			if c.fns[x.Name] != nil {
 				return nil, fmt.Errorf("cannot use function name %q as a value (did you mean to call it?)", x.Name)
 			}
+			if sug, ok := suggestName(x.Name, c.visibleNameCandidates()); ok {
+				return nil, fmt.Errorf("unknown name %q — did you mean %q?", x.Name, sug)
+			}
 			return nil, fmt.Errorf("unknown name %q", x.Name)
 		}
 		c.setType(e, t)
@@ -154,6 +157,16 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		if err != nil {
 			return nil, err
 		}
+		if tL != nil && tL.Kind == KList {
+			if x.Field == "len" {
+				c.setType(e, TpInt)
+				return TpInt, nil
+			}
+			if sug, ok := suggestName(x.Field, []string{"len"}); ok {
+				return nil, fmt.Errorf("list has no field %q — did you mean .%q? (or call len(yourList))", x.Field, sug)
+			}
+			return nil, fmt.Errorf("list has no field %q (use [index], len(list), or .len for length)", x.Field)
+		}
 		if tL == nil || tL.Kind != KStruct || tL.StructDef == nil {
 			if x.Field == "ok" || x.Field == "value" || x.Field == "err" {
 				return nil, fmt.Errorf("result field access (.ok/.value/.err) is not part of Clio v1; use catch")
@@ -162,6 +175,9 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		}
 		fdt, ok := tL.StructDef.Fields[x.Field]
 		if !ok {
+			if sug, ok2 := suggestName(x.Field, tL.StructDef.Order); ok2 {
+				return nil, fmt.Errorf("struct %s has no field %q — did you mean %q?", tL.StructName, x.Field, sug)
+			}
 			return nil, fmt.Errorf("struct %s has no field %q", tL.StructName, x.Field)
 		}
 		c.setType(e, fdt)
@@ -217,6 +233,9 @@ func (c *Checker) typeStructLit(x *ast.StructLit, e ast.Expr) (*Type, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown struct type %q in literal", x.TypeName)
 	}
+	if !c.canSeeRemote(sdef.Pub, sdef.SrcFile) {
+		return nil, fmt.Errorf("struct %q is not visible in this file (use pub struct in the defining file)", sdef.Name)
+	}
 	dup := make(map[string]int, len(sdef.Order))
 	present := make(map[string]bool, len(sdef.Order))
 	for i, in := range x.Inits {
@@ -237,6 +256,9 @@ func (c *Checker) typeStructLit(x *ast.StructLit, e ast.Expr) (*Type, error) {
 	for _, in := range x.Inits {
 		_, fok := sdef.Fields[in.Name]
 		if !fok {
+			if sug, ok := suggestName(in.Name, sdef.Order); ok {
+				return nil, fmt.Errorf("struct %s: unknown field %q in literal — did you mean %q?", x.TypeName, in.Name, sug)
+			}
 			return nil, fmt.Errorf("struct %s: unknown field %q in literal", x.TypeName, in.Name)
 		}
 	}
@@ -262,6 +284,9 @@ func (c *Checker) checkEnumConst(enName, variant string, e ast.Expr) (*Type, err
 	en, ok := c.enums[enName]
 	if !ok {
 		return nil, fmt.Errorf("not an enum: %q", enName)
+	}
+	if !c.canSeeRemote(en.Pub, en.File) {
+		return nil, fmt.Errorf("enum %q is not visible in this file (use pub enum in the defining file)", enName)
 	}
 	if _, ok = en.Index[variant]; !ok {
 		return nil, fmt.Errorf("enum %q has no variant %q", enName, variant)
@@ -443,9 +468,18 @@ func (c *Checker) typeArith(b *ast.BinaryExpr) (*Type, error) {
 	}
 	if !l.isNumeric() || !r.isNumeric() {
 		if b.Op == "+" {
-			return nil, fmt.Errorf("cannot + types %s and %s (use + only for str+str or number+number)", l, r)
+			if l.Kind == KStr && (r.isNumeric() || r.Kind == KEnum) {
+				return nil, fmt.Errorf("cannot combine %s and %s with + in this order (put the string on the right, or use str() on the number)", l, r)
+			}
+			if r.Kind == KStr && (l.isNumeric() || l.Kind == KEnum) {
+				return nil, fmt.Errorf("cannot add %s and %s (use str(...) on the number, or use \"...\" for text)", l, r)
+			}
+			if (l.isNumeric() || l.Kind == KEnum) && (r.isNumeric() || r.Kind == KEnum) {
+				return nil, fmt.Errorf("cannot + types %s and %s (int and float are ok together; for strings use \"...\" or str(...))", l, r)
+			}
+			return nil, fmt.Errorf("cannot + types %s and %s (str+str, str+number, or two numbers)", l, r)
 		}
-		return nil, fmt.Errorf("arithmetic: expected numbers, have %s and %s", l, r)
+		return nil, fmt.Errorf("arithmetic: need two numbers, got %s and %s", l, r)
 	}
 	// promote to float
 	k := KInt
@@ -543,6 +577,9 @@ func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, er
 	f := c.fns[mangled]
 	if f == nil {
 		return nil, fmt.Errorf("no method %q for struct %s (expected fn %q)", me.Field, recvT.StructName, mangled)
+	}
+	if !c.canSeeRemote(f.Pub, f.File) {
+		return nil, fmt.Errorf("method %q is not visible in this file (use pub fn in the defining file)", me.Field)
 	}
 	if f.Params == nil {
 		return nil, fmt.Errorf("method %q: internal error", me.Field)
@@ -789,7 +826,13 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		// user fn
 		f := c.fns[name]
 		if f == nil {
+			if sug, ok := suggestName(name, c.callableNameCandidates()); ok {
+				return nil, fmt.Errorf("unknown function %q — did you mean %q()?", name, sug)
+			}
 			return nil, fmt.Errorf("unknown function %q", name)
+		}
+		if !c.canSeeRemote(f.Pub, f.File) {
+			return nil, fmt.Errorf("function %q is not visible in this file (use pub fn in the defining file)", name)
 		}
 		if f.Params == nil {
 			f.Params = []ast.Param{}
