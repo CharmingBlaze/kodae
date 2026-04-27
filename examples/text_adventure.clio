@@ -1,0 +1,40 @@
+' Clio Text Adventure
+' Demonstrates input, print, and branching logic.
+
+fn main() {
+    print("Welcome to the Clio Dungeon!")
+    print("You find yourself in a dark room. There are two doors: Left and Right.")
+
+    let hasKey = false
+    let alive = true
+
+    while (alive) {
+        let choice = input("Which door do you choose? (left/right/exit): ")
+
+        if (choice == "left") {
+            print("\nYou enter a library filled with dusty books.")
+            if (!hasKey) {
+                print("You find a shiny GOLD KEY on a table!")
+                hasKey = true
+            } else {
+                print("The room is empty now.")
+            }
+        } else if (choice == "right") {
+            print("\nYou enter a grand treasury!")
+            if (hasKey) {
+                print("You use the GOLD KEY to open a massive chest...")
+                print("YOU FOUND THE TREASURE! YOU WIN!")
+                break
+            } else {
+                print("There is a locked chest here. You need a key.")
+            }
+        } else if (choice == "exit") {
+            print("\nYou decide to leave the dungeon. Goodbye!")
+            break
+        } else {
+            print("\nI don't understand '$choice'.")
+        }
+
+        print("--------------------------------")
+    }
+}
