@@ -157,6 +157,46 @@ extern fn InitWindow(w: int, h: int, title: ptr[byte]) -> void
 
 `ptr[...]` is only allowed in `extern fn` signatures.
 
+## Building C Libraries
+
+Clio can export C-consumable library APIs via `pub`:
+
+```clio
+#mode "library"
+#library "mymath"
+
+pub struct Rect {
+  x: float
+  y: float
+  w: float
+  h: float
+}
+
+pub fn add(a: int, b: int) -> int {
+  return a + b
+}
+```
+
+Build command:
+
+`clio build --lib mymath.clio`
+
+Generated outputs:
+
+- `mymath.c`
+- `mymath.h`
+- `mymath.a` (static)
+- platform shared lib (`.so` / `.dll` / `.dylib`)
+
+Export ABI mapping:
+
+- `int -> int64_t`
+- `float -> double`
+- `bool -> bool`
+- `str -> const char*`
+- `struct -> exported C struct`
+- `list[T]` is not exportable in `pub` signatures
+
 ## Built-ins
 
 - `print(...)`

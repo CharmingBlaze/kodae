@@ -45,6 +45,15 @@ static inline clio_str clio_str_lit(const char *c) {
   return (clio_str){c, (int64_t)strlen(c)};
 }
 
+const char* clio_str_to_cstr(clio_str s) {
+  if (!s.data) { return ""; }
+  char* p = (char*)malloc((size_t)s.len + 1);
+  if (!p) { exit(1); }
+  if (s.len > 0) { memcpy(p, s.data, (size_t)s.len); }
+  p[s.len] = 0;
+  return p;
+}
+
 clio_str clio_str_concat(clio_str a, clio_str b) {
   int64_t n = a.len + b.len;
   if (n <= 0) { return (clio_str){"", 0}; }

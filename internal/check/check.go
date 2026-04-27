@@ -52,6 +52,7 @@ type Info struct {
 	// LinkFlags: raw tokens from # link "..." (split in driver when compiling).
 	LinkFlags []string
 	Module    string
+	Meta      map[string]string
 }
 
 // Checker is the semantic/type checker
@@ -87,6 +88,7 @@ func Check(pr *ast.Program) (*Info, error) {
 			Struct:  make(map[string]*Struct),
 			Fns:     make(map[string]*ast.FnDecl),
 			Externs: make(map[string]*ast.ExternDecl),
+			Meta:    make(map[string]string),
 		},
 		enums:   make(map[string]*Enum),
 		structs: make(map[string]*Struct),
@@ -107,6 +109,8 @@ func Check(pr *ast.Program) (*Info, error) {
 			_ = t
 		case *ast.LinkDecl:
 			c.inf.LinkFlags = append(c.inf.LinkFlags, splitLinkFlagString(t.Flags)...)
+		case *ast.MetaDecl:
+			c.inf.Meta[t.Key] = t.Value
 		}
 	}
 	for _, d := range pr.Decls {
@@ -301,7 +305,74 @@ func Check(pr *ast.Program) (*Info, error) {
 	if c.err != nil {
 		return c.inf, c.err
 	}
+	for _, d := range pr.Decls {
+		switch t := d.(type) {
+		case *ast.StructDecl:
+			if !t.Pub {
+				continue
+			}
+			for _, f := range t.Fields {
+				ft, err := c.resolveType(f.T)
+				if err != nil {
+					c.setErr(err)
+					break
+				}
+				if err := c.validateExportType(ft); err != nil {
+					c.setErr(fmt.Errorf("pub struct %s field %s: %v", t.Name, f.Name, err))
+					break
+				}
+			}
+		case *ast.FnDecl:
+			if !t.Pub {
+				continue
+			}
+			for _, p := range t.Params {
+				pt, err := c.resolveType(p.T)
+				if err != nil {
+					c.setErr(err)
+					break
+				}
+				if err := c.validateExportType(pt); err != nil {
+					c.setErr(fmt.Errorf("pub fn %s param %s: %v", t.Name, p.Name, err))
+					break
+				}
+			}
+			if t.Return != nil {
+				rt, err := c.resolveType(t.Return)
+				if err != nil {
+					c.setErr(err)
+				} else if err := c.validateExportType(rt); err != nil {
+					c.setErr(fmt.Errorf("pub fn %s return: %v", t.Name, err))
+				}
+			}
+		}
+	}
+	if c.err != nil {
+		return c.inf, c.err
+	}
 	return c.inf, nil
+}
+
+func (c *Checker) validateExportType(t *Type) error {
+	if t == nil {
+		return nil
+	}
+	switch t.Kind {
+	case KInt, KFloat, KBool, KStr, KVoid:
+		return nil
+	case KStruct:
+		return nil
+	case KList:
+		return fmt.Errorf("list[T] is not exportable in pub API")
+	case KPtr:
+		return fmt.Errorf("ptr[...] is not exportable in pub API")
+	case KOptional:
+		return fmt.Errorf("optional/none type is not exportable in pub API")
+	case KResult:
+		return fmt.Errorf("result[...] is not exportable in pub API")
+	default:
+		return fmt.Errorf("type %s is not exportable", t)
+	}
 }
 
 func (c *Checker) setErr(e error) {

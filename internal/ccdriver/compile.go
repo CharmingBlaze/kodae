@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 // Compile builds cSrcPath to outPath. outPath is typically an absolute or cwd-relative
@@ -33,6 +34,80 @@ func Compile(ccc CCmd, cSrcPath, outPath string, extra []string) error {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("C compiler: %w", err)
+	}
+	return nil
+}
+
+func CompileObject(ccc CCmd, cSrcPath, objPath string, extra []string) error {
+	objAbs, err := filepath.Abs(objPath)
+	if err != nil {
+		return err
+	}
+	cAbs, err := filepath.Abs(cSrcPath)
+	if err != nil {
+		return err
+	}
+	argv := make([]string, 0, len(ccc.Prefix)+10+len(extra))
+	argv = append(argv, ccc.Prog)
+	argv = append(argv, ccc.Prefix...)
+	argv = append(argv, "-std=c99", "-O2", "-c", "-o", objAbs, cAbs)
+	argv = append(argv, extra...)
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("C compiler (object): %w", err)
+	}
+	return nil
+}
+
+func ArchiveStatic(objPath, libPath string) error {
+	ar, err := exec.LookPath("ar")
+	if err != nil {
+		return fmt.Errorf("static library requires ar on PATH")
+	}
+	libAbs, err := filepath.Abs(libPath)
+	if err != nil {
+		return err
+	}
+	objAbs, err := filepath.Abs(objPath)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(ar, "rcs", libAbs, objAbs)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("ar: %w", err)
+	}
+	return nil
+}
+
+func LinkShared(ccc CCmd, cSrcPath, outPath string, extra []string) error {
+	outAbs, err := filepath.Abs(outPath)
+	if err != nil {
+		return err
+	}
+	cAbs, err := filepath.Abs(cSrcPath)
+	if err != nil {
+		return err
+	}
+	argv := make([]string, 0, len(ccc.Prefix)+12+len(extra))
+	argv = append(argv, ccc.Prog)
+	argv = append(argv, ccc.Prefix...)
+	argv = append(argv, "-std=c99", "-O2")
+	if runtime.GOOS == "windows" {
+		argv = append(argv, "-shared")
+	} else {
+		argv = append(argv, "-shared", "-fPIC")
+	}
+	argv = append(argv, "-o", outAbs, cAbs, "-lm")
+	argv = append(argv, extra...)
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("C linker (shared): %w", err)
 	}
 	return nil
 }

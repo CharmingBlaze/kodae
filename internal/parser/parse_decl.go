@@ -195,6 +195,10 @@ func (p *Parser) parseParamList(methodRecv string, allowVararg bool, allowPtr bo
 }
 
 func (p *Parser) parseStructDecl() *ast.StructDecl {
+	return p.parseStructDeclWithPub(false)
+}
+
+func (p *Parser) parseStructDeclWithPub(pub bool) *ast.StructDecl {
 	p.expect(token.STRUCT)
 	if p.tok.Type != token.IDENT {
 		p.failf("struct: name")
@@ -234,5 +238,5 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 		}
 	}
 	p.expect(token.RBRACE)
-	return &ast.StructDecl{Name: name, Fields: fields}
+	return &ast.StructDecl{Pub: pub, Name: name, Fields: fields}
 }

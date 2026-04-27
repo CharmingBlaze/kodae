@@ -12,9 +12,16 @@ import (
 	"clio/internal/ccdriver"
 	"clio/internal/check"
 	"clio/internal/codegen"
+	"clio/internal/headergen"
 	lexapi "clio/internal/lexer"
 	"clio/internal/parser"
 )
+
+type buildOptions struct {
+	LibMode bool
+	Static  bool
+	Shared  bool
+}
 
 func runCheck(paths ...string) error {
 	p, err := loadProgram(paths)
@@ -25,7 +32,7 @@ func runCheck(paths ...string) error {
 	return err
 }
 
-func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []string) error {
+func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []string, opt buildOptions) error {
 	p, err := loadProgram(paths)
 	if err != nil {
 		return err
@@ -34,9 +41,60 @@ func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []strin
 	if err != nil {
 		return err
 	}
-	csrc, err := codegen.EmitC(p, inf)
+	libMode := opt.LibMode || strings.EqualFold(strings.TrimSpace(inf.Meta["mode"]), "library")
+	csrc, err := codegen.EmitCWithOptions(p, inf, codegen.EmitOptions{LibraryMode: libMode})
 	if err != nil {
 		return err
+	}
+	libName := strings.TrimSpace(inf.Meta["library"])
+	if libName == "" {
+		libName = strings.TrimSuffix(filepath.Base(paths[0]), filepath.Ext(paths[0]))
+	}
+	if libName == "" {
+		libName = "clio_lib"
+	}
+	if libMode {
+		cOut := libName + ".c"
+		hOut := libName + ".h"
+		if out != "" {
+			cOut = out
+		}
+		if err := os.WriteFile(cOut, []byte(csrc), 0644); err != nil {
+			return err
+		}
+		hdr, err := headergen.Generate(p, inf, headergen.Options{LibraryName: libName})
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(hOut, []byte(hdr), 0644); err != nil {
+			return err
+		}
+		ccc, err := ccdriver.Find(cc)
+		if err != nil {
+			return err
+		}
+		link := append(append([]string{}, inf.LinkFlags...), ldExtra...)
+		obj := libName + ".o"
+		if err := ccdriver.CompileObject(ccc, cOut, obj, link); err != nil {
+			return err
+		}
+		if opt.Static || (!opt.Static && !opt.Shared) {
+			if err := ccdriver.ArchiveStatic(obj, libName+".a"); err != nil {
+				return err
+			}
+		}
+		if opt.Shared || (!opt.Static && !opt.Shared) {
+			sharedOut := libName + ".so"
+			if runtime.GOOS == "windows" {
+				sharedOut = libName + ".dll"
+			} else if runtime.GOOS == "darwin" {
+				sharedOut = libName + ".dylib"
+			}
+			if err := ccdriver.LinkShared(ccc, cOut, sharedOut, link); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	if cOnly {
 		if out == "" {
@@ -83,7 +141,7 @@ func defaultOutBin(clioPath string) string {
 }
 
 func runBuildAndRun(paths []string, cc string, ldExtra []string) error {
-	if err := runBuild(paths, "", false, cc, ldExtra); err != nil {
+	if err := runBuild(paths, "", false, cc, ldExtra, buildOptions{}); err != nil {
 		return err
 	}
 	abs, _ := filepath.Abs(defaultOutBin(paths[0]))
@@ -157,6 +215,24 @@ func parseBuildFlags(in []string) (files []string, out, cc, ld string, err error
 		return nil, "", "", "", fmt.Errorf("no .clio in arguments: got %q", pos)
 	}
 	return files, out, strings.TrimSpace(cc), strings.TrimSpace(ld), nil
+}
+
+func parseBuildFlagsExt(in []string) (files []string, out, cc, ld string, opt buildOptions, err error) {
+	raw := make([]string, 0, len(in))
+	for _, a := range in {
+		switch a {
+		case "--lib":
+			opt.LibMode = true
+		case "--static":
+			opt.Static = true
+		case "--shared":
+			opt.Shared = true
+		default:
+			raw = append(raw, a)
+		}
+	}
+	files, out, cc, ld, err = parseBuildFlags(raw)
+	return
 }
 
 // programLoader follows `use name` to same-dir `name.clio` (depth-first, dedup, cycle check).

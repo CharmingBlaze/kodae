@@ -18,6 +18,8 @@ For user-facing language syntax and examples, see `docs/LANGUAGE.md`.
 | **`result[T]`, `ok/err`, `.ok/.value/.err`, `?`** | No (removed) | Not part of Clio v1 surface syntax. Use `catch`. |
 | **`T?` optional syntax** | No (removed) | V1 uses implicit nullable behavior with `none`; explicit `T?` is rejected. |
 | **`ptr[T]`** | Restricted | Only allowed in `extern fn` signatures. |
+| **`pub` exports** | Yes (v1) | `pub fn` / `pub struct` define exported C library API surface for `build --lib`. |
+| **`build --lib`** | Yes (v1) | Emits `.c`, `.h`, static (`.a`) and shared (`.so`/`.dll`/`.dylib`) artifacts. |
 | **`list[T]`** | Yes (v1) | Type syntax `list[T]`, literals `[a, b]`, index read/write `xs[i]`, `len(xs)`, methods `push`, `pop`, `append`, `remove`, and `for (x in list)` iteration. |
 | **Match on enums** | Yes | **Exhaustiveness** is checked (all variants or error). |
 | **-- (decrement)** | Yes | Postfix, like `++`. |

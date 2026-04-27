@@ -35,6 +35,7 @@ type StructField struct {
 
 // StructDecl is at file scope: struct Name { a: int, b: int }.
 type StructDecl struct {
+	Pub    bool
 	Name   string
 	Fields []StructField
 }
@@ -72,3 +73,11 @@ func (d *UseDecl) decl() {}
 type LinkDecl struct{ Flags string }
 
 func (d *LinkDecl) decl() {}
+
+// MetaDecl is a generic file directive: #mode/#library/#version/#author.
+type MetaDecl struct {
+	Key   string
+	Value string
+}
+
+func (d *MetaDecl) decl() {}

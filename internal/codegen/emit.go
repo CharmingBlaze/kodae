@@ -167,6 +167,10 @@ type emitter struct {
 	rcN    int // c_rc_* temps for `result catch` lowering
 }
 
+type EmitOptions struct {
+	LibraryMode bool
+}
+
 func (em *emitter) pushScope() {
 	em.locals = append(em.locals, make(map[string]struct{}))
 }
@@ -392,6 +396,10 @@ func (em *emitter) emitExternCDecl(ex *ast.ExternDecl) (string, error) {
 }
 
 func EmitC(p *ast.Program, inf *check.Info) (string, error) {
+	return EmitCWithOptions(p, inf, EmitOptions{})
+}
+
+func EmitCWithOptions(p *ast.Program, inf *check.Info, opts EmitOptions) (string, error) {
 	if p == nil {
 		return "", fmt.Errorf("nil program")
 	}
@@ -511,14 +519,109 @@ typedef struct { bool has; bool v; } clio_opt_bool;
 			break
 		}
 	}
-	if mainFn == nil {
-		return "", fmt.Errorf("missing fn main")
-	}
-	if err := em.emitMain(&out, mainFn); err != nil {
-		return "", err
+	if opts.LibraryMode {
+		if err := em.emitExportWrappers(&out, p, inf); err != nil {
+			return "", err
+		}
+	} else {
+		if mainFn == nil {
+			return "", fmt.Errorf("missing fn main")
+		}
+		if err := em.emitMain(&out, mainFn); err != nil {
+			return "", err
+		}
 	}
 
 	return out.String(), nil
+}
+
+func cPubType(t *check.Type) string {
+	if t == nil {
+		return "void"
+	}
+	switch t.Kind {
+	case check.KInt, check.KEnum:
+		return "int64_t"
+	case check.KFloat:
+		return "double"
+	case check.KBool:
+		return "bool"
+	case check.KStr:
+		return "const char*"
+	case check.KStruct:
+		return cStructCName(t.StructName)
+	default:
+		return cT(t)
+	}
+}
+
+func pubMarshalArg(pt *check.Type, name string) string {
+	if pt != nil && pt.Kind == check.KStr {
+		return fmt.Sprintf("clio_str_lit(%s)", name)
+	}
+	return name
+}
+
+func pubMarshalRet(rt *check.Type, expr string) string {
+	if rt != nil && rt.Kind == check.KStr {
+		return fmt.Sprintf("clio_str_to_cstr(%s)", expr)
+	}
+	return expr
+}
+
+func (em *emitter) emitExportWrappers(out *bytes.Buffer, p *ast.Program, inf *check.Info) error {
+	for _, d := range p.Decls {
+		f, ok := d.(*ast.FnDecl)
+		if !ok || !f.Pub {
+			continue
+		}
+		fd := inf.Fns[f.Name]
+		if fd == nil {
+			fd = f
+		}
+		var retT *check.Type
+		var err error
+		if fd.Return == nil {
+			retT = check.TpVoid
+		} else {
+			retT, err = em.resolveTypeExpr(fd.Return)
+			if err != nil {
+				return err
+			}
+		}
+		fmt.Fprintf(out, "%s %s(", cPubType(retT), cid(f.Name))
+		for i, p := range fd.Params {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			pt, err := em.resolveTypeExpr(p.T)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(out, "%s %s", cPubType(pt), cid(p.Name))
+		}
+		out.WriteString(") {\n")
+		var call strings.Builder
+		fmt.Fprintf(&call, "f_%s(", cid(f.Name))
+		for i, p := range fd.Params {
+			if i > 0 {
+				call.WriteString(", ")
+			}
+			pt, err := em.resolveTypeExpr(p.T)
+			if err != nil {
+				return err
+			}
+			call.WriteString(pubMarshalArg(pt, cid(p.Name)))
+		}
+		call.WriteString(")")
+		if retT != nil && retT.Kind == check.KVoid {
+			fmt.Fprintf(out, "%s;\n", call.String())
+		} else {
+			fmt.Fprintf(out, "return %s;\n", pubMarshalRet(retT, call.String()))
+		}
+		out.WriteString("}\n\n")
+	}
+	return nil
 }
 
 func (em *emitter) letDeclType(ld *ast.LetDecl) (*check.Type, error) {

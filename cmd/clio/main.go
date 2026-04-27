@@ -25,7 +25,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  parse|ast <a.clio> [b.clio]  parse and print AST (merged like build; optional -o/--cc/--ldflags ignored)\n")
 		fmt.Fprintf(os.Stderr, "  check <a.clio> [b.clio]     type-check (merges; optional -o/--cc/--ldflags ignored)\n")
 		fmt.Fprintf(os.Stderr, "  cgen|emit <a.clio> [b.clio]  print generated C to stdout (merged program)\n")
-		fmt.Fprintf(os.Stderr, "  build <a.clio> [b.clio] [-o out] [--cc c] [--ldflags \"-lfoo\"]  compile to <stem>.exe on Windows\n")
+		fmt.Fprintf(os.Stderr, "  build [--lib] [--static] [--shared] <a.clio> [b.clio] [-o out] [--cc c] [--ldflags \"-lfoo\"]\n")
 		fmt.Fprintf(os.Stderr, "  buildc <file.clio> [-o f.c]  write C only\n")
 		fmt.Fprintf(os.Stderr, "  run <file.clio> [--cc c]  build and run the same binary (set CLIO_CC to pick the C compiler)\n")
 		fmt.Fprintf(os.Stderr, "  version\n")
@@ -79,18 +79,18 @@ func main() {
 		}
 	case "build":
 		a := os.Args[2:]
-		in, out, cc, ld, err := parseBuildFlags(a)
+		in, out, cc, ld, bopt, err := parseBuildFlagsExt(a)
 		if err != nil {
 			fatal(err)
 		}
 		if len(in) == 0 {
-			fatal(fmt.Errorf("build: clio build <file>  or  clio build -o <out> [--cc clang] [--ldflags \"-lfoo\"] <a.clio> [b.clio]"))
+			fatal(fmt.Errorf("build: clio build [--lib] [--static] [--shared] <file>  or  clio build -o <out> [--cc clang] [--ldflags \"-lfoo\"] <a.clio> [b.clio]"))
 		}
 		ldx := []string{}
 		if ld != "" {
 			ldx = strings.Fields(ld)
 		}
-		if err := runBuild(in, out, false, cc, ldx); err != nil {
+		if err := runBuild(in, out, false, cc, ldx, bopt); err != nil {
 			fatal(err)
 		}
 	case "buildc":
@@ -106,7 +106,7 @@ func main() {
 		if ld != "" {
 			ldx = strings.Fields(ld)
 		}
-		if err := runBuild(in, out, true, cc, ldx); err != nil {
+		if err := runBuild(in, out, true, cc, ldx, buildOptions{}); err != nil {
 			fatal(err)
 		}
 	case "run":

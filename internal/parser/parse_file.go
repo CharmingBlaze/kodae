@@ -56,7 +56,15 @@ func (p *Parser) parseTopDecl() ast.Decl {
 		return p.parseExtern()
 	case token.PUB:
 		p.next()
-		return p.parseFnWithPub(true)
+		switch p.tok.Type {
+		case token.FN:
+			return p.parseFnWithPub(true)
+		case token.STRUCT:
+			return p.parseStructDeclWithPub(true)
+		default:
+			p.failf("pub: expected fn or struct")
+			return nil
+		}
 	case token.HASH:
 		return p.parseLink()
 	default:
@@ -142,18 +150,27 @@ func (p *Parser) parseUse() *ast.UseDecl {
 }
 
 // # link " -lfoo -L/path"
-func (p *Parser) parseLink() *ast.LinkDecl {
+func (p *Parser) parseLink() ast.Decl {
 	p.expect(token.HASH)
-	if p.tok.Type != token.IDENT || p.tok.Literal != "link" {
-		p.failf("directive: only # link \"...\" is supported")
+	if p.tok.Type != token.IDENT {
+		p.failf("directive: expected name after #")
 		return nil
 	}
+	key := p.tok.Literal
 	p.next()
 	if p.tok.Type != token.STRLIT {
-		p.failf("# link: string of linker flags")
+		p.failf("# %s: expected string value", key)
 		return nil
 	}
 	s := p.tok.Literal
 	p.next()
-	return &ast.LinkDecl{Flags: s}
+	switch key {
+	case "link":
+		return &ast.LinkDecl{Flags: s}
+	case "mode", "library", "version", "author":
+		return &ast.MetaDecl{Key: key, Value: s}
+	default:
+		p.failf("directive: unsupported #%s", key)
+		return nil
+	}
 }

@@ -105,3 +105,18 @@ func TestParse_ListTypeLiteralAndIndex(t *testing.T) {
 		t.Fatalf("parse: %v", p.Err())
 	}
 }
+
+func TestParse_PubStructAndMetaDirectives(t *testing.T) {
+	const src = `#mode "library"
+#library "mylib"
+pub struct Vec2 { x: float, y: float }
+pub fn add(a: int, b: int) -> int { return a + b }`
+	p := New(lex.New(src))
+	pr := p.ParseProgram()
+	if p.Err() != nil {
+		t.Fatalf("parse: %v", p.Err())
+	}
+	if len(pr.Decls) < 4 {
+		t.Fatalf("expected metadata + pub struct + pub fn, got %d decls", len(pr.Decls))
+	}
+}
