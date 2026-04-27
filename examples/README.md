@@ -21,6 +21,7 @@ go run ./cmd/clio run examples/hello.clio
 10. **raylib_game.clio** — `#include` the large generated binding in `include/raylib/raylib.clio` (also under `examples/libs/raylib/` for the include path).  
 11. **result_minimal.clio** — `catch` style.  
 12. **textrpg.clio** — larger sample.  
+13. **stdlib_v2_test.clio** — full test of the new standard library features (bitwise, repeat, sort, etc).
 
 ## Full index
 
@@ -39,6 +40,7 @@ go run ./cmd/clio run examples/hello.clio
 | [raylib_game.clio](raylib_game.clio) | Many Raylib functions via generated [include/raylib/raylib.clio](../include/raylib/raylib.clio) |
 | [result_minimal.clio](result_minimal.clio) | `catch` |
 | [textrpg.clio](textrpg.clio) | Larger game-style script |
+| [stdlib_v2_test.clio](stdlib_v2_test.clio) | **New built-ins**: bitwise, `repeat`, `sort`, `reverse`, `swap`, etc. |
 
 ## Multi-file commands
 
