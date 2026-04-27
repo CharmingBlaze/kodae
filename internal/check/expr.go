@@ -836,9 +836,10 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 			return nil, err
 		}
 		res := TpStr
-		if name == "input_int" {
+		switch name {
+		case "input_int":
 			res = TpInt
-		} else if name == "input_float" {
+		case "input_float":
 			res = TpFloat
 		}
 		c.setType(x, res)

@@ -374,9 +374,8 @@ func (em *emitter) emitExternCDecl(ex *ast.ExternDecl) (string, error) {
 		ret = cT(rt)
 		// C stdio uses `int` for some returns; int64 in Clio is fine at ABI level but redeclare must match.
 		if ret == "int64_t" {
-			if ex.Name == "printf" || ex.Name == "puts" || ex.Name == "putchar" || ex.Name == "scanf" {
-				ret = "int"
-			} else if ex.Name == "perror" || ex.Name == "remove" {
+			switch ex.Name {
+			case "printf", "puts", "putchar", "scanf", "perror", "remove":
 				ret = "int"
 			}
 		}
@@ -1719,7 +1718,7 @@ func (em *emitter) emitStructLit(slit *ast.StructLit) (string, error) {
 	return b.String(), nil
 }
 
-func (em *emitter) emitIdentLoad(name string, t *check.Type) string {
+func (em *emitter) emitIdentLoad(name string, _ *check.Type) string {
 	name = em.maybeThisAlias(name)
 	if em.isLocal(name) {
 		return cid(name)
