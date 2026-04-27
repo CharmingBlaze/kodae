@@ -51,11 +51,15 @@ func runBundle(args []string) error {
 	}
 
 	// 2. Obtain Zig (copy from PATH if current platform matches)
+	zigExe := "zig"
+	if targetOS == "windows" {
+		zigExe = "zig.exe"
+	}
 	if targetOS == runtime.GOOS && targetArch == runtime.GOARCH {
 		fmt.Println("searching for zig on PATH to bundle...")
 		if p, err := exec.LookPath("zig"); err == nil {
 			fmt.Printf("found zig at %s, copying...\n", p)
-			zigDst := filepath.Join(bundleDir, "toolchain", "zig", filepath.Base(p))
+			zigDst := filepath.Join(bundleDir, "toolchain", "zig", zigExe)
 			if err := copyFile(p, zigDst); err != nil {
 				fmt.Printf("warning: failed to copy zig: %v\n", err)
 			} else {
@@ -65,11 +69,40 @@ func runBundle(args []string) error {
 			fmt.Println("zig not found on PATH, skipping bundle inclusion")
 		}
 	} else {
-		fmt.Println("cross-compiling: skipping automatic zig bundling (download manually)")
+		fmt.Println("cross-compiling: skipping automatic zig bundling (download manually and place in toolchain/zig/)")
+	}
+
+	// 3. Copy include and examples
+	fmt.Println("bundling include/ and examples/...")
+	if err := copyDir("include", filepath.Join(bundleDir, "include")); err != nil {
+		fmt.Printf("warning: failed to bundle include/: %v\n", err)
+	}
+	if err := copyDir("examples", filepath.Join(bundleDir, "examples")); err != nil {
+		fmt.Printf("warning: failed to bundle examples/: %v\n", err)
+	}
+	if err := copyFile("README.md", filepath.Join(bundleDir, "README.md")); err != nil {
+		fmt.Printf("warning: failed to bundle README.md: %v\n", err)
 	}
 	
 	fmt.Printf("\nbundle created at: %s\n", bundleDir)
 	return nil
+}
+
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
+		return copyFile(path, target)
+	})
 }
 
 func copyFile(src, dst string) error {
