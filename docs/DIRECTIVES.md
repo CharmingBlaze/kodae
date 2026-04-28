@@ -1,70 +1,61 @@
-# Directives
+# Kodae Directives
 
-All of these are **file-level** lines starting with `#` followed by a name and a string (or, for `link`, a linker argument string). Line comments use `'` or `--`.
+Directives are special commands that you place at the top of your Kodae files to tell the compiler how to handle your code. They always start with the `#` symbol.
 
-**Runnable sample:** a two-file program using `#include` and `pub` is in the repo at `examples/include/` (run `kodae run examples/include/main.kodae` from the project root). The older `use name` form is in `examples/multi/`.
+## 1. `#include`
+**Usage:** `#include "filename"`
 
-| Directive | Meaning |
-|-----------|---------|
-| `#library "name"` | Declares that this translation unit is a **named library** (used with `kodae build --lib` and metadata like generated headers). |
-| `#version "1.0.0"` | Optional: version string (stored in compiler metadata for `--lib` builds). |
-| `#author "name"` | Optional: author string (metadata). |
-| `#include "path"` | **Merge** another Kodae file into the program. Resolution order is below. Each file is **included at most once** (repeated includes are ignored). |
-| `#link "…"` | Pass **linker** flags: bare names (e.g. `"raylib"`) become `-lraylib`, paths and `-L` pass through. See [C_LIBRARIES.md](C_LIBRARIES.md). |
+This is the most important directive. It allows you to split your project across multiple files. When you `#include` another file, all of its functions, structs, and variables become available to use in your current file automatically.
 
-A minimal shareable library source file often starts like:
+When you use `#include`, Kodae looks for the file in this order:
+1. The **same directory** as your current file.
+2. A **`libs/`** folder inside your current directory.
+3. Your **global user library folder** (where `kodae install` puts files).
 
-```kodae
-#library "mathlib"
-#version "1.0.0"
-#author "Ada"
-
-pub fn square(x: int) int {
-  return x * x
-}
-```
-
-`#mode "library"` is an alternative way to set library code generation; `#library` also supplies the public name for artifacts and headers.
-
-## Where `#include` looks (in order)
-
-1. The **same directory** as the file that contains the `#include`.
-2. **`./libs/`** under that directory (e.g. `…/src/libs/foo.kodae` for `#include "foo"`).
-3. The **user library directory**: `$KODAE_HOME/libs` if `KODAE_HOME` is set, otherwise `~/.kodae/libs/` (or the platform’s user-home equivalent). Use `kodae install` to copy a `.kodae` file there so any project can `#include "name"` by stem.
-
-If none of the candidates exist, you get a **file not found** error. If you meant a **C** API only (no `.kodae` wrapper), use `extern` + `# link` and a small Kodae file as needed.
-
-## Public vs private (multi-file)
-
-Symbols from another file are only visible in your file if they are **exported** with `pub` (`pub fn`, `pub struct`, `pub enum`). The same name in the same file is always in scope. Private `fn` / `struct` / `enum` are limited to the **defining** `.kodae` file. `#library` is optional for ordinary project files; it matters mainly when building a shareable C library with `kodae build --lib`.
-
-## Installing a source library for other projects
-
-After you build a distributable (or you only ship `.kodae` sources), consumers can add the file to the user lib dir:
-
-```sh
-kodae install mathlib.kodae
-# or, from a directory that contains mathlib.kodae:
-kodae install mathlib
-```
-
-Then in their project:
-
+**Example:**
 ```kodae
 #include "mathlib"
 
 fn main() {
-  let n = square(5)
-  print("$n")
+    let result = square(5)
+    print(result)
 }
 ```
 
-For producing static/shared C artifacts and headers, see [LIBRARIES.md](LIBRARIES.md) (`kodae build --lib`).
+## 2. `#link`
+**Usage:** `#link "library_name"`
 
-## Related
+If you are using external C libraries (like Raylib for games or cURL for networking), you use `#link` to tell the compiler to link them during the build process.
 
-- [LANGUAGE.md](LANGUAGE.md) — language overview.  
-- [C_LIBRARIES.md](C_LIBRARIES.md) — `# link`, `# linkpath`, `extern fn`.  
-- [LIBRARIES.md](LIBRARIES.md) — `--lib` output and C interop.  
+For example, `#link "raylib"` tells the underlying C compiler to add `-lraylib` when it compiles your code.
 
-The legacy **`use name`** form still loads `name.kodae` from the **same directory** only; prefer `#include` for resolution across `./libs` and the user lib directory.
+**Example:**
+```kodae
+#link "raylib"
+#link "opengl32"
+#link "gdi32"
+#link "winmm"
+
+extern fn InitWindow(width: int, height: int, title: str)
+```
+
+## 3. `#library`
+**Usage:** `#library "name"`
+
+If you are building a library that you want to share with other people (especially if you are compiling it to a C library with `kodae build --lib`), you use this directive to give your library a formal name. This name will be used to generate the output files (like `name.h` and `name.a`).
+
+## 4. `#version` and `#author`
+**Usage:** `#version "1.0"` / `#author "Name"`
+
+These optional directives allow you to attach metadata to your file. This is useful when you are writing reusable libraries.
+
+**Example of a Library File:**
+```kodae
+#library "MyMath"
+#version "1.0.0"
+#author "Ada"
+
+fn add(a: int, b: int) -> int {
+    return a + b
+}
+```

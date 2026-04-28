@@ -93,19 +93,7 @@ func (c *Checker) callableNameCandidates() []string {
 	return out
 }
 
-// canSeeRemote: def in defFile is visible from c.curFile if same file, or if pub, or if defFile empty (legacy).
-func (c *Checker) canSeeRemote(pub bool, defFile string) bool {
-	if defFile == "" {
-		return true
-	}
-	if c.curFile == "" {
-		return true
-	}
-	if c.curFile == defFile {
-		return true
-	}
-	return pub
-}
+
 
 func (c *Checker) isBuiltin(name string) bool {
 	switch name {
@@ -174,9 +162,6 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 	}
 	en, hasEnum := c.enums[tx.Name]
 	if hasEnum {
-		if !c.canSeeRemote(en.Pub, en.File) {
-			return nil, fmt.Errorf("enum %q is not visible in this file (use pub enum in the defining file)", en.Name)
-		}
 		t := c.enumTypeFor(en)
 		if tx.Optional {
 			return optionalOf(t), nil
@@ -184,9 +169,6 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		return t, nil
 	}
 	if sdef, ok := c.structs[tx.Name]; ok {
-		if !c.canSeeRemote(sdef.Pub, sdef.SrcFile) {
-			return nil, fmt.Errorf("struct %q is not visible in this file (use pub struct in the defining file)", sdef.Name)
-		}
 		t := StructType(sdef)
 		if t == nil {
 			return nil, fmt.Errorf("struct %q", tx.Name)

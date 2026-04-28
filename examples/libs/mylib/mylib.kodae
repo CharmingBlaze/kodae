@@ -1,11 +1,11 @@
 ' AUTO-GENERATED bindings for mylib
 # link "mylib"
 
-pub enum ConfigFlag { FLAG_A, FLAG_B }
+enum ConfigFlag { FLAG_A, FLAG_B }
 
-pub struct Config {
+struct Config {
   flag: ConfigFlag
 }
 
-extern fn ApplyConfig(c: Config) void
+extern fn ApplyConfig(c: Config) -> void
 

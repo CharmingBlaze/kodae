@@ -1,69 +1,64 @@
-# Kodae C Libraries
+# Building Shared Libraries in Kodae
 
-This guide covers exporting Kodae code as a C library.
+Kodae allows you to build shared libraries (`.a`, `.h`, `.c`) that you can give to C or C++ developers to use in their projects!
 
-## 1) Mark exports with `pub`
+## 1. Creating a Library
 
+To create a library, you use `#mode "library"` and `#library "name"`. Every function and struct you write will automatically be exported to the C header file, as long as it uses C-compatible types!
+
+**mymath.kodae**
 ```kodae
 #mode "library"
 #library "mymath"
 #version "1.0.0"
 #author "Ada"
 
-pub fn add(a: int, b: int) int {
-  return a + b
+struct Vec2 {
+    x: float
+    y: float
 }
 
-pub struct Vec2 {
-  x: float
-  y: float
+fn add_vectors(a: Vec2, b: Vec2) -> Vec2 {
+    return Vec2 {
+        x: a.x + b.x,
+        y: a.y + b.y
+    }
 }
 ```
 
-Only `pub` symbols are exported in the generated header.
+## 2. Building the Library
 
-## 2) Build as a library
+Run the following command in your terminal:
+`kodae build --lib mymath.kodae`
 
-```bash
-kodae build --lib mymath.kodae
-```
+Kodae will generate 3 files for you:
+1. `mymath.a`: The static C library file.
+2. `mymath.h`: The C header file containing the definitions.
+3. `mymath.c`: The C source code.
 
-Produces:
+## 3. Using it in C
 
-- `mymath.c`
-- `mymath.h`
-- `mymath.a`
-- shared library (`mymath.so` / `mymath.dll` / `mymath.dylib`)
+You can now use `mymath.h` and `mymath.a` in a standard C program.
 
-## 3) ABI mapping
-
-Public Kodae -> C mapping:
-
-- `int` -> `int64_t`
-- `float` -> `double`
-- `bool` -> `bool`
-- `str` -> `const char*`
-- `struct` -> generated C struct
-
-Not exportable in `pub` API:
-
-- `list[T]`
-- `ptr[...]`
-- optional/`none` types
-
-## 4) String boundary
-
-Exported `str` parameters/returns become `const char*` in generated headers.
-Wrapper code converts between ABI strings and internal Kodae string values.
-
-## 5) C consumer example
-
+**main.c**
 ```c
 #include "mymath.h"
 #include <stdio.h>
 
-int main(void) {
-  printf("%lld\n", (long long)add(2, 3));
-  return 0;
+int main() {
+    S_Vec2 a = { 1.5, 2.0 };
+    S_Vec2 b = { 0.5, 3.0 };
+    S_Vec2 c = add_vectors(a, b);
+    
+    printf("Result: %f, %f\n", c.x, c.y);
+    return 0;
 }
 ```
+
+Compile it with GCC:
+`gcc main.c mymath.a -o main.exe`
+
+## Unsupported Types
+
+Note: Kodae automatically skips functions that use complex Kodae-specific types that C cannot easily understand. 
+If your function uses `list`, `ptr`, `none`, or `Any`, it will simply not appear in the generated `.h` file!

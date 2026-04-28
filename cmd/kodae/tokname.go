@@ -46,8 +46,7 @@ func tokenKindName(t token.Type) string {
 		return "module"
 	case token.USE:
 		return "use"
-	case token.PUB:
-		return "pub"
+
 	case token.EXTERN:
 		return "extern"
 	case token.TRUE:
@@ -138,6 +137,8 @@ func tokenKindName(t token.Type) string {
 		return "%="
 	case token.FATARROW:
 		return "=>"
+	case token.ARROW:
+		return "->"
 	case token.PLUSPLUS:
 		return "++"
 	case token.MINUSMINUS:

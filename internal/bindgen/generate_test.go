@@ -52,7 +52,7 @@ void TestFunc(struct TestStruct s, enum TestEnum e);
 		t.Errorf("output missing expected struct: %s", expectedStruct)
 	}
 
-	expectedFunc := "extern fn TestFunc(s: TestStruct, e: TestEnum) void"
+	expectedFunc := "extern fn TestFunc(s: TestStruct, e: TestEnum) -> void"
 	if !contains(res.Content, expectedFunc) {
 		t.Errorf("output missing expected function: %s", expectedFunc)
 	}

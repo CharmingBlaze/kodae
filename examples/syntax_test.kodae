@@ -3,7 +3,7 @@ const Keys {
     Down = 264
 }
 
-fn greet(name: str, greeting: str = "Hello", punctuation: str = "!") str {
+fn greet(name: str, greeting: str = "Hello", punctuation: str = "!") -> str {
     return greeting + " " + name + punctuation
 }
 

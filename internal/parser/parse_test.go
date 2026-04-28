@@ -102,7 +102,7 @@ func TestParse_LinkAndLinkpath(t *testing.T) {
 	t.Parallel()
 	const src = `# link "raylib"
 # linkpath "./raylib"
-extern fn X() void
+extern fn X() -> void
 fn main() { }`
 	p := New(lex.New(src))
 	pr := p.ParseProgram()
@@ -117,8 +117,8 @@ fn main() { }`
 func TestParse_PubStructAndMetaDirectives(t *testing.T) {
 	const src = `#mode "library"
 #library "mylib"
-pub struct Vec2 { x: float, y: float }
-pub fn add(a: int, b: int) int { return a + b }`
+struct Vec2 { x: float, y: float }
+fn add(a: int, b: int) -> int { return a + b }`
 	p := New(lex.New(src))
 	pr := p.ParseProgram()
 	if p.Err() != nil {

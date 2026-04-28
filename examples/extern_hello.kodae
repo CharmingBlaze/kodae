@@ -1,6 +1,6 @@
 module main
 
-extern fn printf(fmt: ptr[byte], ...) int
+extern fn printf(fmt: ptr[byte], ...) -> int
 
 fn main() {
   printf("Hello from extern\n")

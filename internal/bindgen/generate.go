@@ -44,7 +44,7 @@ func GenerateBindings(headerPath string, libName string) (GenerateResult, error)
 				enums = append(enums, enumBody)
 			}
 		} else if node.Kind == "FunctionDecl" && node.Name != "" {
-			decl, ok := parseFunction(node, seenStructs)
+			decl, ok := parseFunction(node)
 			if ok {
 				externs = append(externs, decl)
 			} else {
@@ -107,7 +107,7 @@ func parseStructFields(node ClangASTNode) (string, bool) {
 	return strings.Join(fields, "\n"), true
 }
 
-func parseFunction(node ClangASTNode, seenStructs map[string]bool) (string, bool) {
+func parseFunction(node ClangASTNode) (string, bool) {
 	// Function type is in QualType, e.g., "void (int, int, float, struct Color)"
 	// But it's easier to look at ParmVarDecl children
 	retType, ok := mapCTypeToKodae(strings.Split(node.Type.QualType, " (")[0])
@@ -126,7 +126,7 @@ func parseFunction(node ClangASTNode, seenStructs map[string]bool) (string, bool
 		}
 	}
 
-	return fmt.Sprintf("extern fn %s(%s) %s", node.Name, strings.Join(params, ", "), retType), true
+	return fmt.Sprintf("extern fn %s(%s) -> %s", node.Name, strings.Join(params, ", "), retType), true
 }
 
 func mapCTypeToKodae(cType string) (string, bool) {

@@ -1,91 +1,64 @@
-# Kodae Command-Line Interface (CLI)
+# Kodae Command Line Interface (CLI)
 
-This guide explains **every** command available when using `kodae`. It covers what each command is used for, how to use it, and when you should use it.
+The Kodae CLI is your main tool for building and running your Kodae programs.
 
-## Basic Usage
+## Overview of Commands
 
-When you open your terminal, you interact with the Kodae compiler by typing `kodae` followed by a command:
+You can interact with Kodae through several main commands:
 
-```sh
-kodae <command> [file.kodae]
-```
-
-*(Note: On Windows, depending on your setup, you might need to type `.\bin\kodae.exe` instead of just `kodae`)*
-
----
-
-## 1. Running & Building Code
-
-These are the commands you will use 99% of the time to build and test your apps and games.
-
-### `kodae run`
-- **What it is used for:** Instantly compiling and executing your code in one step.
-- **How to use it:** `kodae run my_game.kodae`
-- **When to use it:** When you are actively developing and want to see your code work immediately without leaving a compiled `.exe` file cluttering your directory.
-
-### `kodae build`
-- **What it is used for:** Compiling your code into a permanent, standalone executable file (`.exe` on Windows, or a binary on Linux/macOS) that you can share with others.
-- **How to use it:** `kodae build my_game.kodae`
-  - *(Optional)* Set a custom name with `-o`: `kodae build -o game_v1.exe my_game.kodae`
-- **When to use it:** When your program is finished and you want to distribute it to users, or when you need a permanent executable file.
-
-### `kodae check`
-- **What it is used for:** Scanning your code for syntax and type errors without actually compiling or running it.
-- **How to use it:** `kodae check my_game.kodae`
-- **When to use it:** When you are writing a lot of code and want a blazing-fast way to check if you made any typos before you actually try to run it.
+- `kodae run <file>`: Compile and run a Kodae program immediately.
+- `kodae build <file>`: Compile a Kodae program into a standalone executable.
+- `kodae test <file_or_dir>`: Run tests in your Kodae files.
+- `kodae install <file>`: Install a Kodae library globally on your computer so you can include it anywhere.
+- `kodae c <file>`: Generate C code from your Kodae program (advanced).
 
 ---
 
-## 2. Code Organization
+## Command Details
 
-These commands help you organize your projects and share code across multiple files.
+### 1. `run`
+**Usage:** `kodae run <filename.kodae>`
 
-### `kodae install`
-- **What it is used for:** Copying a `.kodae` file into your global user library directory, so you can `#include` it from anywhere on your computer without copying the file manually.
-- **How to use it:** `kodae install path/to/my_math.kodae`
-- **When to use it:** When you've written a useful utility file (like a math library or a game engine wrapper) and want to use it across multiple different projects.
+This is the command you'll use most often during development. It takes your Kodae source file, compiles it in the background, and immediately runs it. It's the fastest way to test your code.
 
----
+**Example:**
+`kodae run main.kodae`
 
-## 3. Advanced Tools (Under the Hood)
+### 2. `build`
+**Usage:** `kodae build [options] <filename.kodae>`
 
-These commands are mostly for debugging, learning how compilers work, or interacting with C libraries. Beginners rarely need these!
+When you are ready to share your application or game, use the `build` command. It compiles your code into a permanent executable file (like a `.exe` on Windows).
 
-### `kodae cgen` (or `kodae c`)
-- **What it is used for:** Kodae translates your code into C code before turning it into an executable. This command prints out the generated C code to the screen.
-- **How to use it:** `kodae cgen my_game.kodae`
-- **When to use it:** When you are curious about how Kodae works under the hood, or you want to see exactly what C code your script produced.
+**Options:**
+- `-o <output_name>`: Specify the name of the final executable file. (Example: `kodae build -o game.exe main.kodae`)
+- `--cc <compiler>`: Specify a custom C compiler (like `clang` or `gcc`) instead of the default.
+- `--lib`: Build a C-compatible shared library (`.a` / `.h` / `.c`) instead of an executable. This is useful if you are writing a library in Kodae that you want C/C++ developers to use.
 
-### `kodae buildc`
-- **What it is used for:** Writing the generated C code to a file without building an executable.
-- **How to use it:** `kodae buildc my_game.kodae -o generated.c`
-- **When to use it:** When you want to take the generated C code and compile it yourself using a custom C compiler or build system (like CMake).
+**Example:**
+`kodae build -o my_app main.kodae`
 
-### `kodae bind`
-- **What it is used for:** Automatically generating Kodae wrappers from existing C header files (`.h`). *(Requires LLVM/Clang to be installed on your system).*
-- **How to use it:** `kodae bind raylib /path/to/raylib.h`
-- **When to use it:** When you want to use a massive C library (like Raylib, SDL, or SQLite) in Kodae, and you don't want to type out hundreds of `extern fn` definitions by hand.
+### 3. `install`
+**Usage:** `kodae install <filename.kodae>`
 
-### `kodae parse` (or `kodae ast`)
-- **What it is used for:** Printing the "Abstract Syntax Tree" (AST) of your program.
-- **How to use it:** `kodae parse my_game.kodae`
-- **When to use it:** Only used if you are trying to find a bug in the Kodae compiler itself.
+If you write a helpful library of functions (like math tools or game logic) and want to use it in all of your projects, you can "install" it. This copies the `.kodae` file to a global library folder on your computer.
 
-### `kodae lex`
-- **What it is used for:** Printing the raw text tokens the compiler sees before it even tries to understand the code.
-- **How to use it:** `kodae lex my_game.kodae`
-- **When to use it:** Only used if you are trying to find a bug in the Kodae compiler itself.
+Once installed, you can use `#include "filename"` in any project to access that library!
 
-### `kodae bundle`
-- **What it is used for:** Packaging the entire Kodae compiler and tools into a clean `dist/` folder. *(Requires Go to be installed).*
-- **How to use it:** `kodae bundle`
-- **When to use it:** If you are a contributor to the Kodae compiler and want to generate a `.zip` release to give to other people.
+**Example:**
+`kodae install mathlib.kodae`
 
----
+### 4. `test`
+**Usage:** `kodae test [filename_or_directory]`
 
-## 4. Other Utilities
+This command searches for any function in your code that starts with the word `test` (like `fn test_math()`) and runs it automatically. It will report whether the tests passed or failed.
 
-### `kodae version`
-- **What it is used for:** Checking which version of the Kodae compiler you have installed.
-- **How to use it:** `kodae version`
-- **When to use it:** When you are filing a bug report, or you want to make sure you have the latest updates!
+**Example:**
+`kodae test .` (Runs all tests in the current folder)
+
+### 5. `c`
+**Usage:** `kodae c <filename.kodae>`
+
+This command transpiles your Kodae code into readable C code and stops without compiling it into an executable. This is very useful if you want to see exactly how Kodae translates your code, or if you want to manually compile the C code yourself.
+
+**Example:**
+`kodae c main.kodae`

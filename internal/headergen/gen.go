@@ -50,7 +50,7 @@ func Generate(p *ast.Program, inf *check.Info, opt Options) (string, error) {
 
 	for _, d := range p.Decls {
 		sd, ok := d.(*ast.StructDecl)
-		if !ok || !sd.Pub {
+		if !ok {
 			continue
 		}
 		st := inf.Struct[sd.Name]
@@ -66,7 +66,7 @@ func Generate(p *ast.Program, inf *check.Info, opt Options) (string, error) {
 
 	for _, d := range p.Decls {
 		fd, ok := d.(*ast.FnDecl)
-		if !ok || !fd.Pub {
+		if !ok {
 			continue
 		}
 		var rt *check.Type
@@ -76,18 +76,29 @@ func Generate(p *ast.Program, inf *check.Info, opt Options) (string, error) {
 		} else {
 			rt, err = resolveTypeFromInfo(fd.Return, inf)
 			if err != nil {
-				return "", err
+				continue
 			}
+		}
+		if !isCCompatible(rt) {
+			continue
+		}
+		skipFn := false
+		for _, p := range fd.Params {
+			pt, err := resolveTypeFromInfo(p.T, inf)
+			if err != nil || !isCCompatible(pt) {
+				skipFn = true
+				break
+			}
+		}
+		if skipFn {
+			continue
 		}
 		fmt.Fprintf(&b, "%s %s(", cType(rt), fd.Name)
 		for i, p := range fd.Params {
 			if i > 0 {
 				b.WriteString(", ")
 			}
-			pt, err := resolveTypeFromInfo(p.T, inf)
-			if err != nil {
-				return "", err
-			}
+			pt, _ := resolveTypeFromInfo(p.T, inf)
 			fmt.Fprintf(&b, "%s %s", cType(pt), p.Name)
 		}
 		b.WriteString(");\n")
@@ -137,4 +148,16 @@ func resolveTypeFromInfo(tx *ast.TypeExpr, inf *check.Info) (*check.Type, error)
 		return &check.Type{Kind: check.KEnum, EnumName: en.Name, EnumRef: en}, nil
 	}
 	return nil, fmt.Errorf("unknown headergen type %q", tx.Name)
+}
+
+func isCCompatible(t *check.Type) bool {
+	if t == nil {
+		return true
+	}
+	switch t.Kind {
+	case check.KInt, check.KFloat, check.KBool, check.KStr, check.KVoid, check.KEnum, check.KStruct:
+		return true
+	default:
+		return false
+	}
 }

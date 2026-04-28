@@ -153,7 +153,7 @@ func Check(pr *ast.Program) (*Info, error) {
 			if c.err != nil {
 				break
 			}
-			e := &Enum{Name: t.Name, Index: idx, Pub: t.Pub, File: t.File}
+			e := &Enum{Name: t.Name, Index: idx, File: t.File}
 			c.enums[t.Name] = e
 			c.inf.Enums[t.Name] = e
 		}
@@ -211,7 +211,7 @@ func Check(pr *ast.Program) (*Info, error) {
 			break
 		}
 		c.curFile = ""
-		sd := &Struct{Name: sdecl.Name, Order: order, Fields: m, Pub: sdecl.Pub, SrcFile: sdecl.File}
+		sd := &Struct{Name: sdecl.Name, Order: order, Fields: m, SrcFile: sdecl.File}
 		c.structs[sdecl.Name] = sd
 		c.inf.Struct[sdecl.Name] = sd
 	}
@@ -343,111 +343,7 @@ func Check(pr *ast.Program) (*Info, error) {
 		return c.inf, c.err
 	}
 	c.curFile = ""
-	for _, d := range pr.Decls {
-		switch t := d.(type) {
-		case *ast.StructDecl:
-			if !t.Pub {
-				continue
-			}
-			c.curFile = t.File
-			func() {
-				c.sizedTypeCtx++
-				defer func() { c.sizedTypeCtx-- }()
-				for _, f := range t.Fields {
-					ft, err := c.resolveType(f.T)
-					if err != nil {
-						c.setErr(err)
-						break
-					}
-					if err := c.validatePubStructFieldType(ft); err != nil {
-						c.setErr(fmt.Errorf("pub struct %s field %s: %v", t.Name, f.Name, err))
-						break
-					}
-				}
-			}()
-			c.curFile = ""
-		case *ast.FnDecl:
-			if !t.Pub {
-				continue
-			}
-			c.curFile = t.File
-			for _, p := range t.Params {
-				pt, err := c.resolveType(p.T)
-				if err != nil {
-					c.setErr(err)
-					break
-				}
-				if err := c.validateExportType(pt); err != nil {
-					c.setErr(fmt.Errorf("pub fn %s param %s: %v", t.Name, p.Name, err))
-					break
-				}
-			}
-			if t.Return != nil {
-				rt, err := c.resolveType(t.Return)
-				if err != nil {
-					c.setErr(err)
-				} else if err := c.validateExportType(rt); err != nil {
-					c.setErr(fmt.Errorf("pub fn %s return: %v", t.Name, err))
-				}
-			}
-			c.curFile = ""
-		}
-	}
-	if c.err != nil {
-		return c.inf, c.err
-	}
 	return c.inf, nil
-}
-
-// validatePubStructFieldType allows C layout types (f32, i32, …) for pub structs used in bindings.
-func (c *Checker) validatePubStructFieldType(t *Type) error {
-	if t == nil {
-		return nil
-	}
-	switch t.Kind {
-	case KInt, KFloat, KBool, KStr, KVoid, KF32, KI32, KU32, KU8:
-		return nil
-	case KStruct:
-		return nil
-	case KList:
-		return fmt.Errorf("list[T] is not exportable in pub API")
-	case KPtr:
-		return fmt.Errorf("ptr[...] is not exportable in pub API")
-	case KOptional:
-		return fmt.Errorf("optional/none type is not exportable in pub API")
-	case KResult:
-		return nil
-	case KAny:
-		return nil
-	default:
-		return fmt.Errorf("type %s is not exportable", t)
-	}
-}
-
-func (c *Checker) validateExportType(t *Type) error {
-	if t == nil {
-		return nil
-	}
-	switch t.Kind {
-	case KInt, KFloat, KBool, KStr, KVoid:
-		return nil
-	case KF32, KI32, KU32, KU8:
-		return fmt.Errorf("C-sized type %s is not for pub export; use int/float only", t)
-	case KStruct:
-		return nil
-	case KList:
-		return fmt.Errorf("list[T] is not exportable in pub API")
-	case KPtr:
-		return fmt.Errorf("ptr[...] is not exportable in pub API")
-	case KOptional:
-		return fmt.Errorf("optional/none type is not exportable in pub API")
-	case KResult:
-		return nil
-	case KAny:
-		return nil
-	default:
-		return fmt.Errorf("type %s is not exportable", t)
-	}
 }
 
 func (c *Checker) setErr(e error) {

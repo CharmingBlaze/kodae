@@ -26,7 +26,6 @@ const (
 	STRUCT
 	MODULE
 	USE
-	PUB
 	EXTERN
 	TRUE
 	FALSE
@@ -73,6 +72,7 @@ const (
 	DIVEQ
 	MODEQ
 	FATARROW
+	ARROW
 	PLUSPLUS
 	MINUSMINUS
 	ELLIPSIS
@@ -117,6 +117,8 @@ func (t Type) String() string {
 		return "%="
 	case FATARROW:
 		return "=>"
+	case ARROW:
+		return "->"
 	default:
 		return "TOKEN"
 	}

@@ -742,7 +742,7 @@ func pubMarshalRet(rt *check.Type, expr string) string {
 func (em *emitter) emitExportWrappers(out *bytes.Buffer, p *ast.Program, inf *check.Info) error {
 	for _, d := range p.Decls {
 		f, ok := d.(*ast.FnDecl)
-		if !ok || !f.Pub {
+		if !ok {
 			continue
 		}
 		fd := inf.Fns[f.Name]
@@ -756,18 +756,29 @@ func (em *emitter) emitExportWrappers(out *bytes.Buffer, p *ast.Program, inf *ch
 		} else {
 			retT, err = em.resolveTypeExpr(fd.Return)
 			if err != nil {
-				return err
+				continue
 			}
+		}
+		if !isCCompatible(retT) {
+			continue
+		}
+		skipFn := false
+		for _, p := range fd.Params {
+			pt, err := em.resolveTypeExpr(p.T)
+			if err != nil || !isCCompatible(pt) {
+				skipFn = true
+				break
+			}
+		}
+		if skipFn {
+			continue
 		}
 		fmt.Fprintf(out, "%s %s(", cPubType(retT), cid(f.Name))
 		for i, p := range fd.Params {
 			if i > 0 {
 				out.WriteString(", ")
 			}
-			pt, err := em.resolveTypeExpr(p.T)
-			if err != nil {
-				return err
-			}
+			pt, _ := em.resolveTypeExpr(p.T)
 			fmt.Fprintf(out, "%s %s", cPubType(pt), cid(p.Name))
 		}
 		out.WriteString(") {\n")
@@ -792,6 +803,18 @@ func (em *emitter) emitExportWrappers(out *bytes.Buffer, p *ast.Program, inf *ch
 		out.WriteString("}\n\n")
 	}
 	return nil
+}
+
+func isCCompatible(t *check.Type) bool {
+	if t == nil {
+		return true
+	}
+	switch t.Kind {
+	case check.KInt, check.KFloat, check.KBool, check.KStr, check.KVoid, check.KEnum, check.KStruct:
+		return true
+	default:
+		return false
+	}
 }
 
 func (em *emitter) letDeclType(ld *ast.LetDecl) (*check.Type, error) {

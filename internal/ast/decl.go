@@ -3,7 +3,6 @@ package ast
 // --- Decl implementations ---
 
 type EnumDecl struct {
-	Pub      bool
 	Name     string
 	Variants []string
 	// File is the absolute .kodae path; used for pub / cross-file rules.
@@ -15,7 +14,6 @@ func (d *EnumDecl) decl() {}
 // File is the absolute path to the .kodae source; used for cross-file visibility. Empty in tests / legacy.
 type FnDecl struct {
 	Name   string
-	Pub    bool
 	File   string
 	Params []Param
 	Return *TypeExpr
@@ -48,7 +46,6 @@ type StructField struct {
 
 // StructDecl is at file scope: struct Name { a: int, b: int }.
 type StructDecl struct {
-	Pub    bool
 	Name   string
 	Fields []StructField
 	// File is the absolute .kodae path; used for pub / cross-file rules.

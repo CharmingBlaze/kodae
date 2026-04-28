@@ -4,39 +4,39 @@
 # link "raylib"
 # linkpath "./raylib"
 
-pub struct Vector2 {
+struct Vector2 {
   x: f32
   y: f32
 }
 
-pub struct Vector3 {
+struct Vector3 {
   x: f32
   y: f32
   z: f32
 }
 
-pub struct Vector4 {
+struct Vector4 {
   x: f32
   y: f32
   z: f32
   w: f32
 }
 
-pub struct Color {
+struct Color {
   r: u8
   g: u8
   b: u8
   a: u8
 }
 
-pub struct Rectangle {
+struct Rectangle {
   x: f32
   y: f32
   width: f32
   height: f32
 }
 
-pub struct Texture {
+struct Texture {
   id: u32
   width: i32
   height: i32
@@ -44,13 +44,13 @@ pub struct Texture {
   format: i32
 }
 
-pub struct RenderTexture {
+struct RenderTexture {
   id: u32
   texture: Texture
   depth: Texture
 }
 
-pub struct NPatchInfo {
+struct NPatchInfo {
   source: Rectangle
   left: i32
   top: i32
@@ -59,7 +59,7 @@ pub struct NPatchInfo {
   layout: i32
 }
 
-pub struct Camera3D {
+struct Camera3D {
   position: Vector3
   target: Vector3
   up: Vector3
@@ -67,38 +67,38 @@ pub struct Camera3D {
   projection: i32
 }
 
-pub struct Camera2D {
+struct Camera2D {
   offset: Vector2
   target: Vector2
   rotation: f32
   zoom: f32
 }
 
-pub struct Ray {
+struct Ray {
   position: Vector3
   direction: Vector3
 }
 
-pub struct RayCollision {
+struct RayCollision {
   hit: bool
   distance: f32
   point: Vector3
   normal: Vector3
 }
 
-pub struct BoundingBox {
+struct BoundingBox {
   min: Vector3
   max: Vector3
 }
 
-pub struct Quaternion {
+struct Quaternion {
   x: f32
   y: f32
   z: f32
   w: f32
 }
 
-pub struct Texture2D {
+struct Texture2D {
   id: u32
   width: i32
   height: i32
@@ -106,7 +106,7 @@ pub struct Texture2D {
   format: i32
 }
 
-pub struct TextureCubemap {
+struct TextureCubemap {
   id: u32
   width: i32
   height: i32
@@ -114,13 +114,13 @@ pub struct TextureCubemap {
   format: i32
 }
 
-pub struct RenderTexture2D {
+struct RenderTexture2D {
   id: u32
   texture: Texture
   depth: Texture
 }
 
-pub struct Camera {
+struct Camera {
   position: Vector3
   target: Vector3
   up: Vector3
@@ -128,656 +128,656 @@ pub struct Camera {
   projection: i32
 }
 
-extern fn InitWindow(width: i32, height: i32, title: ptr[byte]) void
+extern fn InitWindow(width: i32, height: i32, title: ptr[byte]) -> void
 
-extern fn CloseWindow() void
+extern fn CloseWindow() -> void
 
-extern fn WindowShouldClose() bool
+extern fn WindowShouldClose() -> bool
 
-extern fn IsWindowReady() bool
+extern fn IsWindowReady() -> bool
 
-extern fn IsWindowFullscreen() bool
+extern fn IsWindowFullscreen() -> bool
 
-extern fn IsWindowHidden() bool
+extern fn IsWindowHidden() -> bool
 
-extern fn IsWindowMinimized() bool
+extern fn IsWindowMinimized() -> bool
 
-extern fn IsWindowMaximized() bool
+extern fn IsWindowMaximized() -> bool
 
-extern fn IsWindowFocused() bool
+extern fn IsWindowFocused() -> bool
 
-extern fn IsWindowResized() bool
+extern fn IsWindowResized() -> bool
 
-extern fn IsWindowState(flag: u32) bool
+extern fn IsWindowState(flag: u32) -> bool
 
-extern fn SetWindowState(flags: u32) void
+extern fn SetWindowState(flags: u32) -> void
 
-extern fn ClearWindowState(flags: u32) void
+extern fn ClearWindowState(flags: u32) -> void
 
-extern fn ToggleFullscreen() void
+extern fn ToggleFullscreen() -> void
 
-extern fn ToggleBorderlessWindowed() void
+extern fn ToggleBorderlessWindowed() -> void
 
-extern fn MaximizeWindow() void
+extern fn MaximizeWindow() -> void
 
-extern fn MinimizeWindow() void
+extern fn MinimizeWindow() -> void
 
-extern fn RestoreWindow() void
+extern fn RestoreWindow() -> void
 
-extern fn SetWindowTitle(title: ptr[byte]) void
+extern fn SetWindowTitle(title: ptr[byte]) -> void
 
-extern fn SetWindowPosition(x: i32, y: i32) void
+extern fn SetWindowPosition(x: i32, y: i32) -> void
 
-extern fn SetWindowMonitor(monitor: i32) void
+extern fn SetWindowMonitor(monitor: i32) -> void
 
-extern fn SetWindowMinSize(width: i32, height: i32) void
+extern fn SetWindowMinSize(width: i32, height: i32) -> void
 
-extern fn SetWindowMaxSize(width: i32, height: i32) void
+extern fn SetWindowMaxSize(width: i32, height: i32) -> void
 
-extern fn SetWindowSize(width: i32, height: i32) void
+extern fn SetWindowSize(width: i32, height: i32) -> void
 
-extern fn SetWindowOpacity(opacity: f32) void
+extern fn SetWindowOpacity(opacity: f32) -> void
 
-extern fn SetWindowFocused() void
+extern fn SetWindowFocused() -> void
 
-extern fn GetWindowHandle() ptr[byte]
+extern fn GetWindowHandle() -> ptr[byte]
 
-extern fn GetScreenWidth() i32
+extern fn GetScreenWidth() -> i32
 
-extern fn GetScreenHeight() i32
+extern fn GetScreenHeight() -> i32
 
-extern fn GetRenderWidth() i32
+extern fn GetRenderWidth() -> i32
 
-extern fn GetRenderHeight() i32
+extern fn GetRenderHeight() -> i32
 
-extern fn GetMonitorCount() i32
+extern fn GetMonitorCount() -> i32
 
-extern fn GetCurrentMonitor() i32
+extern fn GetCurrentMonitor() -> i32
 
-extern fn GetMonitorPosition(monitor: i32) Vector2
+extern fn GetMonitorPosition(monitor: i32) -> Vector2
 
-extern fn GetMonitorWidth(monitor: i32) i32
+extern fn GetMonitorWidth(monitor: i32) -> i32
 
-extern fn GetMonitorHeight(monitor: i32) i32
+extern fn GetMonitorHeight(monitor: i32) -> i32
 
-extern fn GetMonitorPhysicalWidth(monitor: i32) i32
+extern fn GetMonitorPhysicalWidth(monitor: i32) -> i32
 
-extern fn GetMonitorPhysicalHeight(monitor: i32) i32
+extern fn GetMonitorPhysicalHeight(monitor: i32) -> i32
 
-extern fn GetMonitorRefreshRate(monitor: i32) i32
+extern fn GetMonitorRefreshRate(monitor: i32) -> i32
 
-extern fn GetWindowPosition() Vector2
+extern fn GetWindowPosition() -> Vector2
 
-extern fn GetWindowScaleDPI() Vector2
+extern fn GetWindowScaleDPI() -> Vector2
 
-extern fn GetMonitorName(monitor: i32) ptr[byte]
+extern fn GetMonitorName(monitor: i32) -> ptr[byte]
 
-extern fn SetClipboardText(text: ptr[byte]) void
+extern fn SetClipboardText(text: ptr[byte]) -> void
 
-extern fn GetClipboardText() ptr[byte]
+extern fn GetClipboardText() -> ptr[byte]
 
-extern fn EnableEventWaiting() void
+extern fn EnableEventWaiting() -> void
 
-extern fn DisableEventWaiting() void
+extern fn DisableEventWaiting() -> void
 
-extern fn ShowCursor() void
+extern fn ShowCursor() -> void
 
-extern fn HideCursor() void
+extern fn HideCursor() -> void
 
-extern fn IsCursorHidden() bool
+extern fn IsCursorHidden() -> bool
 
-extern fn EnableCursor() void
+extern fn EnableCursor() -> void
 
-extern fn DisableCursor() void
+extern fn DisableCursor() -> void
 
-extern fn IsCursorOnScreen() bool
+extern fn IsCursorOnScreen() -> bool
 
-extern fn ClearBackground(color: Color) void
+extern fn ClearBackground(color: Color) -> void
 
-extern fn BeginDrawing() void
+extern fn BeginDrawing() -> void
 
-extern fn EndDrawing() void
+extern fn EndDrawing() -> void
 
-extern fn BeginMode2D(camera: Camera2D) void
+extern fn BeginMode2D(camera: Camera2D) -> void
 
-extern fn EndMode2D() void
+extern fn EndMode2D() -> void
 
-extern fn BeginMode3D(camera: Camera3D) void
+extern fn BeginMode3D(camera: Camera3D) -> void
 
-extern fn EndMode3D() void
+extern fn EndMode3D() -> void
 
-extern fn BeginTextureMode(target: RenderTexture2D) void
+extern fn BeginTextureMode(target: RenderTexture2D) -> void
 
-extern fn EndTextureMode() void
+extern fn EndTextureMode() -> void
 
-extern fn EndShaderMode() void
+extern fn EndShaderMode() -> void
 
-extern fn BeginBlendMode(mode: i32) void
+extern fn BeginBlendMode(mode: i32) -> void
 
-extern fn EndBlendMode() void
+extern fn EndBlendMode() -> void
 
-extern fn BeginScissorMode(x: i32, y: i32, width: i32, height: i32) void
+extern fn BeginScissorMode(x: i32, y: i32, width: i32, height: i32) -> void
 
-extern fn EndScissorMode() void
+extern fn EndScissorMode() -> void
 
-extern fn EndVrStereoMode() void
+extern fn EndVrStereoMode() -> void
 
-extern fn GetScreenToWorldRay(position: Vector2, camera: Camera) Ray
+extern fn GetScreenToWorldRay(position: Vector2, camera: Camera) -> Ray
 
-extern fn GetScreenToWorldRayEx(position: Vector2, camera: Camera, width: i32, height: i32) Ray
+extern fn GetScreenToWorldRayEx(position: Vector2, camera: Camera, width: i32, height: i32) -> Ray
 
-extern fn GetWorldToScreen(position: Vector3, camera: Camera) Vector2
+extern fn GetWorldToScreen(position: Vector3, camera: Camera) -> Vector2
 
-extern fn GetWorldToScreenEx(position: Vector3, camera: Camera, width: i32, height: i32) Vector2
+extern fn GetWorldToScreenEx(position: Vector3, camera: Camera, width: i32, height: i32) -> Vector2
 
-extern fn GetWorldToScreen2D(position: Vector2, camera: Camera2D) Vector2
+extern fn GetWorldToScreen2D(position: Vector2, camera: Camera2D) -> Vector2
 
-extern fn GetScreenToWorld2D(position: Vector2, camera: Camera2D) Vector2
+extern fn GetScreenToWorld2D(position: Vector2, camera: Camera2D) -> Vector2
 
-extern fn SetTargetFPS(fps: i32) void
+extern fn SetTargetFPS(fps: i32) -> void
 
-extern fn GetFrameTime() f32
+extern fn GetFrameTime() -> f32
 
-extern fn GetTime() float
+extern fn GetTime() -> float
 
-extern fn GetFPS() i32
+extern fn GetFPS() -> i32
 
-extern fn SwapScreenBuffer() void
+extern fn SwapScreenBuffer() -> void
 
-extern fn PollInputEvents() void
+extern fn PollInputEvents() -> void
 
-extern fn WaitTime(seconds: float) void
+extern fn WaitTime(seconds: float) -> void
 
-extern fn SetRandomSeed(seed: u32) void
+extern fn SetRandomSeed(seed: u32) -> void
 
-extern fn GetRandomValue(min: i32, max: i32) i32
+extern fn GetRandomValue(min: i32, max: i32) -> i32
 
-extern fn TakeScreenshot(fileName: ptr[byte]) void
+extern fn TakeScreenshot(fileName: ptr[byte]) -> void
 
-extern fn SetConfigFlags(flags: u32) void
+extern fn SetConfigFlags(flags: u32) -> void
 
-extern fn OpenURL(url: ptr[byte]) void
+extern fn OpenURL(url: ptr[byte]) -> void
 
-extern fn SetTraceLogLevel(logLevel: i32) void
+extern fn SetTraceLogLevel(logLevel: i32) -> void
 
-extern fn MemAlloc(size: u32) ptr[byte]
+extern fn MemAlloc(size: u32) -> ptr[byte]
 
-extern fn MemRealloc(ptr: ptr[byte], size: u32) ptr[byte]
+extern fn MemRealloc(ptr: ptr[byte], size: u32) -> ptr[byte]
 
-extern fn MemFree(ptr: ptr[byte]) void
+extern fn MemFree(ptr: ptr[byte]) -> void
 
-extern fn UnloadFileData(data: ptr[byte]) void
+extern fn UnloadFileData(data: ptr[byte]) -> void
 
-extern fn SaveFileData(fileName: ptr[byte], data: ptr[byte], dataSize: i32) bool
+extern fn SaveFileData(fileName: ptr[byte], data: ptr[byte], dataSize: i32) -> bool
 
-extern fn ExportDataAsCode(data: ptr[byte], dataSize: i32, fileName: ptr[byte]) bool
+extern fn ExportDataAsCode(data: ptr[byte], dataSize: i32, fileName: ptr[byte]) -> bool
 
-extern fn LoadFileText(fileName: ptr[byte]) ptr[byte]
+extern fn LoadFileText(fileName: ptr[byte]) -> ptr[byte]
 
-extern fn UnloadFileText(text: ptr[byte]) void
+extern fn UnloadFileText(text: ptr[byte]) -> void
 
-extern fn SaveFileText(fileName: ptr[byte], text: ptr[byte]) bool
+extern fn SaveFileText(fileName: ptr[byte], text: ptr[byte]) -> bool
 
-extern fn FileRename(fileName: ptr[byte], fileRename: ptr[byte]) i32
+extern fn FileRename(fileName: ptr[byte], fileRename: ptr[byte]) -> i32
 
-extern fn FileRemove(fileName: ptr[byte]) i32
+extern fn FileRemove(fileName: ptr[byte]) -> i32
 
-extern fn FileCopy(srcPath: ptr[byte], dstPath: ptr[byte]) i32
+extern fn FileCopy(srcPath: ptr[byte], dstPath: ptr[byte]) -> i32
 
-extern fn FileMove(srcPath: ptr[byte], dstPath: ptr[byte]) i32
+extern fn FileMove(srcPath: ptr[byte], dstPath: ptr[byte]) -> i32
 
-extern fn FileTextReplace(fileName: ptr[byte], search: ptr[byte], replacement: ptr[byte]) i32
+extern fn FileTextReplace(fileName: ptr[byte], search: ptr[byte], replacement: ptr[byte]) -> i32
 
-extern fn FileTextFindIndex(fileName: ptr[byte], search: ptr[byte]) i32
+extern fn FileTextFindIndex(fileName: ptr[byte], search: ptr[byte]) -> i32
 
-extern fn FileExists(fileName: ptr[byte]) bool
+extern fn FileExists(fileName: ptr[byte]) -> bool
 
-extern fn DirectoryExists(dirPath: ptr[byte]) bool
+extern fn DirectoryExists(dirPath: ptr[byte]) -> bool
 
-extern fn IsFileExtension(fileName: ptr[byte], ext: ptr[byte]) bool
+extern fn IsFileExtension(fileName: ptr[byte], ext: ptr[byte]) -> bool
 
-extern fn GetFileLength(fileName: ptr[byte]) i32
+extern fn GetFileLength(fileName: ptr[byte]) -> i32
 
-extern fn GetFileExtension(fileName: ptr[byte]) ptr[byte]
+extern fn GetFileExtension(fileName: ptr[byte]) -> ptr[byte]
 
-extern fn GetFileName(filePath: ptr[byte]) ptr[byte]
+extern fn GetFileName(filePath: ptr[byte]) -> ptr[byte]
 
-extern fn GetFileNameWithoutExt(filePath: ptr[byte]) ptr[byte]
+extern fn GetFileNameWithoutExt(filePath: ptr[byte]) -> ptr[byte]
 
-extern fn GetDirectoryPath(filePath: ptr[byte]) ptr[byte]
+extern fn GetDirectoryPath(filePath: ptr[byte]) -> ptr[byte]
 
-extern fn GetPrevDirectoryPath(dirPath: ptr[byte]) ptr[byte]
+extern fn GetPrevDirectoryPath(dirPath: ptr[byte]) -> ptr[byte]
 
-extern fn GetWorkingDirectory() ptr[byte]
+extern fn GetWorkingDirectory() -> ptr[byte]
 
-extern fn GetApplicationDirectory() ptr[byte]
+extern fn GetApplicationDirectory() -> ptr[byte]
 
-extern fn MakeDirectory(dirPath: ptr[byte]) i32
+extern fn MakeDirectory(dirPath: ptr[byte]) -> i32
 
-extern fn ChangeDirectory(dirPath: ptr[byte]) bool
+extern fn ChangeDirectory(dirPath: ptr[byte]) -> bool
 
-extern fn IsPathFile(path: ptr[byte]) bool
+extern fn IsPathFile(path: ptr[byte]) -> bool
 
-extern fn IsFileNameValid(fileName: ptr[byte]) bool
+extern fn IsFileNameValid(fileName: ptr[byte]) -> bool
 
-extern fn IsFileDropped() bool
+extern fn IsFileDropped() -> bool
 
-extern fn GetDirectoryFileCount(dirPath: ptr[byte]) u32
+extern fn GetDirectoryFileCount(dirPath: ptr[byte]) -> u32
 
-extern fn GetDirectoryFileCountEx(basePath: ptr[byte], filter: ptr[byte], scanSubdirs: bool) u32
+extern fn GetDirectoryFileCountEx(basePath: ptr[byte], filter: ptr[byte], scanSubdirs: bool) -> u32
 
-extern fn ComputeCRC32(data: ptr[byte], dataSize: i32) u32
+extern fn ComputeCRC32(data: ptr[byte], dataSize: i32) -> u32
 
-extern fn SetAutomationEventBaseFrame(frame: i32) void
+extern fn SetAutomationEventBaseFrame(frame: i32) -> void
 
-extern fn StartAutomationEventRecording() void
+extern fn StartAutomationEventRecording() -> void
 
-extern fn StopAutomationEventRecording() void
+extern fn StopAutomationEventRecording() -> void
 
-extern fn IsKeyPressed(key: i32) bool
+extern fn IsKeyPressed(key: i32) -> bool
 
-extern fn IsKeyPressedRepeat(key: i32) bool
+extern fn IsKeyPressedRepeat(key: i32) -> bool
 
-extern fn IsKeyDown(key: i32) bool
+extern fn IsKeyDown(key: i32) -> bool
 
-extern fn IsKeyReleased(key: i32) bool
+extern fn IsKeyReleased(key: i32) -> bool
 
-extern fn IsKeyUp(key: i32) bool
+extern fn IsKeyUp(key: i32) -> bool
 
-extern fn GetKeyPressed() i32
+extern fn GetKeyPressed() -> i32
 
-extern fn GetCharPressed() i32
+extern fn GetCharPressed() -> i32
 
-extern fn GetKeyName(key: i32) ptr[byte]
+extern fn GetKeyName(key: i32) -> ptr[byte]
 
-extern fn SetExitKey(key: i32) void
+extern fn SetExitKey(key: i32) -> void
 
-extern fn IsGamepadAvailable(gamepad: i32) bool
+extern fn IsGamepadAvailable(gamepad: i32) -> bool
 
-extern fn GetGamepadName(gamepad: i32) ptr[byte]
+extern fn GetGamepadName(gamepad: i32) -> ptr[byte]
 
-extern fn IsGamepadButtonPressed(gamepad: i32, button: i32) bool
+extern fn IsGamepadButtonPressed(gamepad: i32, button: i32) -> bool
 
-extern fn IsGamepadButtonDown(gamepad: i32, button: i32) bool
+extern fn IsGamepadButtonDown(gamepad: i32, button: i32) -> bool
 
-extern fn IsGamepadButtonReleased(gamepad: i32, button: i32) bool
+extern fn IsGamepadButtonReleased(gamepad: i32, button: i32) -> bool
 
-extern fn IsGamepadButtonUp(gamepad: i32, button: i32) bool
+extern fn IsGamepadButtonUp(gamepad: i32, button: i32) -> bool
 
-extern fn GetGamepadButtonPressed() i32
+extern fn GetGamepadButtonPressed() -> i32
 
-extern fn GetGamepadAxisCount(gamepad: i32) i32
+extern fn GetGamepadAxisCount(gamepad: i32) -> i32
 
-extern fn GetGamepadAxisMovement(gamepad: i32, axis: i32) f32
+extern fn GetGamepadAxisMovement(gamepad: i32, axis: i32) -> f32
 
-extern fn SetGamepadMappings(mappings: ptr[byte]) i32
+extern fn SetGamepadMappings(mappings: ptr[byte]) -> i32
 
-extern fn SetGamepadVibration(gamepad: i32, leftMotor: f32, rightMotor: f32, duration: f32) void
+extern fn SetGamepadVibration(gamepad: i32, leftMotor: f32, rightMotor: f32, duration: f32) -> void
 
-extern fn IsMouseButtonPressed(button: i32) bool
+extern fn IsMouseButtonPressed(button: i32) -> bool
 
-extern fn IsMouseButtonDown(button: i32) bool
+extern fn IsMouseButtonDown(button: i32) -> bool
 
-extern fn IsMouseButtonReleased(button: i32) bool
+extern fn IsMouseButtonReleased(button: i32) -> bool
 
-extern fn IsMouseButtonUp(button: i32) bool
+extern fn IsMouseButtonUp(button: i32) -> bool
 
-extern fn GetMouseX() i32
+extern fn GetMouseX() -> i32
 
-extern fn GetMouseY() i32
+extern fn GetMouseY() -> i32
 
-extern fn GetMousePosition() Vector2
+extern fn GetMousePosition() -> Vector2
 
-extern fn GetMouseDelta() Vector2
+extern fn GetMouseDelta() -> Vector2
 
-extern fn SetMousePosition(x: i32, y: i32) void
+extern fn SetMousePosition(x: i32, y: i32) -> void
 
-extern fn SetMouseOffset(offsetX: i32, offsetY: i32) void
+extern fn SetMouseOffset(offsetX: i32, offsetY: i32) -> void
 
-extern fn SetMouseScale(scaleX: f32, scaleY: f32) void
+extern fn SetMouseScale(scaleX: f32, scaleY: f32) -> void
 
-extern fn GetMouseWheelMove() f32
+extern fn GetMouseWheelMove() -> f32
 
-extern fn GetMouseWheelMoveV() Vector2
+extern fn GetMouseWheelMoveV() -> Vector2
 
-extern fn SetMouseCursor(cursor: i32) void
+extern fn SetMouseCursor(cursor: i32) -> void
 
-extern fn GetTouchX() i32
+extern fn GetTouchX() -> i32
 
-extern fn GetTouchY() i32
+extern fn GetTouchY() -> i32
 
-extern fn GetTouchPosition(index: i32) Vector2
+extern fn GetTouchPosition(index: i32) -> Vector2
 
-extern fn GetTouchPointId(index: i32) i32
+extern fn GetTouchPointId(index: i32) -> i32
 
-extern fn GetTouchPointCount() i32
+extern fn GetTouchPointCount() -> i32
 
-extern fn SetGesturesEnabled(flags: u32) void
+extern fn SetGesturesEnabled(flags: u32) -> void
 
-extern fn IsGestureDetected(gesture: u32) bool
+extern fn IsGestureDetected(gesture: u32) -> bool
 
-extern fn GetGestureDetected() i32
+extern fn GetGestureDetected() -> i32
 
-extern fn GetGestureHoldDuration() f32
+extern fn GetGestureHoldDuration() -> f32
 
-extern fn GetGestureDragVector() Vector2
+extern fn GetGestureDragVector() -> Vector2
 
-extern fn GetGestureDragAngle() f32
+extern fn GetGestureDragAngle() -> f32
 
-extern fn GetGesturePinchVector() Vector2
+extern fn GetGesturePinchVector() -> Vector2
 
-extern fn GetGesturePinchAngle() f32
+extern fn GetGesturePinchAngle() -> f32
 
-extern fn SetShapesTexture(texture: Texture2D, source: Rectangle) void
+extern fn SetShapesTexture(texture: Texture2D, source: Rectangle) -> void
 
-extern fn GetShapesTexture() Texture2D
+extern fn GetShapesTexture() -> Texture2D
 
-extern fn GetShapesTextureRectangle() Rectangle
+extern fn GetShapesTextureRectangle() -> Rectangle
 
-extern fn DrawPixel(posX: i32, posY: i32, color: Color) void
+extern fn DrawPixel(posX: i32, posY: i32, color: Color) -> void
 
-extern fn DrawPixelV(position: Vector2, color: Color) void
+extern fn DrawPixelV(position: Vector2, color: Color) -> void
 
-extern fn DrawLine(startPosX: i32, startPosY: i32, endPosX: i32, endPosY: i32, color: Color) void
+extern fn DrawLine(startPosX: i32, startPosY: i32, endPosX: i32, endPosY: i32, color: Color) -> void
 
-extern fn DrawLineV(startPos: Vector2, endPos: Vector2, color: Color) void
+extern fn DrawLineV(startPos: Vector2, endPos: Vector2, color: Color) -> void
 
-extern fn DrawLineEx(startPos: Vector2, endPos: Vector2, thick: f32, color: Color) void
+extern fn DrawLineEx(startPos: Vector2, endPos: Vector2, thick: f32, color: Color) -> void
 
-extern fn DrawLineBezier(startPos: Vector2, endPos: Vector2, thick: f32, color: Color) void
+extern fn DrawLineBezier(startPos: Vector2, endPos: Vector2, thick: f32, color: Color) -> void
 
-extern fn DrawLineDashed(startPos: Vector2, endPos: Vector2, dashSize: i32, spaceSize: i32, color: Color) void
+extern fn DrawLineDashed(startPos: Vector2, endPos: Vector2, dashSize: i32, spaceSize: i32, color: Color) -> void
 
-extern fn DrawCircle(centerX: i32, centerY: i32, radius: f32, color: Color) void
+extern fn DrawCircle(centerX: i32, centerY: i32, radius: f32, color: Color) -> void
 
-extern fn DrawCircleV(center: Vector2, radius: f32, color: Color) void
+extern fn DrawCircleV(center: Vector2, radius: f32, color: Color) -> void
 
-extern fn DrawCircleGradient(center: Vector2, radius: f32, inner: Color, outer: Color) void
+extern fn DrawCircleGradient(center: Vector2, radius: f32, inner: Color, outer: Color) -> void
 
-extern fn DrawCircleSector(center: Vector2, radius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) void
+extern fn DrawCircleSector(center: Vector2, radius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) -> void
 
-extern fn DrawCircleSectorLines(center: Vector2, radius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) void
+extern fn DrawCircleSectorLines(center: Vector2, radius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) -> void
 
-extern fn DrawCircleLines(centerX: i32, centerY: i32, radius: f32, color: Color) void
+extern fn DrawCircleLines(centerX: i32, centerY: i32, radius: f32, color: Color) -> void
 
-extern fn DrawCircleLinesV(center: Vector2, radius: f32, color: Color) void
+extern fn DrawCircleLinesV(center: Vector2, radius: f32, color: Color) -> void
 
-extern fn DrawEllipse(centerX: i32, centerY: i32, radiusH: f32, radiusV: f32, color: Color) void
+extern fn DrawEllipse(centerX: i32, centerY: i32, radiusH: f32, radiusV: f32, color: Color) -> void
 
-extern fn DrawEllipseV(center: Vector2, radiusH: f32, radiusV: f32, color: Color) void
+extern fn DrawEllipseV(center: Vector2, radiusH: f32, radiusV: f32, color: Color) -> void
 
-extern fn DrawEllipseLines(centerX: i32, centerY: i32, radiusH: f32, radiusV: f32, color: Color) void
+extern fn DrawEllipseLines(centerX: i32, centerY: i32, radiusH: f32, radiusV: f32, color: Color) -> void
 
-extern fn DrawEllipseLinesV(center: Vector2, radiusH: f32, radiusV: f32, color: Color) void
+extern fn DrawEllipseLinesV(center: Vector2, radiusH: f32, radiusV: f32, color: Color) -> void
 
-extern fn DrawRing(center: Vector2, innerRadius: f32, outerRadius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) void
+extern fn DrawRing(center: Vector2, innerRadius: f32, outerRadius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) -> void
 
-extern fn DrawRingLines(center: Vector2, innerRadius: f32, outerRadius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) void
+extern fn DrawRingLines(center: Vector2, innerRadius: f32, outerRadius: f32, startAngle: f32, endAngle: f32, segments: i32, color: Color) -> void
 
-extern fn DrawRectangle(posX: i32, posY: i32, width: i32, height: i32, color: Color) void
+extern fn DrawRectangle(posX: i32, posY: i32, width: i32, height: i32, color: Color) -> void
 
-extern fn DrawRectangleV(position: Vector2, size: Vector2, color: Color) void
+extern fn DrawRectangleV(position: Vector2, size: Vector2, color: Color) -> void
 
-extern fn DrawRectangleRec(rec: Rectangle, color: Color) void
+extern fn DrawRectangleRec(rec: Rectangle, color: Color) -> void
 
-extern fn DrawRectanglePro(rec: Rectangle, origin: Vector2, rotation: f32, color: Color) void
+extern fn DrawRectanglePro(rec: Rectangle, origin: Vector2, rotation: f32, color: Color) -> void
 
-extern fn DrawRectangleGradientV(posX: i32, posY: i32, width: i32, height: i32, top: Color, bottom: Color) void
+extern fn DrawRectangleGradientV(posX: i32, posY: i32, width: i32, height: i32, top: Color, bottom: Color) -> void
 
-extern fn DrawRectangleGradientH(posX: i32, posY: i32, width: i32, height: i32, left: Color, right: Color) void
+extern fn DrawRectangleGradientH(posX: i32, posY: i32, width: i32, height: i32, left: Color, right: Color) -> void
 
-extern fn DrawRectangleGradientEx(rec: Rectangle, topLeft: Color, bottomLeft: Color, bottomRight: Color, topRight: Color) void
+extern fn DrawRectangleGradientEx(rec: Rectangle, topLeft: Color, bottomLeft: Color, bottomRight: Color, topRight: Color) -> void
 
-extern fn DrawRectangleLines(posX: i32, posY: i32, width: i32, height: i32, color: Color) void
+extern fn DrawRectangleLines(posX: i32, posY: i32, width: i32, height: i32, color: Color) -> void
 
-extern fn DrawRectangleLinesEx(rec: Rectangle, lineThick: f32, color: Color) void
+extern fn DrawRectangleLinesEx(rec: Rectangle, lineThick: f32, color: Color) -> void
 
-extern fn DrawRectangleRounded(rec: Rectangle, roundness: f32, segments: i32, color: Color) void
+extern fn DrawRectangleRounded(rec: Rectangle, roundness: f32, segments: i32, color: Color) -> void
 
-extern fn DrawRectangleRoundedLines(rec: Rectangle, roundness: f32, segments: i32, color: Color) void
+extern fn DrawRectangleRoundedLines(rec: Rectangle, roundness: f32, segments: i32, color: Color) -> void
 
-extern fn DrawRectangleRoundedLinesEx(rec: Rectangle, roundness: f32, segments: i32, lineThick: f32, color: Color) void
+extern fn DrawRectangleRoundedLinesEx(rec: Rectangle, roundness: f32, segments: i32, lineThick: f32, color: Color) -> void
 
-extern fn DrawTriangle(v1: Vector2, v2: Vector2, v3: Vector2, color: Color) void
+extern fn DrawTriangle(v1: Vector2, v2: Vector2, v3: Vector2, color: Color) -> void
 
-extern fn DrawTriangleLines(v1: Vector2, v2: Vector2, v3: Vector2, color: Color) void
+extern fn DrawTriangleLines(v1: Vector2, v2: Vector2, v3: Vector2, color: Color) -> void
 
-extern fn DrawPoly(center: Vector2, sides: i32, radius: f32, rotation: f32, color: Color) void
+extern fn DrawPoly(center: Vector2, sides: i32, radius: f32, rotation: f32, color: Color) -> void
 
-extern fn DrawPolyLines(center: Vector2, sides: i32, radius: f32, rotation: f32, color: Color) void
+extern fn DrawPolyLines(center: Vector2, sides: i32, radius: f32, rotation: f32, color: Color) -> void
 
-extern fn DrawPolyLinesEx(center: Vector2, sides: i32, radius: f32, rotation: f32, lineThick: f32, color: Color) void
+extern fn DrawPolyLinesEx(center: Vector2, sides: i32, radius: f32, rotation: f32, lineThick: f32, color: Color) -> void
 
-extern fn DrawSplineSegmentLinear(p1: Vector2, p2: Vector2, thick: f32, color: Color) void
+extern fn DrawSplineSegmentLinear(p1: Vector2, p2: Vector2, thick: f32, color: Color) -> void
 
-extern fn DrawSplineSegmentBasis(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: f32, color: Color) void
+extern fn DrawSplineSegmentBasis(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: f32, color: Color) -> void
 
-extern fn DrawSplineSegmentCatmullRom(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: f32, color: Color) void
+extern fn DrawSplineSegmentCatmullRom(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: f32, color: Color) -> void
 
-extern fn DrawSplineSegmentBezierQuadratic(p1: Vector2, c2: Vector2, p3: Vector2, thick: f32, color: Color) void
+extern fn DrawSplineSegmentBezierQuadratic(p1: Vector2, c2: Vector2, p3: Vector2, thick: f32, color: Color) -> void
 
-extern fn DrawSplineSegmentBezierCubic(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, thick: f32, color: Color) void
+extern fn DrawSplineSegmentBezierCubic(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, thick: f32, color: Color) -> void
 
-extern fn GetSplinePointLinear(startPos: Vector2, endPos: Vector2, t: f32) Vector2
+extern fn GetSplinePointLinear(startPos: Vector2, endPos: Vector2, t: f32) -> Vector2
 
-extern fn GetSplinePointBasis(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: f32) Vector2
+extern fn GetSplinePointBasis(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: f32) -> Vector2
 
-extern fn GetSplinePointCatmullRom(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: f32) Vector2
+extern fn GetSplinePointCatmullRom(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: f32) -> Vector2
 
-extern fn GetSplinePointBezierQuad(p1: Vector2, c2: Vector2, p3: Vector2, t: f32) Vector2
+extern fn GetSplinePointBezierQuad(p1: Vector2, c2: Vector2, p3: Vector2, t: f32) -> Vector2
 
-extern fn GetSplinePointBezierCubic(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, t: f32) Vector2
+extern fn GetSplinePointBezierCubic(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, t: f32) -> Vector2
 
-extern fn CheckCollisionRecs(rec1: Rectangle, rec2: Rectangle) bool
+extern fn CheckCollisionRecs(rec1: Rectangle, rec2: Rectangle) -> bool
 
-extern fn CheckCollisionCircles(center1: Vector2, radius1: f32, center2: Vector2, radius2: f32) bool
+extern fn CheckCollisionCircles(center1: Vector2, radius1: f32, center2: Vector2, radius2: f32) -> bool
 
-extern fn CheckCollisionCircleRec(center: Vector2, radius: f32, rec: Rectangle) bool
+extern fn CheckCollisionCircleRec(center: Vector2, radius: f32, rec: Rectangle) -> bool
 
-extern fn CheckCollisionCircleLine(center: Vector2, radius: f32, p1: Vector2, p2: Vector2) bool
+extern fn CheckCollisionCircleLine(center: Vector2, radius: f32, p1: Vector2, p2: Vector2) -> bool
 
-extern fn CheckCollisionPointRec(point: Vector2, rec: Rectangle) bool
+extern fn CheckCollisionPointRec(point: Vector2, rec: Rectangle) -> bool
 
-extern fn CheckCollisionPointCircle(point: Vector2, center: Vector2, radius: f32) bool
+extern fn CheckCollisionPointCircle(point: Vector2, center: Vector2, radius: f32) -> bool
 
-extern fn CheckCollisionPointTriangle(point: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) bool
+extern fn CheckCollisionPointTriangle(point: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> bool
 
-extern fn CheckCollisionPointLine(point: Vector2, p1: Vector2, p2: Vector2, threshold: i32) bool
+extern fn CheckCollisionPointLine(point: Vector2, p1: Vector2, p2: Vector2, threshold: i32) -> bool
 
-extern fn GetCollisionRec(rec1: Rectangle, rec2: Rectangle) Rectangle
+extern fn GetCollisionRec(rec1: Rectangle, rec2: Rectangle) -> Rectangle
 
-extern fn LoadTexture(fileName: ptr[byte]) Texture2D
+extern fn LoadTexture(fileName: ptr[byte]) -> Texture2D
 
-extern fn LoadRenderTexture(width: i32, height: i32) RenderTexture2D
+extern fn LoadRenderTexture(width: i32, height: i32) -> RenderTexture2D
 
-extern fn IsTextureValid(texture: Texture2D) bool
+extern fn IsTextureValid(texture: Texture2D) -> bool
 
-extern fn UnloadTexture(texture: Texture2D) void
+extern fn UnloadTexture(texture: Texture2D) -> void
 
-extern fn IsRenderTextureValid(target: RenderTexture2D) bool
+extern fn IsRenderTextureValid(target: RenderTexture2D) -> bool
 
-extern fn UnloadRenderTexture(target: RenderTexture2D) void
+extern fn UnloadRenderTexture(target: RenderTexture2D) -> void
 
-extern fn UpdateTexture(texture: Texture2D, pixels: ptr[byte]) void
+extern fn UpdateTexture(texture: Texture2D, pixels: ptr[byte]) -> void
 
-extern fn UpdateTextureRec(texture: Texture2D, rec: Rectangle, pixels: ptr[byte]) void
+extern fn UpdateTextureRec(texture: Texture2D, rec: Rectangle, pixels: ptr[byte]) -> void
 
-extern fn SetTextureFilter(texture: Texture2D, filter: i32) void
+extern fn SetTextureFilter(texture: Texture2D, filter: i32) -> void
 
-extern fn SetTextureWrap(texture: Texture2D, wrap: i32) void
+extern fn SetTextureWrap(texture: Texture2D, wrap: i32) -> void
 
-extern fn DrawTexture(texture: Texture2D, posX: i32, posY: i32, tint: Color) void
+extern fn DrawTexture(texture: Texture2D, posX: i32, posY: i32, tint: Color) -> void
 
-extern fn DrawTextureV(texture: Texture2D, position: Vector2, tint: Color) void
+extern fn DrawTextureV(texture: Texture2D, position: Vector2, tint: Color) -> void
 
-extern fn DrawTextureEx(texture: Texture2D, position: Vector2, rotation: f32, scale: f32, tint: Color) void
+extern fn DrawTextureEx(texture: Texture2D, position: Vector2, rotation: f32, scale: f32, tint: Color) -> void
 
-extern fn DrawTextureRec(texture: Texture2D, source: Rectangle, position: Vector2, tint: Color) void
+extern fn DrawTextureRec(texture: Texture2D, source: Rectangle, position: Vector2, tint: Color) -> void
 
-extern fn DrawTexturePro(texture: Texture2D, source: Rectangle, dest: Rectangle, origin: Vector2, rotation: f32, tint: Color) void
+extern fn DrawTexturePro(texture: Texture2D, source: Rectangle, dest: Rectangle, origin: Vector2, rotation: f32, tint: Color) -> void
 
-extern fn DrawTextureNPatch(texture: Texture2D, nPatchInfo: NPatchInfo, dest: Rectangle, origin: Vector2, rotation: f32, tint: Color) void
+extern fn DrawTextureNPatch(texture: Texture2D, nPatchInfo: NPatchInfo, dest: Rectangle, origin: Vector2, rotation: f32, tint: Color) -> void
 
-extern fn ColorIsEqual(col1: Color, col2: Color) bool
+extern fn ColorIsEqual(col1: Color, col2: Color) -> bool
 
-extern fn Fade(color: Color, alpha: f32) Color
+extern fn Fade(color: Color, alpha: f32) -> Color
 
-extern fn ColorToInt(color: Color) i32
+extern fn ColorToInt(color: Color) -> i32
 
-extern fn ColorNormalize(color: Color) Vector4
+extern fn ColorNormalize(color: Color) -> Vector4
 
-extern fn ColorFromNormalized(normalized: Vector4) Color
+extern fn ColorFromNormalized(normalized: Vector4) -> Color
 
-extern fn ColorToHSV(color: Color) Vector3
+extern fn ColorToHSV(color: Color) -> Vector3
 
-extern fn ColorFromHSV(hue: f32, saturation: f32, value: f32) Color
+extern fn ColorFromHSV(hue: f32, saturation: f32, value: f32) -> Color
 
-extern fn ColorTint(color: Color, tint: Color) Color
+extern fn ColorTint(color: Color, tint: Color) -> Color
 
-extern fn ColorBrightness(color: Color, factor: f32) Color
+extern fn ColorBrightness(color: Color, factor: f32) -> Color
 
-extern fn ColorContrast(color: Color, contrast: f32) Color
+extern fn ColorContrast(color: Color, contrast: f32) -> Color
 
-extern fn ColorAlpha(color: Color, alpha: f32) Color
+extern fn ColorAlpha(color: Color, alpha: f32) -> Color
 
-extern fn ColorAlphaBlend(dst: Color, src: Color, tint: Color) Color
+extern fn ColorAlphaBlend(dst: Color, src: Color, tint: Color) -> Color
 
-extern fn ColorLerp(color1: Color, color2: Color, factor: f32) Color
+extern fn ColorLerp(color1: Color, color2: Color, factor: f32) -> Color
 
-extern fn GetColor(hexValue: u32) Color
+extern fn GetColor(hexValue: u32) -> Color
 
-extern fn GetPixelColor(srcPtr: ptr[byte], format: i32) Color
+extern fn GetPixelColor(srcPtr: ptr[byte], format: i32) -> Color
 
-extern fn SetPixelColor(dstPtr: ptr[byte], color: Color, format: i32) void
+extern fn SetPixelColor(dstPtr: ptr[byte], color: Color, format: i32) -> void
 
-extern fn GetPixelDataSize(width: i32, height: i32, format: i32) i32
+extern fn GetPixelDataSize(width: i32, height: i32, format: i32) -> i32
 
-extern fn DrawFPS(posX: i32, posY: i32) void
+extern fn DrawFPS(posX: i32, posY: i32) -> void
 
-extern fn DrawText(text: ptr[byte], posX: i32, posY: i32, fontSize: i32, color: Color) void
+extern fn DrawText(text: ptr[byte], posX: i32, posY: i32, fontSize: i32, color: Color) -> void
 
-extern fn SetTextLineSpacing(spacing: i32) void
+extern fn SetTextLineSpacing(spacing: i32) -> void
 
-extern fn MeasureText(text: ptr[byte], fontSize: i32) i32
+extern fn MeasureText(text: ptr[byte], fontSize: i32) -> i32
 
-extern fn UnloadUTF8(text: ptr[byte]) void
+extern fn UnloadUTF8(text: ptr[byte]) -> void
 
-extern fn GetCodepointCount(text: ptr[byte]) i32
+extern fn GetCodepointCount(text: ptr[byte]) -> i32
 
-extern fn UnloadTextLines(text: ptr[byte], lineCount: i32) void
+extern fn UnloadTextLines(text: ptr[byte], lineCount: i32) -> void
 
-extern fn TextCopy(dst: ptr[byte], src: ptr[byte]) i32
+extern fn TextCopy(dst: ptr[byte], src: ptr[byte]) -> i32
 
-extern fn TextIsEqual(text1: ptr[byte], text2: ptr[byte]) bool
+extern fn TextIsEqual(text1: ptr[byte], text2: ptr[byte]) -> bool
 
-extern fn TextLength(text: ptr[byte]) u32
+extern fn TextLength(text: ptr[byte]) -> u32
 
-extern fn TextSubtext(text: ptr[byte], position: i32, length: i32) ptr[byte]
+extern fn TextSubtext(text: ptr[byte], position: i32, length: i32) -> ptr[byte]
 
-extern fn TextRemoveSpaces(text: ptr[byte]) ptr[byte]
+extern fn TextRemoveSpaces(text: ptr[byte]) -> ptr[byte]
 
-extern fn GetTextBetween(text: ptr[byte], begin: ptr[byte], end: ptr[byte]) ptr[byte]
+extern fn GetTextBetween(text: ptr[byte], begin: ptr[byte], end: ptr[byte]) -> ptr[byte]
 
-extern fn TextReplace(text: ptr[byte], search: ptr[byte], replacement: ptr[byte]) ptr[byte]
+extern fn TextReplace(text: ptr[byte], search: ptr[byte], replacement: ptr[byte]) -> ptr[byte]
 
-extern fn TextReplaceAlloc(text: ptr[byte], search: ptr[byte], replacement: ptr[byte]) ptr[byte]
+extern fn TextReplaceAlloc(text: ptr[byte], search: ptr[byte], replacement: ptr[byte]) -> ptr[byte]
 
-extern fn TextReplaceBetween(text: ptr[byte], begin: ptr[byte], end: ptr[byte], replacement: ptr[byte]) ptr[byte]
+extern fn TextReplaceBetween(text: ptr[byte], begin: ptr[byte], end: ptr[byte], replacement: ptr[byte]) -> ptr[byte]
 
-extern fn TextReplaceBetweenAlloc(text: ptr[byte], begin: ptr[byte], end: ptr[byte], replacement: ptr[byte]) ptr[byte]
+extern fn TextReplaceBetweenAlloc(text: ptr[byte], begin: ptr[byte], end: ptr[byte], replacement: ptr[byte]) -> ptr[byte]
 
-extern fn TextInsert(text: ptr[byte], insert: ptr[byte], position: i32) ptr[byte]
+extern fn TextInsert(text: ptr[byte], insert: ptr[byte], position: i32) -> ptr[byte]
 
-extern fn TextInsertAlloc(text: ptr[byte], insert: ptr[byte], position: i32) ptr[byte]
+extern fn TextInsertAlloc(text: ptr[byte], insert: ptr[byte], position: i32) -> ptr[byte]
 
-extern fn TextJoin(textList: ptr[byte], count: i32, delimiter: ptr[byte]) ptr[byte]
+extern fn TextJoin(textList: ptr[byte], count: i32, delimiter: ptr[byte]) -> ptr[byte]
 
-extern fn TextFindIndex(text: ptr[byte], search: ptr[byte]) i32
+extern fn TextFindIndex(text: ptr[byte], search: ptr[byte]) -> i32
 
-extern fn TextToUpper(text: ptr[byte]) ptr[byte]
+extern fn TextToUpper(text: ptr[byte]) -> ptr[byte]
 
-extern fn TextToLower(text: ptr[byte]) ptr[byte]
+extern fn TextToLower(text: ptr[byte]) -> ptr[byte]
 
-extern fn TextToPascal(text: ptr[byte]) ptr[byte]
+extern fn TextToPascal(text: ptr[byte]) -> ptr[byte]
 
-extern fn TextToSnake(text: ptr[byte]) ptr[byte]
+extern fn TextToSnake(text: ptr[byte]) -> ptr[byte]
 
-extern fn TextToCamel(text: ptr[byte]) ptr[byte]
+extern fn TextToCamel(text: ptr[byte]) -> ptr[byte]
 
-extern fn TextToInteger(text: ptr[byte]) i32
+extern fn TextToInteger(text: ptr[byte]) -> i32
 
-extern fn TextToFloat(text: ptr[byte]) f32
+extern fn TextToFloat(text: ptr[byte]) -> f32
 
-extern fn DrawLine3D(startPos: Vector3, endPos: Vector3, color: Color) void
+extern fn DrawLine3D(startPos: Vector3, endPos: Vector3, color: Color) -> void
 
-extern fn DrawPoint3D(position: Vector3, color: Color) void
+extern fn DrawPoint3D(position: Vector3, color: Color) -> void
 
-extern fn DrawCircle3D(center: Vector3, radius: f32, rotationAxis: Vector3, rotationAngle: f32, color: Color) void
+extern fn DrawCircle3D(center: Vector3, radius: f32, rotationAxis: Vector3, rotationAngle: f32, color: Color) -> void
 
-extern fn DrawTriangle3D(v1: Vector3, v2: Vector3, v3: Vector3, color: Color) void
+extern fn DrawTriangle3D(v1: Vector3, v2: Vector3, v3: Vector3, color: Color) -> void
 
-extern fn DrawCube(position: Vector3, width: f32, height: f32, length: f32, color: Color) void
+extern fn DrawCube(position: Vector3, width: f32, height: f32, length: f32, color: Color) -> void
 
-extern fn DrawCubeV(position: Vector3, size: Vector3, color: Color) void
+extern fn DrawCubeV(position: Vector3, size: Vector3, color: Color) -> void
 
-extern fn DrawCubeWires(position: Vector3, width: f32, height: f32, length: f32, color: Color) void
+extern fn DrawCubeWires(position: Vector3, width: f32, height: f32, length: f32, color: Color) -> void
 
-extern fn DrawCubeWiresV(position: Vector3, size: Vector3, color: Color) void
+extern fn DrawCubeWiresV(position: Vector3, size: Vector3, color: Color) -> void
 
-extern fn DrawSphere(centerPos: Vector3, radius: f32, color: Color) void
+extern fn DrawSphere(centerPos: Vector3, radius: f32, color: Color) -> void
 
-extern fn DrawSphereEx(centerPos: Vector3, radius: f32, rings: i32, slices: i32, color: Color) void
+extern fn DrawSphereEx(centerPos: Vector3, radius: f32, rings: i32, slices: i32, color: Color) -> void
 
-extern fn DrawSphereWires(centerPos: Vector3, radius: f32, rings: i32, slices: i32, color: Color) void
+extern fn DrawSphereWires(centerPos: Vector3, radius: f32, rings: i32, slices: i32, color: Color) -> void
 
-extern fn DrawCylinder(position: Vector3, radiusTop: f32, radiusBottom: f32, height: f32, slices: i32, color: Color) void
+extern fn DrawCylinder(position: Vector3, radiusTop: f32, radiusBottom: f32, height: f32, slices: i32, color: Color) -> void
 
-extern fn DrawCylinderEx(startPos: Vector3, endPos: Vector3, startRadius: f32, endRadius: f32, sides: i32, color: Color) void
+extern fn DrawCylinderEx(startPos: Vector3, endPos: Vector3, startRadius: f32, endRadius: f32, sides: i32, color: Color) -> void
 
-extern fn DrawCylinderWires(position: Vector3, radiusTop: f32, radiusBottom: f32, height: f32, slices: i32, color: Color) void
+extern fn DrawCylinderWires(position: Vector3, radiusTop: f32, radiusBottom: f32, height: f32, slices: i32, color: Color) -> void
 
-extern fn DrawCylinderWiresEx(startPos: Vector3, endPos: Vector3, startRadius: f32, endRadius: f32, sides: i32, color: Color) void
+extern fn DrawCylinderWiresEx(startPos: Vector3, endPos: Vector3, startRadius: f32, endRadius: f32, sides: i32, color: Color) -> void
 
-extern fn DrawCapsule(startPos: Vector3, endPos: Vector3, radius: f32, slices: i32, rings: i32, color: Color) void
+extern fn DrawCapsule(startPos: Vector3, endPos: Vector3, radius: f32, slices: i32, rings: i32, color: Color) -> void
 
-extern fn DrawCapsuleWires(startPos: Vector3, endPos: Vector3, radius: f32, slices: i32, rings: i32, color: Color) void
+extern fn DrawCapsuleWires(startPos: Vector3, endPos: Vector3, radius: f32, slices: i32, rings: i32, color: Color) -> void
 
-extern fn DrawPlane(centerPos: Vector3, size: Vector2, color: Color) void
+extern fn DrawPlane(centerPos: Vector3, size: Vector2, color: Color) -> void
 
-extern fn DrawRay(ray: Ray, color: Color) void
+extern fn DrawRay(ray: Ray, color: Color) -> void
 
-extern fn DrawGrid(slices: i32, spacing: f32) void
+extern fn DrawGrid(slices: i32, spacing: f32) -> void
 
-extern fn DrawBoundingBox(box: BoundingBox, color: Color) void
+extern fn DrawBoundingBox(box: BoundingBox, color: Color) -> void
 
-extern fn DrawBillboard(camera: Camera, texture: Texture2D, position: Vector3, scale: f32, tint: Color) void
+extern fn DrawBillboard(camera: Camera, texture: Texture2D, position: Vector3, scale: f32, tint: Color) -> void
 
-extern fn DrawBillboardRec(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, size: Vector2, tint: Color) void
+extern fn DrawBillboardRec(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, size: Vector2, tint: Color) -> void
 
-extern fn DrawBillboardPro(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, up: Vector3, size: Vector2, origin: Vector2, rotation: f32, tint: Color) void
+extern fn DrawBillboardPro(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, up: Vector3, size: Vector2, origin: Vector2, rotation: f32, tint: Color) -> void
 
-extern fn CheckCollisionSpheres(center1: Vector3, radius1: f32, center2: Vector3, radius2: f32) bool
+extern fn CheckCollisionSpheres(center1: Vector3, radius1: f32, center2: Vector3, radius2: f32) -> bool
 
-extern fn CheckCollisionBoxes(box1: BoundingBox, box2: BoundingBox) bool
+extern fn CheckCollisionBoxes(box1: BoundingBox, box2: BoundingBox) -> bool
 
-extern fn CheckCollisionBoxSphere(box: BoundingBox, center: Vector3, radius: f32) bool
+extern fn CheckCollisionBoxSphere(box: BoundingBox, center: Vector3, radius: f32) -> bool
 
-extern fn GetRayCollisionSphere(ray: Ray, center: Vector3, radius: f32) RayCollision
+extern fn GetRayCollisionSphere(ray: Ray, center: Vector3, radius: f32) -> RayCollision
 
-extern fn GetRayCollisionBox(ray: Ray, box: BoundingBox) RayCollision
+extern fn GetRayCollisionBox(ray: Ray, box: BoundingBox) -> RayCollision
 
-extern fn GetRayCollisionTriangle(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3) RayCollision
+extern fn GetRayCollisionTriangle(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3) -> RayCollision
 
-extern fn GetRayCollisionQuad(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3) RayCollision
+extern fn GetRayCollisionQuad(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3) -> RayCollision
 
-extern fn InitAudioDevice() void
+extern fn InitAudioDevice() -> void
 
-extern fn CloseAudioDevice() void
+extern fn CloseAudioDevice() -> void
 
-extern fn IsAudioDeviceReady() bool
+extern fn IsAudioDeviceReady() -> bool
 
-extern fn SetMasterVolume(volume: f32) void
+extern fn SetMasterVolume(volume: f32) -> void
 
-extern fn GetMasterVolume() f32
+extern fn GetMasterVolume() -> f32
 
-extern fn SetAudioStreamBufferSizeDefault(size: i32) void
+extern fn SetAudioStreamBufferSizeDefault(size: i32) -> void

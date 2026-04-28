@@ -76,6 +76,11 @@ func (l *Lexer) nextAfterSpace() token.Token {
 			l.advance()
 			return token.Token{Type: token.MINUSMINUS, Literal: "--", Line: line, Col: col}
 		}
+		if l.peek(1) == '>' {
+			l.advance()
+			l.advance()
+			return token.Token{Type: token.ARROW, Literal: "->", Line: line, Col: col}
+		}
 		l.advance()
 		return token.Token{Type: token.MINUS, Line: line, Col: col}
 	case '*':

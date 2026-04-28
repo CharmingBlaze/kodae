@@ -14,7 +14,7 @@ const brickPadding = 10.0
 const brickOffsetTop = 50.0
 const brickOffsetLeft = 40.0
 
-pub struct Brick {
+struct Brick {
     rect: Rectangle
     active: bool
 }

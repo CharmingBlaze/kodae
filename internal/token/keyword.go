@@ -19,7 +19,6 @@ var keywords = map[string]Type{
 	"struct": STRUCT,
 	"module": MODULE,
 	"use":    USE,
-	"pub":    PUB,
 	"extern": EXTERN,
 	"true":   TRUE,
 	"false":  FALSE,

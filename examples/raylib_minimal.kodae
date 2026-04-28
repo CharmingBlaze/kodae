@@ -4,13 +4,13 @@
 # link "raylib"
 # linkpath "./raylib"
 
-extern fn InitWindow(w: int, h: int, title: ptr[byte]) void
-extern fn WindowShouldClose() bool
-extern fn BeginDrawing() void
-extern fn EndDrawing() void
-extern fn CloseWindow() void
-extern fn ClearBackground(color: int) void
-extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: int) void
+extern fn InitWindow(w: int, h: int, title: ptr[byte]) -> void
+extern fn WindowShouldClose() -> bool
+extern fn BeginDrawing() -> void
+extern fn EndDrawing() -> void
+extern fn CloseWindow() -> void
+extern fn ClearBackground(color: int) -> void
+extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: int) -> void
 
 fn main() {
   InitWindow(800, 600, "My Game")

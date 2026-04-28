@@ -53,8 +53,7 @@ type Struct struct {
 	Name   string
 	Order  []string
 	Fields map[string]*Type
-	// Pub / SrcFile: if !Pub, the struct type is only usable in SrcFile; if Pub, any file.
-	Pub     bool
+	// SrcFile: if !Pub, the struct type is only usable in SrcFile; if Pub, any file.
 	SrcFile string
 }
 
@@ -62,7 +61,6 @@ type Struct struct {
 type Enum struct {
 	Name  string
 	Index map[string]int
-	Pub   bool
 	File  string
 }
 

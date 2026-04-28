@@ -61,19 +61,6 @@ func (p *Parser) parseTopDecl() ast.Decl {
 		return p.parseUse()
 	case token.EXTERN:
 		return p.parseExtern()
-	case token.PUB:
-		p.next()
-		switch p.tok.Type {
-		case token.FN:
-			return p.parseFnWithPub(true)
-		case token.STRUCT:
-			return p.parseStructDeclWithPub(true)
-		case token.ENUM:
-			return p.parseEnumWithPub(true)
-		default:
-			p.failf("pub: expected fn, struct, or enum")
-			return nil
-		}
 	case token.HASH:
 		return p.parseLink()
 	default:

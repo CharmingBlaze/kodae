@@ -15,7 +15,7 @@ func TestBuildLib_GeneratesArtifactsAndCConsumerBuilds(t *testing.T) {
 	src := filepath.Join(dir, "mymath.kodae")
 	code := `#mode "library"
 #library "mymath"
-pub fn add(a: int, b: int) int { return a + b }`
+fn add(a: int, b: int) -> int { return a + b }`
 	if err := os.WriteFile(src, []byte(code), 0644); err != nil {
 		t.Fatal(err)
 	}

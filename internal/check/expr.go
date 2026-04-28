@@ -255,9 +255,7 @@ func (c *Checker) typeStructLit(x *ast.StructLit, e ast.Expr) (*Type, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown struct type %q in literal", x.TypeName)
 	}
-	if !c.canSeeRemote(sdef.Pub, sdef.SrcFile) {
-		return nil, fmt.Errorf("struct %q is not visible in this file (use pub struct in the defining file)", sdef.Name)
-	}
+
 	dup := make(map[string]int, len(sdef.Order))
 	present := make(map[string]bool, len(sdef.Order))
 	for i, in := range x.Inits {
@@ -307,9 +305,7 @@ func (c *Checker) checkEnumConst(enName, variant string, e ast.Expr) (*Type, err
 	if !ok {
 		return nil, fmt.Errorf("not an enum: %q", enName)
 	}
-	if !c.canSeeRemote(en.Pub, en.File) {
-		return nil, fmt.Errorf("enum %q is not visible in this file (use pub enum in the defining file)", enName)
-	}
+
 	if _, ok = en.Index[variant]; !ok {
 		return nil, fmt.Errorf("enum %q has no variant %q", enName, variant)
 	}
@@ -701,9 +697,7 @@ func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, er
 	if f == nil {
 		return nil, fmt.Errorf("no method %q for struct %s (expected fn %q)", me.Field, recvT.StructName, mangled)
 	}
-	if !c.canSeeRemote(f.Pub, f.File) {
-		return nil, fmt.Errorf("method %q is not visible in this file (use pub fn in the defining file)", me.Field)
-	}
+
 	if f.Params == nil {
 		return nil, fmt.Errorf("method %q: internal error", me.Field)
 	}
@@ -1369,9 +1363,7 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 			}
 			return nil, fmt.Errorf("unknown function %q", name)
 		}
-		if !c.canSeeRemote(f.Pub, f.File) {
-			return nil, fmt.Errorf("function %q is not visible in this file (use pub fn in the defining file)", name)
-		}
+
 		if f.Params == nil {
 			f.Params = []ast.Param{}
 		}

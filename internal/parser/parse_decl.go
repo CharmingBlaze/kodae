@@ -5,9 +5,7 @@ import (
 	"kodae/internal/ast"
 	"kodae/internal/token"
 )
-func (p *Parser) parseEnum() *ast.EnumDecl { return p.parseEnumWithPub(false) }
-
-func (p *Parser) parseEnumWithPub(pub bool) *ast.EnumDecl {
+func (p *Parser) parseEnum() *ast.EnumDecl {
 	p.expect(token.ENUM)
 	if p.tok.Type != token.IDENT {
 		p.failf("enum: name")
@@ -40,16 +38,13 @@ func (p *Parser) parseEnumWithPub(pub bool) *ast.EnumDecl {
 		}
 	}
 	p.expect(token.RBRACE)
-	return &ast.EnumDecl{Pub: pub, Name: name, Variants: vars}
+	return &ast.EnumDecl{Name: name, Variants: vars}
 }
 
 // MangleMethod is the top-level function name for fn Receiver.method
 func MangleMethod(recv, method string) string { return fmt.Sprintf("%s_%s", recv, method) }
 
-func (p *Parser) parseFn() *ast.FnDecl { return p.parseFnWithPub(false) }
-
-// parseFnWithPub is used for `fn` or `pub fn` (or `pub` already consumed).
-func (p *Parser) parseFnWithPub(pub bool) *ast.FnDecl {
+func (p *Parser) parseFn() *ast.FnDecl {
 	p.expect(token.FN)
 	if p.tok.Type != token.IDENT {
 		p.failf("fn: name")
@@ -77,11 +72,12 @@ func (p *Parser) parseFnWithPub(pub bool) *ast.FnDecl {
 		params = p.fixMethodSelfType(recv, params)
 	}
 	var ret *ast.TypeExpr
-	if p.tok.Type != token.LBRACE {
+	if p.tok.Type == token.ARROW {
+		p.next()
 		ret = p.parseType()
 	}
 	body := p.parseBlock()
-	return &ast.FnDecl{Name: name, Pub: pub, Params: params, Return: ret, Body: body}
+	return &ast.FnDecl{Name: name, Params: params, Return: ret, Body: body}
 }
 
 // parseExtern: `extern fn name(a: T, ...) R`  (no body)
@@ -97,11 +93,9 @@ func (p *Parser) parseExtern() *ast.ExternDecl {
 	p.expect(token.LPAREN)
 	params := p.parseParamList("", true, true)
 	var ret *ast.TypeExpr
-	if p.tok.Type != token.NEWLINE && p.tok.Type != token.EOF && p.tok.Type != token.SEMI {
+	if p.tok.Type == token.ARROW {
+		p.next()
 		ret = p.parseExternType()
-	} else {
-		p.failf("extern: need return type (use void for none)")
-		return nil
 	}
 	if p.tok.Type == token.LBRACE {
 		p.failf("extern: must not have a body")
@@ -202,10 +196,6 @@ func (p *Parser) parseParamList(methodRecv string, allowVararg bool, allowPtr bo
 }
 
 func (p *Parser) parseStructDecl() *ast.StructDecl {
-	return p.parseStructDeclWithPub(false)
-}
-
-func (p *Parser) parseStructDeclWithPub(pub bool) *ast.StructDecl {
 	p.expect(token.STRUCT)
 	if p.tok.Type != token.IDENT {
 		p.failf("struct: name")
@@ -245,5 +235,5 @@ func (p *Parser) parseStructDeclWithPub(pub bool) *ast.StructDecl {
 		}
 	}
 	p.expect(token.RBRACE)
-	return &ast.StructDecl{Pub: pub, Name: name, Fields: fields}
+	return &ast.StructDecl{Name: name, Fields: fields}
 }
