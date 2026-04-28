@@ -244,6 +244,35 @@ Details vary by API; see **`examples/result_minimal.kodae`** and the checklist i
 - **`for i in a..b`** — half-open integer range (`b` excluded unless your range syntax matches the compiler).
 - **`defer expr`** — runs **`expr`** when the function exits (reverse order if multiple defers). In v1, **`defer`** may only appear at the **top level** of a function body (not inside nested blocks). See **SUPPORTED**.
 
+```kodae
+fn countdown_demo() {
+    defer print("leaving countdown_demo")
+    defer print("cleanup runs second")
+
+    repeat(3) {
+        print("repeat tick")
+    }
+
+    let n = 0
+    while (n < 2) {
+        print("while n=$n")
+        n++
+    }
+
+    for i in 0..3 {
+        print("for i=$i")
+    }
+
+    let spins = 0
+    loop {
+        spins++
+        if (spins == 2) { continue }
+        if (spins >= 4) { break }
+        print("loop spins=$spins")
+    }
+}
+```
+
 ---
 
 ## 10. Operators & bitwise
@@ -253,6 +282,42 @@ Details vary by API; see **`examples/result_minimal.kodae`** and the checklist i
 - **Logic:** **`and`**, **`or`**, **`not`** (spell words; wrap complex tests in parentheses when combining, e.g. `if ((a > 0) and (b > 0))`).
 - **Increment:** postfix **`++`** and **`--`** on numeric lvalues.
 - **Bitwise:** **`&`**, **`|`**, **`^`**, **`~`** on integers; binary literals **`0b1010`** are supported.
+
+```kodae
+fn operators_demo() {
+    let a = 10
+    let b = 3
+
+    print(a + b)   ' 13
+    print(a - b)   ' 7
+    print(a * b)   ' 30
+    print(a / b)   ' 3
+    print(a % b)   ' 1
+    print(-a)      ' unary minus
+    print(+b)      ' unary plus
+
+    if (a == 10) { print("eq") }
+    if (a != b)  { print("neq") }
+    if (a > b)   { print("gt") }
+    if (a >= b)  { print("gte") }
+    if (b < a)   { print("lt") }
+    if (b <= a)  { print("lte") }
+
+    if ((a > 0) and (b > 0)) { print("both positive") }
+    if ((a < 0) or (b < 0))  { print("any negative") }
+    if (not (a < 0))         { print("a not negative") }
+
+    let c = 5
+    c++
+    c--
+
+    let bits = 0b1010
+    print(bits & 0b1100)
+    print(bits | 0b0101)
+    print(bits ^ 0b1111)
+    print(~bits)
+}
+```
 
 ---
 
@@ -264,6 +329,24 @@ Details vary by API; see **`examples/result_minimal.kodae`** and the checklist i
 2. **`this`** always means the receiver instance for that method — including inside **`repeat`**, **`for`**, **`if`**, and nested blocks (lexical binding; unlike JavaScript, it does not “get lost” in nested functions).
 3. **Inline lambdas** — **`let cb = fn() { ... }; cb()`** — only **`fn()` with no parameters** and **`void`** body are supported in v1. If the lambda uses **`this`**, it must appear **inside** a method so the compiler can pass the same receiver as C **`self`**. You cannot pass these lambdas to arbitrary C function-pointer parameters yet; call them from Kodae.
 
+```kodae
+struct Player {
+    name: str
+    hp: int
+}
+
+fn Player.tick() {
+    repeat(2) {
+        this.hp -= 1
+    }
+
+    let announce = fn() {
+        print("$this.name now has $this.hp hp")
+    }
+    announce()
+}
+```
+
 ### `with` (functional update)
 
 **`expr with { field: value, ... }`** builds a **copy** of a struct value and overrides listed fields:
@@ -271,6 +354,15 @@ Details vary by API; see **`examples/result_minimal.kodae`** and the checklist i
 ```kodae
 fn Player.clone_named(s: str) -> Player {
   return this with { name: s }
+}
+```
+
+```kodae
+fn with_demo() {
+    let p1 = Player { name: "Ari", hp: 100 }
+    let p2 = p1 with { hp: 80 }
+    print("$p1.name hp=$p1.hp") ' original unchanged
+    print("$p2.name hp=$p2.hp") ' copied and updated
 }
 ```
 
@@ -282,6 +374,18 @@ Return **`this`** (or a new struct) from methods to chain calls:
 fn Player.tag(t: str) -> Player {
   this.name = this.name + t
   return this
+}
+```
+
+```kodae
+fn Player.heal(amount: int) -> Player {
+    this.hp += amount
+    return this
+}
+
+fn chain_demo() {
+    let p = Player { name: "Neo", hp: 50 }
+    p.tag("_pro").heal(25).tick()
 }
 ```
 
@@ -303,6 +407,18 @@ This does **not** remove directives: `#include` and `#library` remain supported 
 - `input(prompt)`, `input_int(prompt)`, `input_float(prompt)`
 - `clear_screen()`
 
+```kodae
+fn io_demo() {
+    clear_screen()
+    print("Welcome")
+    printn("Type your name: ")
+    let name = input("")
+    let age = input_int("Age: ")
+    let speed = input_float("Speed: ")
+    print("Hello $name, age $age, speed $speed")
+}
+```
+
 ### Math & geometry
 
 - `abs`, `min`, `max`, `clamp`
@@ -311,11 +427,57 @@ This does **not** remove directives: `#include` and `#library` remain supported 
 - `lerp`, `map`, `distance`, `angle_to`
 - helpers: `in_range`, `in_rect`
 
+```kodae
+fn math_demo() {
+    print(abs(-7))
+    print(min(2, 9))
+    print(max(2, 9))
+    print(clamp(15, 0, 10))
+
+    print(floor(3.9))
+    print(ceil(3.1))
+    print(round(3.6))
+    print(sqrt(25.0))
+    print(pow(2.0, 8.0))
+
+    print(sin(1.57))
+    print(cos(0.0))
+    print(tan(0.5))
+    print(atan2(1.0, 1.0))
+    print(log(10.0))
+
+    print(lerp(0.0, 10.0, 0.25))
+    print(map(5.0, 0.0, 10.0, 0.0, 100.0))
+    print(distance(0.0, 0.0, 3.0, 4.0))
+    print(angle_to(0.0, 0.0, 1.0, 1.0))
+
+    print(in_range(8, 1, 10))
+    print(in_rect(5, 5, 0, 0, 10, 10))
+}
+```
+
 ### Random
 
 - `random`, `random_float`, `random_bool`, `chance`
 - `random_pick(list)`
 - `list.shuffle()`
+
+```kodae
+fn random_demo() {
+    let n = random(1, 6)
+    let f = random_float(0.0, 1.0)
+    let coin = random_bool()
+    if (chance(0.2)) {
+        print("critical hit")
+    }
+
+    let loot = ["potion", "shield", "sword"]
+    print(random_pick(loot))
+    loot.shuffle()
+    print(loot)
+    print("n=$n f=$f coin=$coin")
+}
+```
 
 ### Time
 
@@ -323,6 +485,26 @@ This does **not** remove directives: `#include` and `#library` remain supported 
 - `wait(seconds)`, `wait_ms(ms)`
 - `timer_start()`, `timer_elapsed(t)`
 - `countdown(seconds)`, `countdown_done(t)`
+
+```kodae
+fn time_demo() {
+    print(time())
+    print(time_ms())
+    print(delta_time())
+
+    let t = timer_start()
+    wait(0.1)
+    wait_ms(50)
+    print("elapsed=" + str(timer_elapsed(t)))
+
+    let cd = countdown(1.0)
+    while (not countdown_done(cd)) {
+        print("countdown running...")
+        wait(0.2)
+    }
+    print("countdown done")
+}
+```
 
 ### Strings
 
@@ -333,12 +515,62 @@ This does **not** remove directives: `#include` and `#library` remain supported 
 - `s.reverse()`, `s.repeat(n)`, `s.is_empty()`
 - casts: `str(x)`, `int(x)`, `float(x)`, `bool(x)`
 
+```kodae
+fn string_demo() {
+    let s = "  Kodae Rocks  "
+    print(s.len)
+    print(s.upper())
+    print(s.lower())
+    print(s.trim())
+
+    let t = "kodae-language"
+    print(t.contains("dae"))
+    print(t.starts("kod"))
+    print(t.ends("age"))
+    print(t.replace("-", "_"))
+    print(t.split("-"))
+    print(t.slice(0, 5))
+    print(t.reverse())
+    print("ha".repeat(3))
+    print("".is_empty())
+
+    print(str(123))
+    print(int("42"))
+    print(float("3.14"))
+    print(bool(1))
+}
+```
+
 ### Lists
 
 - `push`, `pop`, `append`, `remove`
 - `first`, `last`, `clear`, `contains`, `is_empty`
 - `sort`, `reverse`, `shuffle`
 - `list.len` and `len(list)`
+
+```kodae
+fn list_demo() {
+    let nums: list[int] = [3, 1, 2]
+    nums.push(4)
+    nums.append([5, 6])
+    print(nums.pop())
+    nums.remove(0)
+
+    print(nums.first())
+    print(nums.last())
+    print(nums.contains(2))
+    print(nums.is_empty())
+
+    nums.sort()
+    nums.reverse()
+    nums.shuffle()
+    print(nums.len)
+    print(len(nums))
+
+    nums.clear()
+    print(nums.is_empty())
+}
+```
 
 ### Files & JSON
 
@@ -349,17 +581,89 @@ This does **not** remove directives: `#include` and `#library` remain supported 
   - text: `json_read(path)`, `json_write(path, value)`
   - parsed/Any API: `json_parse`, `json_build`, `json_get`, `json_at`, `json_len`, `json_as_int`, `json_as_float`, `json_as_str`, `json_as_bool`
 
+```kodae
+fn file_json_demo() {
+    make_folder("save")
+    write_file("save/data.txt", "hello")
+    append_file("save/data.txt", "\nworld")
+    print(read_file("save/data.txt"))
+
+    copy_file("save/data.txt", "save/data_copy.txt")
+    move_file("save/data_copy.txt", "save/data_moved.txt")
+    print(file_exists("save/data_moved.txt"))
+    print(folder_exists("save"))
+    print(list_files("save"))
+
+    delete_file("save/data_moved.txt")
+
+    let text_json = json_read("save/player.json")
+    print(text_json)
+    json_write("save/player_out.json", "{\"score\":100}")
+
+    let parsed = json_parse("{\"hp\":80,\"name\":\"Ari\",\"alive\":true}")
+    let hp_any = json_get(parsed, "hp")
+    print(json_as_int(hp_any))
+    print(json_as_str(json_get(parsed, "name")))
+    print(json_as_bool(json_get(parsed, "alive")))
+
+    let arr = json_parse("[10, 20, 30]")
+    print(json_len(arr))
+    print(json_as_float(json_at(arr, 1)))
+    print(json_build(parsed))
+
+    delete_file("save/data.txt")
+    delete_file("save/player_out.json")
+    delete_folder("save")
+}
+```
+
 ### Save helpers (key-value)
 
 - `save_set(key, value)` (value is stringified)
 - `save_get_int(key)`, `save_get_str(key)`
 - `save_exists(key)`, `save_delete(key)`, `save_clear()`
 
+```kodae
+fn save_demo() {
+    save_set("coins", 120)
+    save_set("player_name", "Ari")
+
+    if (save_exists("coins")) {
+        print(save_get_int("coins"))
+    }
+    print(save_get_str("player_name"))
+
+    save_delete("coins")
+    save_clear()
+}
+```
+
 ### Networking & system
 
 - net: `is_online()`, `ping(host)`, `http_get(url)`, `http_post(url, body)`, `download(url, dest)`
 - os: `os_name()`, `is_windows()`, `is_mac()`, `is_linux()`, `args()`, `env(name)`
 - shell/browser: `run(cmd)`, `open_url(url)`, `exit(code)`
+
+```kodae
+fn net_system_demo() {
+    print(is_online())
+    print(ping("example.com"))
+    print(http_get("https://example.com"))
+    print(http_post("https://httpbin.org/post", "{\"ok\":true}"))
+    print(download("https://example.com/file.txt", "file.txt"))
+
+    print(os_name())
+    print(is_windows())
+    print(is_mac())
+    print(is_linux())
+    print(args())
+    print(env("PATH"))
+
+    run("echo hello-from-kodae")
+    open_url("https://kodae.dev")
+    ' exit(0) ' uncomment when you really want to terminate the app
+}
+```
 
 ### Debug helpers
 
