@@ -33,6 +33,13 @@ Many commands accept one or more `.kodae` files merged in order (same as `build`
 
 Prints the `kodae` version string.
 
+**Examples**
+
+```sh
+kodae version
+kodae -v
+```
+
 ---
 
 ### `lex` (aliases: `tokenize`, `lexdump`)
@@ -40,6 +47,13 @@ Prints the `kodae` version string.
 **Usage:** `kodae lex <file.kodae>`
 
 Writes one line per token (debugging). Not needed for normal development.
+
+**Examples**
+
+```sh
+kodae lex examples/hello.kodae
+kodae tokenize examples/onepage.kodae
+```
 
 ---
 
@@ -49,6 +63,13 @@ Writes one line per token (debugging). Not needed for normal development.
 
 Parses and prints the merged AST (same file merge rules as `build`). Ignores useless `-o` / `--cc` / `--ldflags` for this command.
 
+**Examples**
+
+```sh
+kodae parse examples/hello.kodae
+kodae ast examples/include/helpers.kodae examples/include/main.kodae
+```
+
 ---
 
 ### `check` (alias: `typecheck`)
@@ -57,6 +78,13 @@ Parses and prints the merged AST (same file merge rules as `build`). Ignores use
 
 Type-checks the merged program. Prints `ok` on success.
 
+**Examples**
+
+```sh
+kodae check examples/hello.kodae
+kodae typecheck examples/include/helpers.kodae examples/include/main.kodae
+```
+
 ---
 
 ### `cgen` / `emit` / `c`
@@ -64,6 +92,13 @@ Type-checks the merged program. Prints `ok` on success.
 **Usage:** `kodae cgen <a.kodae> [b.kodae] …`
 
 Type-checks and prints generated C to **stdout**.
+
+**Examples**
+
+```sh
+kodae cgen examples/hello.kodae
+kodae emit examples/hello.kodae > hello.c
+```
 
 ---
 
@@ -75,6 +110,17 @@ Type-checks and prints generated C to **stdout**.
 - **`--lib`**: emit C library artifacts (`.c`, `.h`, plus static/shared where applicable); see [LIBRARIES.md](LIBRARIES.md).
 - **`--static`** / **`--shared`**: control library outputs in library mode.
 
+**Examples**
+
+```sh
+kodae build examples/hello.kodae
+kodae build -o dist/mygame examples/textrpg.kodae
+kodae build --cc zig examples/hello.kodae
+kodae build --ldflags "-lraylib -lopengl32 -lgdi32 -lwinmm" examples/raylib_minimal.kodae
+kodae build --lib examples/include/helpers.kodae
+kodae build --lib --shared examples/include/helpers.kodae
+```
+
 ---
 
 ### `buildc`
@@ -82,6 +128,13 @@ Type-checks and prints generated C to **stdout**.
 **Usage:** `kodae buildc <file.kodae> [-o out.c]`
 
 Writes generated C only (no link). Default output stem matches the source file.
+
+**Examples**
+
+```sh
+kodae buildc examples/hello.kodae
+kodae buildc examples/hello.kodae -o out/hello.generated.c
+```
 
 ---
 
@@ -91,6 +144,14 @@ Writes generated C only (no link). Default output stem matches the source file.
 
 Builds then runs the resulting binary with stdin/stdout/stderr connected.
 
+**Examples**
+
+```sh
+kodae run examples/hello.kodae
+kodae run --cc zig examples/onepage.kodae
+kodae run --ldflags "-lraylib -lopengl32 -lgdi32 -lwinmm" examples/raylib_minimal.kodae
+```
+
 ---
 
 ### `install`
@@ -98,6 +159,13 @@ Builds then runs the resulting binary with stdin/stdout/stderr connected.
 **Usage:** `kodae install <path/to/file.kodae>` or `kodae install name` (looks for `name.kodae` in the current directory)
 
 Copies the file into the user library directory so `#include "name"` can resolve it from any project.
+
+**Examples**
+
+```sh
+kodae install libs/net.kodae
+kodae install mathlib
+```
 
 ---
 
@@ -111,6 +179,14 @@ Same binding logic exists as the **`kodae-bind`** helper executable.
 
 See [BINDGEN.md](BINDGEN.md).
 
+**Examples**
+
+```sh
+kodae bind raylib "C:/raylib/include/raylib.h"
+kodae bind -o include/sqlite/sqlite.kodae sqlite "C:/sqlite3/sqlite3.h"
+kodae-bind -o include/raylib/raylib.kodae raylib "C:/raylib/include/raylib.h"
+```
+
 ---
 
 ### `bundle`
@@ -118,6 +194,15 @@ See [BINDGEN.md](BINDGEN.md).
 **Usage:** `kodae bundle [os] [arch]`
 
 Maintainer tool: builds `kodae` with Go, optionally bundles Zig from `PATH`, copies `include/` and `examples/` into `dist/`. Requires Go to run.
+
+**Examples**
+
+```sh
+kodae bundle
+kodae bundle windows amd64
+kodae bundle linux amd64
+kodae bundle darwin arm64
+```
 
 ---
 

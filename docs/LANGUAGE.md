@@ -291,24 +291,83 @@ See **SUPPORTED** for the precise status of **`this` / `with` / fn lambdas**.
 
 ## 12. Built-ins & standard helpers
 
-Kodae exposes many **built-in functions** (`print`, `input`, `random`, file helpers, math, timers, JSON helpers, etc.). The exact set evolves; treat **[SUPPORTED.md](../SUPPORTED.md)** as the authoritative checklist, and **`examples/stdlib_v2_test.kodae`** as a broad runtime exercise.
+### No module imports needed
 
-**Linking and C:** use **`extern fn`**, **`# link`**, **`# linkpath`**, and sized types as in **[C_LIBRARIES.md](C_LIBRARIES.md)**.
+For core utilities, **you do not need `module` or `#include`**. These functions are globally available in normal Kodae programs.
 
-**Compiler directives** (`#include`, `#library`, …) are described in **[DIRECTIVES.md](DIRECTIVES.md)**.
+This does **not** remove directives: `#include` and `#library` remain supported and are the right tools for multi-file projects and library packaging.
 
----
+### Printing & input
 
-## 13. Debug helpers
+- `print(...)`, `printn(...)`
+- `input(prompt)`, `input_int(prompt)`, `input_float(prompt)`
+- `clear_screen()`
 
-Kodae provides several built-in functions to help you debug your code:
+### Math & geometry
+
+- `abs`, `min`, `max`, `clamp`
+- `floor`, `ceil`, `round`, `sqrt`, `pow`
+- `sin`, `cos`, `tan`, `atan2`, `log`
+- `lerp`, `map`, `distance`, `angle_to`
+- helpers: `in_range`, `in_rect`
+
+### Random
+
+- `random`, `random_float`, `random_bool`, `chance`
+- `random_pick(list)`
+- `list.shuffle()`
+
+### Time
+
+- `time()`, `time_ms()`, `delta_time()`
+- `wait(seconds)`, `wait_ms(ms)`
+- `timer_start()`, `timer_elapsed(t)`
+- `countdown(seconds)`, `countdown_done(t)`
+
+### Strings
+
+- `s.len`
+- `s.upper()`, `s.lower()`, `s.trim()`
+- `s.contains(x)`, `s.starts(x)`, `s.ends(x)`
+- `s.replace(old, new)`, `s.split(delim)`, `s.slice(start, end)`
+- `s.reverse()`, `s.repeat(n)`, `s.is_empty()`
+- casts: `str(x)`, `int(x)`, `float(x)`, `bool(x)`
+
+### Lists
+
+- `push`, `pop`, `append`, `remove`
+- `first`, `last`, `clear`, `contains`, `is_empty`
+- `sort`, `reverse`, `shuffle`
+- `list.len` and `len(list)`
+
+### Files & JSON
+
+- files: `read_file`, `write_file`, `append_file`, `copy_file`, `move_file`, `delete_file`
+- folders: `make_folder`, `delete_folder`, `folder_exists`, `list_files`
+- checks: `file_exists`
+- JSON convenience:
+  - text: `json_read(path)`, `json_write(path, value)`
+  - parsed/Any API: `json_parse`, `json_build`, `json_get`, `json_at`, `json_len`, `json_as_int`, `json_as_float`, `json_as_str`, `json_as_bool`
+
+### Save helpers (key-value)
+
+- `save_set(key, value)` (value is stringified)
+- `save_get_int(key)`, `save_get_str(key)`
+- `save_exists(key)`, `save_delete(key)`, `save_clear()`
+
+### Networking & system
+
+- net: `is_online()`, `ping(host)`, `http_get(url)`, `http_post(url, body)`, `download(url, dest)`
+- os: `os_name()`, `is_windows()`, `is_mac()`, `is_linux()`, `args()`, `env(name)`
+- shell/browser: `run(cmd)`, `open_url(url)`, `exit(code)`
+
+### Debug helpers
 
 ```kodae
-debug(player)               ' print any value nicely formatted
+debug(player)               ' pretty-print a value
 assert(health >= 0, "health cant be negative")
-todo("finish this later")   ' crashes if reached
-log("player moved")         ' prints a log message
-
+todo("finish this later")
+log("player moved")
 log_info("game started")
 log_warn("low health: $health")
 log_error("file not found: $path")
