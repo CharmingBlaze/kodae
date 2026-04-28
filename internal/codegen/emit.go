@@ -2360,9 +2360,9 @@ func (em *emitter) emitCast(c *ast.CastExpr) (string, error) {
 		case check.KBool:
 			return fmt.Sprintf("(kodae_bool_to_str(%s))", arg), nil
 		case check.KList:
-			return fmt.Sprintf("kodae_str_lit(\"[list]\")"), nil
+			return "kodae_str_lit(\"[list]\")", nil
 		case check.KStruct:
-			return fmt.Sprintf("kodae_str_lit(\"[struct]\")"), nil
+			return "kodae_str_lit(\"[struct]\")", nil
 		default:
 			return fmt.Sprintf("(kodae_int_to_str((int64_t)(%s)))", arg), nil
 		}

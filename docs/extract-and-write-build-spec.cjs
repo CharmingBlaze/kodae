@@ -34,15 +34,15 @@ if (!code.includes("require('fs')") && !code.includes('require("fs")')) {
   throw new Error('Unexpected: fs require missing');
 }
 
-if (!code.includes("fs.writeFileSync('/mnt/user-data/outputs/Clio_Compiler_Spec.docx'")) {
+if (!code.includes("fs.writeFileSync('/mnt/user-data/outputs/Kodae_Compiler_Spec.docx'")) {
   code = code.replace(
     /fs\.writeFileSync\([^\n]+\)/,
-    "fs.writeFileSync(path.join(__dirname, 'Clio_Compiler_Spec.docx')",
+    "fs.writeFileSync(path.join(__dirname, 'Kodae_Compiler_Spec.docx')",
   );
 } else {
   code = code.replace(
-    "fs.writeFileSync('/mnt/user-data/outputs/Clio_Compiler_Spec.docx', buf);",
-    "fs.writeFileSync(path.join(__dirname, 'Clio_Compiler_Spec.docx'), buf);",
+    "fs.writeFileSync('/mnt/user-data/outputs/Kodae_Compiler_Spec.docx', buf);",
+    "fs.writeFileSync(path.join(__dirname, 'Kodae_Compiler_Spec.docx'), buf);",
   );
 }
 

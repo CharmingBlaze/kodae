@@ -221,7 +221,7 @@ const doc = new Document({
         children: [new Paragraph({
           border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: BLUE, space: 4 } },
           children: [
-            new TextRun({ text: "Clio Language — Compiler Technical Specification", font: "Arial", size: 18, color: BLUE }),
+            new TextRun({ text: "Kodae Language — Compiler Technical Specification", font: "Arial", size: 18, color: BLUE }),
             new TextRun({ text: "   |   v1.0   |   CONFIDENTIAL", font: "Arial", size: 18, color: "9ca3af" }),
           ]
         })]
@@ -233,7 +233,7 @@ const doc = new Document({
           border: { top: { style: BorderStyle.SINGLE, size: 4, color: BLUE, space: 4 } },
           tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
           children: [
-            new TextRun({ text: "© Clio Language Project", font: "Arial", size: 18, color: "9ca3af" }),
+            new TextRun({ text: "© Kodae Language Project", font: "Arial", size: 18, color: "9ca3af" }),
             new TextRun({ text: "\tPage ", font: "Arial", size: 18, color: "9ca3af" }),
             new PageNumberElement(),
           ]
@@ -253,12 +253,12 @@ const doc = new Document({
       }),
       new Paragraph({
         spacing: { before: 0, after: 600 },
-        children: [new TextRun({ text: "For the Go-based Clio → C Transpiler  |  v1.0", font: "Arial", size: 26, color: "9ca3af" })]
+        children: [new TextRun({ text: "For the Go-based Kodae → C Transpiler  |  v1.0", font: "Arial", size: 26, color: "9ca3af" })]
       }),
       infoBox("Language motto", [
         '"Write it like BASIC. Run it like C."',
         "",
-        "Clio is a statically-typed systems language that transpiles to C.",
+        "Kodae is a statically-typed systems language that transpiles to C.",
         "It gives programmers the readability of BASIC, the power of C,",
         "and the safety of modern languages — with zero runtime overhead.",
       ], LBLUE, DARKBLUE, BLUE),
@@ -266,18 +266,18 @@ const doc = new Document({
 
       // ── SECTION 1: OVERVIEW ────────────────────────────────────────────────
       sectionDivider("1.  Overview"),
-      p("Clio is compiled by a Go program that reads Clio source files and outputs valid C99 code. That C code is then compiled by GCC or Clang to produce a native binary. This gives Clio C-equivalent speed, full access to every C library, and portability across Windows, macOS, and Linux with no extra work."),
+      p("Kodae is compiled by a Go program that reads Kodae source files and outputs valid C99 code. That C code is then compiled by GCC or Clang to produce a native binary. This gives Kodae C-equivalent speed, full access to every C library, and portability across Windows, macOS, and Linux with no extra work."),
       gap(80),
 
       h2("1.1  Compilation Pipeline"),
       codeBlock([
-        "  Clio source (.clio)",
+        "  Kodae source (.kodae)",
         "       |",
         "       v  [Go compiler]",
         "  Lexer  →  Parser  →  Type Checker  →  Code Generator",
         "       |",
         "       v",
-        "  C source (.c)  +  clio_runtime.h",
+        "  C source (.c)  +  kodae_runtime.h",
         "       |",
         "       v  [GCC / Clang]",
         "  Native binary  (.exe / ELF / Mach-O)",
@@ -296,7 +296,7 @@ const doc = new Document({
       sectionDivider("2.  Language Syntax Reference"),
 
       h2("2.1  Comments"),
-      p("Clio supports two comment styles:"),
+      p("Kodae supports two comment styles:"),
       codeBlock([
         "  ' This is a single-line comment  (BASIC style — preferred)",
         "  -- This is also a single-line comment  (alternate)",
@@ -316,13 +316,13 @@ const doc = new Document({
 
       h2("2.3  Types"),
       dataTable(
-        ["Clio Type", "C Equivalent", "Notes"],
+        ["Kodae Type", "C Equivalent", "Notes"],
         [
           ["int",     "int64_t",   "Always 64-bit signed"],
           ["uint",    "uint64_t",  "Always 64-bit unsigned"],
           ["float",   "double",    "64-bit IEEE 754"],
           ["bool",    "bool",      "true / false"],
-          ["str",     "clio_str",  "Real string — not char*"],
+          ["str",     "kodae_str",  "Real string — not char*"],
           ["byte",    "uint8_t",   "Raw 8-bit value"],
           ["ptr[T]",  "T*",        "Explicit pointer (C interop)"],
           ["[T]",     "struct",    "Dynamic growable array"],
@@ -577,14 +577,14 @@ const doc = new Document({
 
       h2("2.14  Modules"),
       codeBlock([
-        "  ' math.clio",
+        "  ' math.kodae",
         "  module math",
         "",
         "  pub fn square(x: int) -> int {",
         "      return x * x",
         "  }",
         "",
-        "  ' main.clio",
+        "  ' main.kodae",
         "  use math",
         "",
         "  fn main() {",
@@ -618,12 +618,12 @@ const doc = new Document({
 
       // ── SECTION 3: GO COMPILER ARCHITECTURE ───────────────────────────────
       sectionDivider("3.  Go Compiler Architecture"),
-      p("The Clio compiler is a single Go program split into clean packages. Each package handles exactly one stage of compilation."),
+      p("The Kodae compiler is a single Go program split into clean packages. Each package handles exactly one stage of compilation."),
       gap(80),
 
       h2("3.1  Package Structure"),
       codeBlock([
-        "  clio/",
+        "  kodae/",
         "  ├── main.go             CLI entry point: run, build, check, bind",
         "  ├── lexer/",
         "  │   └── lexer.go       ' text → []Token",
@@ -638,14 +638,14 @@ const doc = new Document({
         "  ├── codegen/",
         "  │   └── codegen.go     ' AST → C source string",
         "  ├── runtime/",
-        "  │   └── clio_runtime.h ' C header bundled into every build",
+        "  │   └── kodae_runtime.h ' C header bundled into every build",
         "  └── binder/",
-        "      └── binder.go      ' parse .h files → .clio extern declarations",
+        "      └── binder.go      ' parse .h files → .kodae extern declarations",
       ]),
       gap(160),
 
       h2("3.2  Stage 1 — Lexer"),
-      p("Input: raw Clio source string. Output: slice of Token structs."),
+      p("Input: raw Kodae source string. Output: slice of Token structs."),
       gap(60),
       infoBox("Key responsibilities", [
         "• Recognize all keywords: fn let const if else while for in loop break continue struct enum match use module pub extern defer",
@@ -735,21 +735,21 @@ const doc = new Document({
       p("Input: typed AST. Output: a single C99 source file as a string."),
       gap(60),
       infoBox("Key responsibilities", [
-        "• Emit #include \"clio_runtime.h\" at the top of every file",
+        "• Emit #include \"kodae_runtime.h\" at the top of every file",
         "• Emit -link flags as comments for the driver to read",
-        "• Translate every Clio type to its C equivalent (see table in section 2.3)",
-        "• Translate string interpolation to a series of clio_str_concat() calls",
-        "• Translate methods: Player.hurt → void clio_Player__hurt(Player* self, int64_t amount)",
+        "• Translate every Kodae type to its C equivalent (see table in section 2.3)",
+        "• Translate string interpolation to a series of kodae_str_concat() calls",
+        "• Translate methods: Player.hurt → void kodae_Player__hurt(Player* self, int64_t amount)",
         "• Translate match/enum to C switch statements",
         "• Translate defer using a cleanup label + goto at end of function",
         "• Translate result[T] to a C struct with .value, .err, .ok fields",
         "• Emit bounds-check calls in debug mode, remove them in release mode",
       ], GRAY, DGRAY, BORDER_C),
       gap(100),
-      h3("Example: Clio → C translation"),
+      h3("Example: Kodae → C translation"),
       twoCol(
         [
-          p("Clio input:", { bold: true }),
+          p("Kodae input:", { bold: true }),
           codeBlock([
             "let name = \"Alice\"",
             "let score = 42",
@@ -759,24 +759,24 @@ const doc = new Document({
         [
           p("C output:", { bold: true }),
           codeBlock([
-            "clio_str name =",
-            "  clio_str_from(\"Alice\");",
+            "kodae_str name =",
+            "  kodae_str_from(\"Alice\");",
             "int64_t score = 42;",
-            "clio_print(clio_str_concat(",
-            "  clio_str_concat(",
-            "    clio_str_from(\"Hi \"),",
+            "kodae_print(kodae_str_concat(",
+            "  kodae_str_concat(",
+            "    kodae_str_from(\"Hi \"),",
             "    name),",
-            "  clio_str_concat(",
-            "    clio_str_from(\": \"),",
-            "    clio_int_to_str(score+1))));",
+            "  kodae_str_concat(",
+            "    kodae_str_from(\": \"),",
+            "    kodae_int_to_str(score+1))));",
           ]),
         ]
       ),
       gap(160),
 
       // ── SECTION 4: RUNTIME ─────────────────────────────────────────────────
-      sectionDivider("4.  The Clio Runtime (clio_runtime.h)"),
-      p("The entire Clio runtime is a single C header file bundled with every build. It has no external dependencies beyond the C standard library. Keep it small — the goal is under 500 lines."),
+      sectionDivider("4.  The Kodae Runtime (kodae_runtime.h)"),
+      p("The entire Kodae runtime is a single C header file bundled with every build. It has no external dependencies beyond the C standard library. Keep it small — the goal is under 500 lines."),
       gap(80),
 
       h2("4.1  String Type"),
@@ -784,22 +784,22 @@ const doc = new Document({
         "  typedef struct {",
         "      const char* data;   /* pointer to string bytes */",
         "      int64_t     len;    /* length (not including \\0) */",
-        "  } clio_str;",
+        "  } kodae_str;",
         "",
-        "  clio_str clio_str_from(const char* s);",
-        "  clio_str clio_str_concat(clio_str a, clio_str b);",
-        "  bool     clio_str_eq(clio_str a, clio_str b);",
-        "  clio_str clio_str_upper(clio_str s);",
-        "  clio_str clio_str_lower(clio_str s);",
-        "  clio_str clio_str_trim(clio_str s);",
-        "  bool     clio_str_contains(clio_str s, clio_str sub);",
-        "  bool     clio_str_starts(clio_str s, clio_str prefix);",
-        "  bool     clio_str_ends(clio_str s, clio_str suffix);",
-        "  clio_str clio_str_replace(clio_str s, clio_str from, clio_str to);",
-        "  clio_str clio_str_slice(clio_str s, int64_t start, int64_t end);",
-        "  clio_str clio_int_to_str(int64_t n);",
-        "  clio_str clio_float_to_str(double n);",
-        "  clio_str clio_bool_to_str(bool b);",
+        "  kodae_str kodae_str_from(const char* s);",
+        "  kodae_str kodae_str_concat(kodae_str a, kodae_str b);",
+        "  bool     kodae_str_eq(kodae_str a, kodae_str b);",
+        "  kodae_str kodae_str_upper(kodae_str s);",
+        "  kodae_str kodae_str_lower(kodae_str s);",
+        "  kodae_str kodae_str_trim(kodae_str s);",
+        "  bool     kodae_str_contains(kodae_str s, kodae_str sub);",
+        "  bool     kodae_str_starts(kodae_str s, kodae_str prefix);",
+        "  bool     kodae_str_ends(kodae_str s, kodae_str suffix);",
+        "  kodae_str kodae_str_replace(kodae_str s, kodae_str from, kodae_str to);",
+        "  kodae_str kodae_str_slice(kodae_str s, int64_t start, int64_t end);",
+        "  kodae_str kodae_int_to_str(int64_t n);",
+        "  kodae_str kodae_float_to_str(double n);",
+        "  kodae_str kodae_bool_to_str(bool b);",
       ]),
       gap(100),
 
@@ -825,14 +825,14 @@ const doc = new Document({
       codeBlock([
         "  /* result[str] becomes: */",
         "  typedef struct {",
-        "      clio_str value;",
-        "      clio_str err;",
+        "      kodae_str value;",
+        "      kodae_str err;",
         "      bool     ok;",
-        "  } clio_result_clio_str;",
+        "  } kodae_result_kodae_str;",
         "",
         "  /* ok() and err() constructors: */",
         "  #define CLIO_OK(T, val)   ((T){ .value=(val), .ok=true })",
-        "  #define CLIO_ERR(T, msg)  ((T){ .err=clio_str_from(msg), .ok=false })",
+        "  #define CLIO_ERR(T, msg)  ((T){ .err=kodae_str_from(msg), .ok=false })",
       ]),
       gap(100),
 
@@ -856,12 +856,12 @@ const doc = new Document({
       dataTable(
         ["Command", "Description"],
         [
-          ["clio run game.clio",          "Compile and immediately run the program"],
-          ["clio build game.clio",        "Compile to a binary (debug mode)"],
-          ["clio build --release game.clio", "Compile with full optimizations"],
-          ["clio check game.clio",        "Type-check only — no output produced"],
-          ["clio bind raylib.h",          "Generate .clio extern declarations from a C header"],
-          ["clio version",                "Print compiler version"],
+          ["kodae run game.kodae",          "Compile and immediately run the program"],
+          ["kodae build game.kodae",        "Compile to a binary (debug mode)"],
+          ["kodae build --release game.kodae", "Compile with full optimizations"],
+          ["kodae check game.kodae",        "Type-check only — no output produced"],
+          ["kodae bind raylib.h",          "Generate .kodae extern declarations from a C header"],
+          ["kodae version",                "Print compiler version"],
         ],
         [4000, 5360]
       ),
@@ -883,7 +883,7 @@ const doc = new Document({
       // ── SECTION 6: C LIBRARY INTEROP ──────────────────────────────────────
       sectionDivider("6.  C Library Interop"),
 
-      h2("6.1  Using any C library from Clio"),
+      h2("6.1  Using any C library from Kodae"),
       p("Any C library works. The programmer declares the functions with extern and links the library with #link:"),
       codeBlock([
         "  #link \"raylib\"",
@@ -903,17 +903,17 @@ const doc = new Document({
         "          if (WindowShouldClose()) { break }",
         "          BeginDrawing()",
         "          ClearBackground(0x181818FF)",
-        "          DrawText(\"Hello from Clio!\", 300, 280, 24, 0xFFFFFFFF)",
+        "          DrawText(\"Hello from Kodae!\", 300, 280, 24, 0xFFFFFFFF)",
         "          EndDrawing()",
         "      }",
         "  }",
       ]),
       gap(100),
 
-      h2("6.2  The clio bind command"),
+      h2("6.2  The kodae bind command"),
       p("The binder reads a C header file and auto-generates extern declarations so the programmer doesn't have to write them by hand:"),
       codeBlock([
-        "  $ clio bind raylib.h > raylib.clio",
+        "  $ kodae bind raylib.h > raylib.kodae",
         "",
         "  ' Generated output (excerpt):",
         "  #link \"raylib\"",
@@ -933,7 +933,7 @@ const doc = new Document({
 
       // ── SECTION 7: PERFORMANCE GUIDE ──────────────────────────────────────
       sectionDivider("7.  Performance Guide"),
-      p("Clio compiles to C, so it inherits C performance directly. Here are the specific rules to follow to ensure the output is as fast as hand-written C++."),
+      p("Kodae compiles to C, so it inherits C performance directly. Here are the specific rules to follow to ensure the output is as fast as hand-written C++."),
       gap(80),
 
       bullet("Pass structs ≤ 64 bytes by value, larger structs by pointer — avoids unnecessary copying"),
@@ -948,13 +948,13 @@ const doc = new Document({
 
       // ── SECTION 8: ERROR MESSAGES ─────────────────────────────────────────
       sectionDivider("8.  Error Message Guidelines"),
-      p("Good error messages are a core feature of Clio. Every error must tell the programmer exactly what went wrong and where."),
+      p("Good error messages are a core feature of Kodae. Every error must tell the programmer exactly what went wrong and where."),
       gap(80),
 
       h2("8.1  Format"),
       codeBlock([
         "  error: <what went wrong>",
-        "    --> filename.clio:line:col",
+        "    --> filename.kodae:line:col",
         "     |",
         "  42 |  if (name = \"Alice\") {",
         "     |         ^ did you mean == instead of = ?",
@@ -990,7 +990,7 @@ const doc = new Document({
         "2. Write the Parser. Test it produces an AST for a hello world program.",
         "3. Write a minimal Codegen that emits C for: let, print, if, while, fn.",
         "4. Write the Driver that calls GCC on the output.",
-        "5. Milestone: 'clio run hello.clio' prints Hello, World!",
+        "5. Milestone: 'kodae run hello.kodae' prints Hello, World!",
       ], GREEN, DGREEN, "059669"),
       gap(80),
       infoBox("Phase 2 — Make it useful", [
@@ -1004,11 +1004,11 @@ const doc = new Document({
       infoBox("Phase 3 — Make it production-ready", [
         "11. Write the Resolver (name checking).",
         "12. Write the Type Checker.",
-        "13. Write the Binder (clio bind raylib.h).",
+        "13. Write the Binder (kodae bind raylib.h).",
         "14. Add defer, ++/--, +=/-=/*=, compound operators.",
         "15. Add the module system (use / module / pub).",
         "16. Add helpful error messages with line/col pointers.",
-        "17. Milestone: can build a full Raylib game in Clio.",
+        "17. Milestone: can build a full Raylib game in Kodae.",
       ], AMBER, DAMBER, "d97706"),
       gap(160),
 
@@ -1056,13 +1056,13 @@ const doc = new Document({
       gap(200),
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: "End of Specification — Clio v1.0", font: "Arial", size: 20, color: "9ca3af" })]
+        children: [new TextRun({ text: "End of Specification — Kodae v1.0", font: "Arial", size: 20, color: "9ca3af" })]
       }),
     ]
   }]
 });
 
 Packer.toBuffer(doc).then(buf => {
-  fs.writeFileSync(path.join(__dirname, 'Clio_Compiler_Spec.docx'), buf);
+  fs.writeFileSync(path.join(__dirname, 'Kodae_Compiler_Spec.docx'), buf);
   console.log('done');
 });
