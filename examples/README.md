@@ -8,16 +8,16 @@ To run these examples, use the `kodae` command from your portable bundle. The fu
 
 ## Suggested order (learning)
 
-1. **Day 1** — `print`, variables, math operators
-2. **Day 1** — `if` / `else`, `while`, `for`
-3. **Day 2** — functions, tuples, default params
-4. **Day 2** — lists and list methods
-5. **Day 3** — structs, methods, `this` keyword
-6. **Day 3** — enums and `match`
-7. **Day 4** — files, JSON, save systems
-8. **Day 5** — networking, HTTP, online scores
-9. **Day 6** — games with Raylib
-10. **Day 7** — C libraries, `pub`, `#include`, `build --lib`
+1. **Variables & Math** — `print`, variables, math operators
+2. **Control Flow** — `if` / `else`, `while`, `for`
+3. **Functions** — functions, tuples, default params
+4. **Data Structures** — lists and list methods
+5. **Custom Types** — structs, methods, `this` keyword
+6. **Enums** — enums and `match`
+7. **File I/O** — files, JSON, save systems
+8. **Networking** — HTTP, WebSockets, online scores
+9. **Game Dev** — games with Raylib
+10. **C Interop** — C libraries, `pub`, `#include`, `build --lib`
 
 ## Full index
 
