@@ -1,0 +1,12 @@
+' Multi-file with #include (resolves helpers.kodae next to this file).
+'   From repo root:  kodae run examples/include/main.kodae
+' See docs/DIRECTIVES.md for search order (same dir, ./libs/, user lib dir).
+
+#include "helpers"
+
+fn main() {
+  let t: int = triple(4)
+  print("triple(4) = " + str(t))
+  let p = Point { x: 2, y: 3 }
+  print("2+3 = " + str( point_sum(p) ) )
+}

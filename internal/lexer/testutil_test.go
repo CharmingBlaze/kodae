@@ -3,7 +3,7 @@ package lex
 import (
 	"testing"
 
-	"clio/internal/token"
+	"kodae/internal/token"
 )
 
 // readAll materializes the full token stream, including NEWLINE, until EOF.

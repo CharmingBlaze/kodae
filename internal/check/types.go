@@ -7,7 +7,7 @@ const (
 	KInvalid Kind = iota
 	KInt
 	KFloat
-	KF32 // C float in extern signatures only; widens to KFloat in Clio expressions
+	KF32 // C float in extern signatures only; widens to KFloat in Kodae expressions
 	KI32 // C int32_t in extern only; widens to KInt in expressions
 	KU32 // C uint32_t in extern only; widens to KInt
 	KU8  // C uint8_t in extern only; widens to KInt
@@ -21,9 +21,9 @@ const (
 	KStruct // .StructName and .StructDef set
 	KOptional // .Opt is inner type; EnumName empty
 	KByte   // 8-bit byte (C uint8)
-	KPtr    // .Pointee is *Type (ptr[Pointee] in Clio)
-	KList   // .Elem is the list element type (list[Elem] in Clio)
-	// KResult: .Res is the success value type (result[Res] in Clio)
+	KPtr    // .Pointee is *Type (ptr[Pointee] in Kodae)
+	KList   // .Elem is the list element type (list[Elem] in Kodae)
+	// KResult: .Res is the success value type (result[Res] in Kodae)
 	KResult
 	KAny // Dynamic/Any type (for JSON/Objects)
 )

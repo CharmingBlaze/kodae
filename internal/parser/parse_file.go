@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"clio/internal/ast"
-	"clio/internal/token"
+	"kodae/internal/ast"
+	"kodae/internal/token"
 )
 
 // ParseProgram reads the file into an AST. On error, a partial tree may be returned; check Err().

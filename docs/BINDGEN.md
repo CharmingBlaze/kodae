@@ -1,6 +1,6 @@
-# Clio Binding Generator (`clio bind`)
+# Kodae Binding Generator (`kodae bind`)
 
-The `clio bind` command generates Clio wrappers for C libraries by parsing their header files using LLVM/Clang.
+The `kodae bind` command generates Kodae wrappers for C libraries by parsing their header files using LLVM/Clang.
 
 ## Prerequisites
 
@@ -10,42 +10,42 @@ The `clio bind` command generates Clio wrappers for C libraries by parsing their
 ## Usage
 
 ```bash
-clio bind <name> <path/to/header.h> [-o output.clio]
+kodae bind <name> <path/to/header.h> [-o output.kodae]
 ```
 
 - `<name>`: The short name of the library (e.g., `raylib`, `sqlite3`). This will be used in the generated `# link` directive.
 - `<path/to/header.h>`: The path to the main C header file.
-- `-o output.clio`: (Optional) The output path for the generated Clio file. Defaults to `include/<name>/<name>.clio`.
+- `-o output.kodae`: (Optional) The output path for the generated Kodae file. Defaults to `include/<name>/<name>.kodae`.
 
 ## What is generated?
 
 ### 1. Structs
-C `struct` definitions are converted to Clio `pub struct`.
-- Fields are mapped to the closest Clio type.
+C `struct` definitions are converted to Kodae `pub struct`.
+- Fields are mapped to the closest Kodae type.
 - Nested structs and complex types are supported if they are defined in the same header or can be resolved by Clang.
 
 ### 2. Enums
-C `enum` definitions are converted to Clio `pub enum`.
+C `enum` definitions are converted to Kodae `pub enum`.
 
 ### 3. Extern Functions
-C functions are converted to Clio `extern fn`.
+C functions are converted to Kodae `extern fn`.
 - Return types and parameters are mapped.
 - `void` return type becomes `-> void`.
 - Pointers (e.g., `const char*`, `void*`) are mapped to `ptr[byte]`.
 
 ## Type Mapping Reference
 
-| C Type | Clio Type | Notes |
+| C Type | Kodae Type | Notes |
 |--------|-----------|-------|
-| `int`, `long`, `long long` | `int` | Clio `int` is 64-bit. |
+| `int`, `long`, `long long` | `int` | Kodae `int` is 64-bit. |
 | `float` | `f32` | Mapped to C `float`. Restricted to interop. |
-| `double` | `float` | Clio `float` is C `double`. Standard logic type. |
+| `double` | `float` | Kodae `float` is C `double`. Standard logic type. |
 | `int32_t` | `i32` | Restricted to interop. |
 | `unsigned char`, `uint8_t` | `u8` | Restricted to interop. |
-| `char*`, `void*`, `T*` | `ptr[byte]` | Generic pointer type in Clio. |
+| `char*`, `void*`, `T*` | `ptr[byte]` | Generic pointer type in Kodae. |
 
 ### Note on Sized Types (`i32`, `f32`, `u32`, `u8`)
-These types are only allowed in `extern fn` signatures and `struct` fields. However, the Clio compiler automatically coerces standard `int` and `float` values to these sized types when passing them to functions or assigning them to struct fields, making interop seamless for beginners.
+These types are only allowed in `extern fn` signatures and `struct` fields. However, the Kodae compiler automatically coerces standard `int` and `float` values to these sized types when passing them to functions or assigning them to struct fields, making interop seamless for beginners.
 
 ## Example
 
@@ -59,11 +59,11 @@ float Vector2Length(struct Vector2 v);
 
 Run:
 ```bash
-clio bind math_utils math_utils.h
+kodae bind math_utils math_utils.h
 ```
 
-Generated `include/math_utils/math_utils.clio`:
-```clio
+Generated `include/math_utils/math_utils.kodae`:
+```kodae
 ' AUTO-GENERATED bindings for math_utils
 # link "math_utils"
 

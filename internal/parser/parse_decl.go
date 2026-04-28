@@ -2,8 +2,8 @@ package parser
 
 import (
 	"fmt"
-	"clio/internal/ast"
-	"clio/internal/token"
+	"kodae/internal/ast"
+	"kodae/internal/token"
 )
 func (p *Parser) parseEnum() *ast.EnumDecl { return p.parseEnumWithPub(false) }
 

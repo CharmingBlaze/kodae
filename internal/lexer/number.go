@@ -1,6 +1,6 @@
 package lex
 
-import "clio/internal/token"
+import "kodae/internal/token"
 
 func (l *Lexer) readNumber(line, col int) token.Token {
 	start := l.pos

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"clio/internal/token"
+	"kodae/internal/token"
 )
 
 // readString reads a "..." string. Literal is the unescaped value for normal escapes.

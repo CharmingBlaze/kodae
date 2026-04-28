@@ -3,7 +3,7 @@ package check
 import (
 	"fmt"
 
-	"clio/internal/ast"
+	"kodae/internal/ast"
 )
 
 func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
@@ -18,7 +18,7 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 				return nil, fmt.Errorf("this can only be used inside a method")
 			}
 			if x.Name == "ok" || x.Name == "err" {
-				return nil, fmt.Errorf("%s(...) is not supported in Clio v1; use catch", x.Name)
+				return nil, fmt.Errorf("%s(...) is not supported in Kodae v1; use catch", x.Name)
 			}
 			if c.enums[x.Name] != nil {
 				return nil, fmt.Errorf("expected %q as value (use %q.Variant for enum value)", x.Name, x.Name)
@@ -175,7 +175,7 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		}
 		if tL == nil || tL.Kind != KStruct || tL.StructDef == nil {
 			if x.Field == "ok" || x.Field == "value" || x.Field == "err" {
-				return nil, fmt.Errorf("result field access (.ok/.value/.err) is not part of Clio v1; use catch")
+				return nil, fmt.Errorf("result field access (.ok/.value/.err) is not part of Kodae v1; use catch")
 			}
 			return nil, fmt.Errorf("field access .%q on %s (need struct value)", x.Field, tL)
 		}
@@ -189,7 +189,7 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		c.setType(e, fdt)
 		return fdt, nil
 	case *ast.TryUnwrapExpr:
-		return nil, fmt.Errorf("? is not supported in Clio v1; use catch")
+		return nil, fmt.Errorf("? is not supported in Kodae v1; use catch")
 	case *ast.ResultCatchExpr:
 		if !c.tryOK {
 			return nil, fmt.Errorf("result catch: only valid in let init, return value, = right-hand side, or expression statement")
@@ -1048,7 +1048,7 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		c.setType(x, TpInt)
 		return TpInt, nil
 	case "ok", "err":
-		return nil, fmt.Errorf("%s(...) is not supported in Clio v1; use catch", name)
+		return nil, fmt.Errorf("%s(...) is not supported in Kodae v1; use catch", name)
 	case "int", "float", "str", "bool":
 		if len(x.Args) != 1 {
 			return nil, fmt.Errorf("%s: need one argument", name)

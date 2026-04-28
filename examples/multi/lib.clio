@@ -1,4 +1,0 @@
-' Loaded before app.clio. Cross-file calls require pub on the definition.
-pub fn double(n: int) -> int {
-  return n * 2
-}

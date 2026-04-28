@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"clio/internal/ast"
-	"clio/internal/token"
+	"kodae/internal/ast"
+	"kodae/internal/token"
 )
 
 // parseType reads a user-facing type in non-extern contexts.
@@ -33,7 +33,7 @@ func (p *Parser) parseTypeWithRules(allowPtr bool) *ast.TypeExpr {
 		return nil
 	}
 	if p.tok.Type == token.RESULT || p.tok.Literal == "result" {
-		p.failf("type: result[...] is not part of Clio v1; use catch")
+		p.failf("type: result[...] is not part of Kodae v1; use catch")
 		return nil
 	}
 	if p.tok.Literal == "ptr" {
@@ -50,7 +50,7 @@ func (p *Parser) parseTypeWithRules(allowPtr bool) *ast.TypeExpr {
 		p.expect(token.RBRACK)
 		t := &ast.TypeExpr{PtrInner: inner}
 		if p.tok.Type == token.QUEST {
-			p.failf("type: T? is not part of Clio v1; use plain none with implicit nullable values")
+			p.failf("type: T? is not part of Kodae v1; use plain none with implicit nullable values")
 			return nil
 		}
 		return t
@@ -65,7 +65,7 @@ func (p *Parser) parseTypeWithRules(allowPtr bool) *ast.TypeExpr {
 		p.expect(token.RBRACK)
 		t := &ast.TypeExpr{ListInner: inner}
 		if p.tok.Type == token.QUEST {
-			p.failf("type: T? is not part of Clio v1; use plain none with implicit nullable values")
+			p.failf("type: T? is not part of Kodae v1; use plain none with implicit nullable values")
 			return nil
 		}
 		return t
@@ -73,7 +73,7 @@ func (p *Parser) parseTypeWithRules(allowPtr bool) *ast.TypeExpr {
 	t := &ast.TypeExpr{Name: p.tok.Literal}
 	p.next()
 	if p.tok.Type == token.QUEST {
-		p.failf("type: T? is not part of Clio v1; use plain none with implicit nullable values")
+		p.failf("type: T? is not part of Kodae v1; use plain none with implicit nullable values")
 		return nil
 	}
 	return t

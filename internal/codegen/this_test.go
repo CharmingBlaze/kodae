@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"clio/internal/check"
-	lex "clio/internal/lexer"
-	"clio/internal/parser"
+	"kodae/internal/check"
+	lex "kodae/internal/lexer"
+	"kodae/internal/parser"
 )
 
 func TestEmit_ImplicitThisMapsToSelf(t *testing.T) {

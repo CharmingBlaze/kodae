@@ -1,6 +1,6 @@
 package lex
 
-import "clio/internal/token"
+import "kodae/internal/token"
 
 func (l *Lexer) isIdentStart() bool {
 	return l.ch == '_' || (l.ch >= 'a' && l.ch <= 'z') || (l.ch >= 'A' && l.ch <= 'Z')

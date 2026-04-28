@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Fprint writes a simple outline of the program (for clio parse / debugging).
+// Fprint writes a simple outline of the program (for kodae parse / debugging).
 func Fprint(w io.Writer, p *Program) {
 	if p == nil {
 		fmt.Fprintln(w, "<nil program>")

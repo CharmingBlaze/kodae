@@ -1,0 +1,9 @@
+' `use lib` loads lib.kodae from the same directory (before this file's decls).
+'   kodae run app.kodae   (from this folder)   or:   kodae build app.kodae
+' Prefer #include for resolving ./libs/ and user-installed libs; see examples/include/
+use lib
+
+fn main() {
+  let v: int = double(10)
+  print( str( v ) )
+}

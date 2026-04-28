@@ -1,4 +1,4 @@
-// Package loader resolves #include "path" to an absolute .clio file path.
+// Package loader resolves #include "path" to an absolute .kodae file path.
 package loader
 
 import (
@@ -8,16 +8,16 @@ import (
 	"strings"
 )
 
-// ResolveClioInclude finds a .clio file to satisfy #include in order:
+// ResolveKodaeInclude finds a .kodae file to satisfy #include in order:
 //  1) path next to the current file
 //  2) <currentDir>/libs/<path>
-//  3) ~/.clio/libs/<path>
-func ResolveClioInclude(currentFileDir, spec string) (string, error) {
+//  3) ~/.kodae/libs/<path>
+func ResolveKodaeInclude(currentFileDir, spec string) (string, error) {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
 		return "", fmt.Errorf("# include: path is empty")
 	}
-	// Absolute .clio path
+	// Absolute .kodae path
 	if filepath.IsAbs(spec) {
 		abs := filepath.Clean(spec)
 		if st, e := os.Stat(abs); e == nil && !st.IsDir() {
@@ -26,8 +26,8 @@ func ResolveClioInclude(currentFileDir, spec string) (string, error) {
 		return "", fmt.Errorf("# include: not found: %q", spec)
 	}
 	rel := spec
-	if !strings.EqualFold(filepath.Ext(rel), ".clio") {
-		rel = rel + ".clio"
+	if !strings.EqualFold(filepath.Ext(rel), ".kodae") {
+		rel = rel + ".kodae"
 	}
 
 	candidates := []string{
@@ -44,19 +44,19 @@ func ResolveClioInclude(currentFileDir, spec string) (string, error) {
 			return c, nil
 		}
 	}
-	return "", fmt.Errorf("# include %q: not found (tried: %s); for a C API use # link and extern fn, or add a .clio file in the project or ~/.clio/libs",
-		strings.TrimSuffix(spec, ".clio"), strings.Join(tried, ", "))
+	return "", fmt.Errorf("# include %q: not found (tried: %s); for a C API use # link and extern fn, or add a .kodae file in the project or ~/.kodae/libs",
+		strings.TrimSuffix(spec, ".kodae"), strings.Join(tried, ", "))
 }
 
-// UserLibDir returns the directory for installed .clio libraries: $CLIO_HOME/libs, or
-// ~/.clio/libs (or the platform equivalent under the user home).
+// UserLibDir returns the directory for installed .kodae libraries: $KODAE_HOME/libs, or
+// ~/.kodae/libs (or the platform equivalent under the user home).
 func UserLibDir() (string, error) {
-	if d := strings.TrimSpace(os.Getenv("CLIO_HOME")); d != "" {
+	if d := strings.TrimSpace(os.Getenv("KODAE_HOME")); d != "" {
 		return filepath.Clean(filepath.Join(d, "libs")), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".clio", "libs"), nil
+	return filepath.Join(home, ".kodae", "libs"), nil
 }

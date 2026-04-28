@@ -1,7 +1,7 @@
 package check
 
 import (
-	"clio/internal/ast"
+	"kodae/internal/ast"
 	"reflect"
 )
 

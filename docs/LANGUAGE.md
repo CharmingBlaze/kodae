@@ -1,17 +1,17 @@
-# Clio: the whole language in one page
+# Kodae: the whole language in one page
 
-Clio is small on purpose. Line comments start with `'` (apostrophe) or `--`.
+Kodae is small on purpose. Line comments start with `'` (apostrophe) or `--`.
 
-**Quick Start:** The easiest way to use Clio is to download the **Portable Bundle** for your platform from the [Releases](https://github.com/CharmingBlaze/clio/releases) page. It includes a built-in C toolchain, so you can start coding immediately with no setup.
+**Quick Start:** The easiest way to use Kodae is to download the **Portable Bundle** for your platform from the [Releases](https://github.com/CharmingBlaze/kodae/releases) page. It includes a built-in C toolchain, so you can start coding immediately with no setup.
 
 
-**New to Clio?** Start with the [README.md](../README.md) for setup and the [examples/README.md](../examples/README.md) for a hands-on learning path. This page serves as the complete language reference.
+**New to Kodae?** Start with the [README.md](../README.md) for setup and the [examples/README.md](../examples/README.md) for a hands-on learning path. This page serves as the complete language reference.
 
-Below is a **real, self-contained program** (Clio only allows *statements* like `print` and `let` *inside* a function, so the runnable one-pager uses `fn main() { ... }` after your types and functions are declared at file scope). You can also write `for (i in 0..10)` *or* the shorter `for i in 0..10` — both are supported.
+Below is a **real, self-contained program** (Kodae only allows *statements* like `print` and `let` *inside* a function, so the runnable one-pager uses `fn main() { ... }` after your types and functions are declared at file scope). You can also write `for (i in 0..10)` *or* the shorter `for i in 0..10` — both are supported.
 
-## One page of Clio
+## One page of Kodae
 
-```clio
+```kodae
 ' --- Data (file scope: structs, enums, methods, functions)
 struct Player {
   name: str
@@ -127,15 +127,15 @@ That is the full beginner surface. Everything else in the compiler and repo is *
 5. **Day 3** — structs, methods, `this`  
 6. **Day 3** — enums and `match`  
 7. **Any time after functions (optional)** — **multi-file** programs: `#include` and `pub` in [examples/include/](../examples/include/); the older `use` style is [examples/multi/](../examples/multi/) (see [DIRECTIVES.md](DIRECTIVES.md)).  
-8. **Day 4** — games: link a C library and call it with `extern fn` (see [C_LIBRARIES.md](C_LIBRARIES.md) for the full Raylib-style flow: `# link`, `# linkpath`, and a small sample in [examples/raylib_minimal.clio](../examples/raylib_minimal.clio); [examples/extern_hello.clio](../examples/extern_hello.clio) is the minimal `printf` interop test)
+8. **Day 4** — games: link a C library and call it with `extern fn` (see [C_LIBRARIES.md](C_LIBRARIES.md) for the full Raylib-style flow: `# link`, `# linkpath`, and a small sample in [examples/raylib_minimal.kodae](../examples/raylib_minimal.kodae); [examples/extern_hello.kodae](../examples/extern_hello.kodae) is the minimal `printf` interop test)
 
 Everything else — portable compiler bundles and `catch` — is **advanced** and can wait.
 
-## The three rules for friendly Clio
+## The three rules for friendly Kodae
 
 1. **Types are optional. The compiler figures out what it can.**  
 
-   ```clio
+   ```kodae
    let x = 10
    let name = "Ada"
    let items: list[str] = []
@@ -143,7 +143,7 @@ Everything else — portable compiler bundles and `catch` — is **advanced** an
 
    (Empty `[]` needs a type: `list[str]` or another `list[...]`.)
 
-2. **One obvious way.** No `result[T]` and `?` and `catch` in the *beginner* story—when you add errors, Clio v1 is **just `catch`**, not a visible result type. There is no separate array type — use **`list[T]`** only.
+2. **One obvious way.** No `result[T]` and `?` and `catch` in the *beginner* story—when you add errors, Kodae v1 is **just `catch`**, not a visible result type. There is no separate array type — use **`list[T]`** only.
 
 3. **Errors should read like English.** The compiler gives short, readable messages, for example:
 
@@ -158,11 +158,11 @@ Everything else — portable compiler bundles and `catch` — is **advanced** an
 | Topic | Where to read |
 |--------|----------------|
 | Runnable examples in order | [examples/README.md](../examples/README.md) |
-| `catch` on calls you define or link | `examples/result_minimal.clio`, [SUPPORTED.md](../SUPPORTED.md) |
-| C interop and linking a game lib (Raylib, etc.) | [C_LIBRARIES.md](C_LIBRARIES.md), [examples/extern_hello.clio](../examples/extern_hello.clio) |
+| `catch` on calls you define or link | `examples/result_minimal.kodae`, [SUPPORTED.md](../SUPPORTED.md) |
+| C interop and linking a game lib (Raylib, etc.) | [C_LIBRARIES.md](C_LIBRARIES.md), [examples/extern_hello.kodae](../examples/extern_hello.kodae) |
 | `pub` and C library export | [LIBRARIES.md](LIBRARIES.md) |
-| Multi-file, `#include`, and installable `.clio` | [DIRECTIVES.md](DIRECTIVES.md) |
-| Portable `clio` + bundled toolchain | [DISTRIBUTION.md](DISTRIBUTION.md) |
+| Multi-file, `#include`, and installable `.kodae` | [DIRECTIVES.md](DIRECTIVES.md) |
+| Portable `kodae` + bundled toolchain | [DISTRIBUTION.md](DISTRIBUTION.md) |
 
 ## Built-ins (quick reference)
 
@@ -173,7 +173,7 @@ Everything else — portable compiler bundles and `catch` — is **advanced** an
 - Helpers: `min`, `max`, `abs`
 
 ### C Interop Types
-For working with C libraries (like Raylib), Clio provides sized types:
+For working with C libraries (like Raylib), Kodae provides sized types:
 - `i32`, `u32`, `u8`
 - `f32` (C float)
 - `ptr[byte]` (C pointer)
@@ -219,7 +219,7 @@ These types are mainly for data layout in structs and function calls. You can us
 
 ## Runnable copy
 
-A checked-in version of the one-pager (with `fn main() { ... }`) is [examples/onepage.clio](../examples/onepage.clio) — you can `clio run` or `clio build` that file to verify your install.
+A checked-in version of the one-pager (with `fn main() { ... }`) is [examples/onepage.kodae](../examples/onepage.kodae) — you can `kodae run` or `kodae build` that file to verify your install.
 
 ## Implementation status
 

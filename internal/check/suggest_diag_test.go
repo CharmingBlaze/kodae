@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	lex "clio/internal/lexer"
-	"clio/internal/parser"
+	lex "kodae/internal/lexer"
+	"kodae/internal/parser"
 )
 
 func TestDiag_TypoName_Suggest(t *testing.T) {

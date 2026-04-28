@@ -1,9 +1,0 @@
-' `use lib` loads lib.clio from the same directory (before this file's decls).
-'   clio run app.clio   (from this folder)   or:   clio build app.clio
-' Prefer #include for resolving ./libs/ and user-installed libs; see examples/include/
-use lib
-
-fn main() {
-  let v: int = double(10)
-  print( str( v ) )
-}

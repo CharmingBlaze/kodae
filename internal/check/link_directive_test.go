@@ -3,8 +3,8 @@ package check
 import (
 	"testing"
 
-	lex "clio/internal/lexer"
-	"clio/internal/parser"
+	lex "kodae/internal/lexer"
+	"kodae/internal/parser"
 )
 
 func TestCheck_LinkAndLinkpathToLdFlags(t *testing.T) {

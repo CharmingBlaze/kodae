@@ -1,13 +1,13 @@
-// Package parser builds an AST from Clio source.
+// Package parser builds an AST from Kodae source.
 package parser
 
 import (
 	"fmt"
 	"strconv"
 
-	"clio/internal/ast"
-	lex "clio/internal/lexer"
-	"clio/internal/token"
+	"kodae/internal/ast"
+	lex "kodae/internal/lexer"
+	"kodae/internal/token"
 )
 
 // Parser holds lexer state and the current token.

@@ -1,7 +1,7 @@
-// Package lex tokenizes Clio source.
+// Package lex tokenizes Kodae source.
 package lex
 
-import "clio/internal/token"
+import "kodae/internal/token"
 
 // Lexer walks input byte-by-byte (UTF-8 string literals are handled as byte sequences).
 type Lexer struct {

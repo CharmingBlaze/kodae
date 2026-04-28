@@ -16,7 +16,7 @@ struct TestStruct {
 enum TestEnum { A, B };
 void TestFunc(struct TestStruct s, enum TestEnum e);
 `
-	tmpDir, err := os.MkdirTemp("", "clio-bind-test")
+	tmpDir, err := os.MkdirTemp("", "kodae-bind-test")
 	old, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	t.Cleanup(func() { os.Chdir(old) })

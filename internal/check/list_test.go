@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	lex "clio/internal/lexer"
-	"clio/internal/parser"
+	lex "kodae/internal/lexer"
+	"kodae/internal/parser"
 )
 
 func TestList_CoreTypingAndMethods(t *testing.T) {

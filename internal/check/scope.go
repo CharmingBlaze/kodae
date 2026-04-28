@@ -3,7 +3,7 @@ package check
 import (
 	"fmt"
 
-	"clio/internal/ast"
+	"kodae/internal/ast"
 )
 
 func (c *Checker) push() {
@@ -145,7 +145,7 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		return lt, nil
 	}
 	if tx.ResultInner != nil {
-		return nil, fmt.Errorf("type: result[...] is not part of Clio v1; use catch")
+		return nil, fmt.Errorf("type: result[...] is not part of Kodae v1; use catch")
 	}
 	if tx.Name == "void" {
 		if tx.Optional {
@@ -220,7 +220,7 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		return nil, fmt.Errorf("unknown type %q", tx.Name)
 	}
 	if tx.Optional {
-		return nil, fmt.Errorf("type: T? is not part of Clio v1; use plain none with implicit nullable values")
+		return nil, fmt.Errorf("type: T? is not part of Kodae v1; use plain none with implicit nullable values")
 	}
 	return base, nil
 }
@@ -256,7 +256,7 @@ func (c *Checker) assignable(want, got *Type) error {
 	if want.Kind == KFloat && got.Kind == KInt {
 		return nil
 	}
-	// f32 in extern: accept int or Clio float (double) as the argument
+	// f32 in extern: accept int or Kodae float (double) as the argument
 	if want.Kind == KF32 {
 		if got.Kind == KInt || got.Kind == KFloat || got.Kind == KF32 {
 			return nil

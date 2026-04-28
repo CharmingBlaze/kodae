@@ -1,0 +1,148 @@
+#include "raylib/raylib"
+
+' Game Constants
+const screenWidth = 800
+const screenHeight = 600
+const paddleWidth = 100.0
+const paddleHeight = 20.0
+const ballRadius = 10.0
+const brickRows = 5
+const brickCols = 8
+const brickWidth = 80.0
+const brickHeight = 30.0
+const brickPadding = 10.0
+const brickOffsetTop = 50.0
+const brickOffsetLeft = 40.0
+
+pub struct Brick {
+    rect: Rectangle
+    active: bool
+}
+
+fn main() {
+    InitWindow(screenWidth, screenHeight, "Kodae Brick Breaker")
+    SetTargetFPS(60)
+
+    ' Paddle State
+    let paddle = Rectangle { 
+        x: float(screenWidth) / 2.0 - paddleWidth / 2.0, 
+        y: float(screenHeight) - 50.0, 
+        width: paddleWidth, 
+        height: paddleHeight 
+    }
+
+    ' Ball State
+    let ballPos = Vector2 { 
+        x: float(screenWidth) / 2.0, 
+        y: float(screenHeight) / 2.0 
+    }
+    let ballSpeed = Vector2 { x: 4.0, y: -4.0 }
+
+    ' Bricks Setup
+    let bricks: list[Brick] = []
+    for r in 0..brickRows {
+        for c in 0..brickCols {
+            let bx = float(c) * (brickWidth + brickPadding) + brickOffsetLeft
+            let by = float(r) * (brickHeight + brickPadding) + brickOffsetTop
+            bricks.push(Brick {
+                rect: Rectangle { x: bx, y: by, width: brickWidth, height: brickHeight },
+                active: true
+            })
+        }
+    }
+
+    let gameOver = false
+    let score = 0
+
+    loop {
+        if (WindowShouldClose()) { break }
+
+        if (!gameOver) {
+            ' Update Paddle
+            if (IsKeyDown(263)) { ' KEY_LEFT
+                paddle.x = paddle.x - 6.0
+            }
+            if (IsKeyDown(262)) { ' KEY_RIGHT
+                paddle.x = paddle.x + 6.0
+            }
+
+            ' Clamp Paddle
+            if (paddle.x < 0.0) { paddle.x = 0.0 }
+            if (paddle.x > float(screenWidth) - paddle.width) { paddle.x = float(screenWidth) - paddle.width }
+
+            ' Update Ball
+            ballPos.x = ballPos.x + ballSpeed.x
+            ballPos.y = ballPos.y + ballSpeed.y
+
+            ' Ball Collision: Walls
+            if (ballPos.x <= ballRadius or ballPos.x >= float(screenWidth) - ballRadius) {
+                ballSpeed.x = -ballSpeed.x
+            }
+            if (ballPos.y <= ballRadius) {
+                ballSpeed.y = -ballSpeed.y
+            }
+
+            ' Ball Collision: Paddle
+            if (CheckCollisionCircleRec(ballPos, ballRadius, paddle)) {
+                if (ballSpeed.y > 0.0) {
+                    ballSpeed.y = -ballSpeed.y
+                    ' Add some spin based on where it hit the paddle
+                    ballSpeed.x = (ballPos.x - (paddle.x + paddle.width / 2.0)) / (paddle.width / 2.0) * 5.0
+                }
+            }
+
+            ' Ball Collision: Bricks
+            for i in 0..bricks.len {
+                if (bricks[i].active) {
+                    if (CheckCollisionCircleRec(ballPos, ballRadius, bricks[i].rect)) {
+                        bricks[i].active = false
+                        ballSpeed.y = -ballSpeed.y
+                        score = score + 10
+                        break
+                    }
+                }
+            }
+
+            ' Check Game Over
+            if (ballPos.y > float(screenHeight)) {
+                gameOver = true
+            }
+        } else {
+            if (IsKeyPressed(32)) { ' KEY_SPACE
+                ' Reset Game
+                ballPos = Vector2 { x: float(screenWidth) / 2.0, y: float(screenHeight) / 2.0 }
+                ballSpeed = Vector2 { x: 4.0, y: -4.0 }
+                gameOver = false
+                score = 0
+                for i in 0..bricks.len {
+                    bricks[i].active = true
+                }
+            }
+        }
+
+        ' Draw
+        BeginDrawing()
+        ClearBackground(Color { r: 10, g: 10, b: 20, a: 255 })
+
+        if (!gameOver) {
+            DrawRectangleRec(paddle, Color { r: 0, g: 121, b: 241, a: 255 })
+            DrawCircleV(ballPos, ballRadius, Color { r: 230, g: 41, b: 55, a: 255 })
+
+            for i in 0..bricks.len {
+                if (bricks[i].active) {
+                    DrawRectangleRec(bricks[i].rect, Color { r: 253, g: 249, b: 0, a: 255 })
+                }
+            }
+
+            let scoreStr = "Score: " + str(score)
+            DrawText(scoreStr, 10, 10, 20, Color { r: 255, g: 255, b: 255, a: 255 })
+        } else {
+            DrawText("GAME OVER", screenWidth / 2 - 100, screenHeight / 2 - 20, 40, Color { r: 230, g: 41, b: 55, a: 255 })
+            DrawText("Press SPACE to restart", screenWidth / 2 - 120, screenHeight / 2 + 30, 20, Color { r: 255, g: 255, b: 255, a: 255 })
+        }
+
+        EndDrawing()
+    }
+
+    CloseWindow()
+}

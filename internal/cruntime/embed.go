@@ -2,5 +2,5 @@ package cruntime
 
 import _ "embed"
 
-//go:embed clio_bootstrap.txt
+//go:embed kodae_bootstrap.txt
 var BootstrapC string

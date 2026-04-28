@@ -1,53 +1,53 @@
-# Clio Distribution Guide
+# Kodae Distribution Guide
 
-This guide shows how to ship Clio so end users do not install toolchains manually.
+This guide shows how to ship Kodae so end users do not install toolchains manually.
 
 ## Goal
 
 Distribute one archive per platform:
 
-- Windows: zip containing `bin/clio.exe` and `toolchain/zig/zig.exe`
-- Linux/macOS: tar.gz containing `bin/clio` and `toolchain/zig/zig`
+- Windows: zip containing `bin/kodae.exe` and `toolchain/zig/zig.exe`
+- Linux/macOS: tar.gz containing `bin/kodae` and `toolchain/zig/zig`
 
-End users extract and run `bin/clio`.
+End users extract and run `bin/kodae`.
 
-## Build Clio Binary
+## Build Kodae Binary
 
 Build per target platform with Go:
 
-- Windows: `GOOS=windows GOARCH=amd64 go build -o clio.exe ./cmd/clio`
-- Linux: `GOOS=linux GOARCH=amd64 go build -o clio ./cmd/clio`
-- macOS: `GOOS=darwin GOARCH=arm64 go build -o clio ./cmd/clio`
+- Windows: `GOOS=windows GOARCH=amd64 go build -o kodae.exe ./cmd/kodae`
+- Linux: `GOOS=linux GOARCH=amd64 go build -o kodae ./cmd/kodae`
+- macOS: `GOOS=darwin GOARCH=arm64 go build -o kodae ./cmd/kodae`
 
 ## Package Portable Bundle
 
-Use the helper scripts after building `clio` and obtaining a Zig binary for the same platform.
+Use the helper scripts after building `kodae` and obtaining a Zig binary for the same platform.
 
 ### Windows
 
 ```powershell
-scripts/package-portable.ps1 -ClioBinary .\clio.exe -ZigBinary .\zig.exe -Platform windows-amd64
+scripts/package-portable.ps1 -KodaeBinary .\kodae.exe -ZigBinary .\zig.exe -Platform windows-amd64
 ```
 
 ### Linux/macOS
 
 ```sh
-scripts/package-portable.sh ./clio ./zig linux-amd64
-scripts/package-portable.sh ./clio ./zig darwin-arm64
+scripts/package-portable.sh ./kodae ./zig linux-amd64
+scripts/package-portable.sh ./kodae ./zig darwin-arm64
 ```
 
 ## Runtime Behavior
 
-`clio` automatically detects bundled Zig at:
+`kodae` automatically detects bundled Zig at:
 
 - `toolchain/zig/zig.exe` (Windows)
 - `toolchain/zig/zig` (Linux/macOS)
 
-This means `clio build`, `clio run`, and `clio build --lib` work with no global compiler installation.
+This means `kodae build`, `kodae run`, and `kodae build --lib` work with no global compiler installation.
 
 ## Overrides
 
 - Use `--cc` to force a specific compiler.
-- Use `CLIO_CC` for environment-level override.
+- Use `KODAE_CC` for environment-level override.
 
 Both overrides take precedence over bundled Zig.

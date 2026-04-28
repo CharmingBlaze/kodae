@@ -3,7 +3,7 @@ package lex
 import (
 	"testing"
 
-	"clio/internal/token"
+	"kodae/internal/token"
 )
 
 func TestNumber_Int(t *testing.T) {
@@ -39,7 +39,7 @@ func TestNumber_Float(t *testing.T) {
 }
 
 func TestString_Escapes(t *testing.T) {
-	// Clio source: a string containing newline, tab, backslash, quote, and \x41 -> A
+	// Kodae source: a string containing newline, tab, backslash, quote, and \x41 -> A
 	src := "\x22" + // "
 		"\\" + "n" +
 		"\\" + "t" +
@@ -51,7 +51,7 @@ func TestString_Escapes(t *testing.T) {
 	if toks[0].Type != token.STRLIT {
 		t.Fatalf("got %v", toks[0].Type)
 	}
-	// Clio: \n, \t, one backslash, escaped quote, \x41 -> A
+	// Kodae: \n, \t, one backslash, escaped quote, \x41 -> A
 	const want = "\n\t\\\"" + "A"
 	if toks[0].Literal != want {
 		t.Fatalf("got %q want %q", toks[0].Literal, want)

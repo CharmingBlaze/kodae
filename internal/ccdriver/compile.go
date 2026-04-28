@@ -1,6 +1,6 @@
 // Compile links one generated C99 source to an executable using a GNU/Clang driver
 // (clang, Apple clang, gcc, or "zig cc"). The same line works on Windows, Linux, and
-// macOS; users may point CLIO_CC (or clio's --cc) to their toolchain if needed.
+// macOS; users may point KODAE_CC (or kodae's --cc) to their toolchain if needed.
 package ccdriver
 
 import (

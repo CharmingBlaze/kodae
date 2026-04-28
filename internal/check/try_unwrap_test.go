@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	lex "clio/internal/lexer"
-	"clio/internal/parser"
+	lex "kodae/internal/lexer"
+	"kodae/internal/parser"
 )
 
 func TestV1RejectsQuestionPropagation(t *testing.T) {
@@ -15,7 +15,7 @@ func TestV1RejectsQuestionPropagation(t *testing.T) {
 	if p.Err() == nil {
 		t.Fatal("expected parse error for ? operator")
 	}
-	if !strings.Contains(p.Err().Error(), "not supported in Clio v1") {
+	if !strings.Contains(p.Err().Error(), "not supported in Kodae v1") {
 		t.Fatalf("unexpected parse error: %v", p.Err())
 	}
 }

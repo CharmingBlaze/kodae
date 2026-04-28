@@ -1,0 +1,26 @@
+' Uses the large auto-generated binding (see include/raylib/raylib.kodae).
+' #include looks in this file's directory, then ./libs/, then ~/.kodae/libs/
+'   — this repo has examples/libs/raylib/raylib.kodae
+'
+' You still need a native Raylib: put headers + lib in ./raylib/ next to your cwd (see # linkpath
+' in the generated file), or use  kodae build ... --ldflags "-L/path -lraylib"
+' From repo root:  kodae run examples/raylib_game.kodae  (raylib/ must be set up; not run in CI)
+
+#include "raylib/raylib"
+
+fn main() {
+  InitWindow(800, 600, "Kodae + Raylib (full bind)")
+  SetTargetFPS(60)
+  SetWindowOpacity(1.0)
+  loop {
+    if (WindowShouldClose()) { break }
+    BeginDrawing()
+    ClearBackground(Color { r: 30, g: 30, b: 30, a: 255 })
+    let w: int = GetScreenWidth()
+    let h: int = GetScreenHeight()
+    let msg: str = "W=" + str(w) + " H=" + str(h) + "  f32/extern OK"
+    DrawText(msg, 40, 120, 28, Color { r: 240, g: 230, b: 140, a: 255 })
+    EndDrawing()
+  }
+  CloseWindow()
+}

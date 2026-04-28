@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"clio/internal/ast"
-	"clio/internal/token"
+	"kodae/internal/ast"
+	"kodae/internal/token"
 )
 
 // parseExpr is the top-level entry for expression parsing (full precedence).
@@ -92,9 +92,9 @@ func (p *Parser) parsePrefix() ast.Expr {
 		return p.parsePostfix(&ast.IdentExpr{Name: "this"})
 	case token.OK, token.ERR:
 		if p.tok.Type == token.OK {
-			p.failf("ok(...) is not supported in Clio v1; use catch")
+			p.failf("ok(...) is not supported in Kodae v1; use catch")
 		} else {
-			p.failf("err(...) is not supported in Clio v1; use catch")
+			p.failf("err(...) is not supported in Kodae v1; use catch")
 		}
 		return nil
 	default:
@@ -114,7 +114,7 @@ func (p *Parser) parsePostfix(lhs ast.Expr) ast.Expr {
 				f = p.tok.Literal
 				p.next()
 			case token.OK, token.ERR:
-				p.failf("result field access (.ok/.err) is not part of Clio v1; use catch")
+				p.failf("result field access (.ok/.err) is not part of Kodae v1; use catch")
 				return lhs
 			default:
 				p.failf("field name after .")
@@ -154,7 +154,7 @@ func (p *Parser) parsePostfix(lhs ast.Expr) ast.Expr {
 			args := p.parseArgList()
 			lhs = p.finishCall(lhs, args)
 		case token.QUEST:
-			p.failf("? is not supported in Clio v1; use catch")
+			p.failf("? is not supported in Kodae v1; use catch")
 			return lhs
 		case token.CATCH:
 			p.next()

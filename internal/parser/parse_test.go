@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"clio/internal/ast"
-	lex "clio/internal/lexer"
+	"kodae/internal/ast"
+	lex "kodae/internal/lexer"
 )
 
 func TestParse_EnumAndMatch(t *testing.T) {

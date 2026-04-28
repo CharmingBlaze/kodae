@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"clio/internal/ast"
+	"kodae/internal/ast"
 )
 
 func methodReceiverType(fn *ast.FnDecl, structs map[string]*Struct) *Type {
@@ -75,7 +75,7 @@ type Checker struct {
 	returnWant   *Type
 	inReturn     bool // type-checking a return's expression (for err() → result[T])
 	tryOK        bool // set while type-checking let init, return value, assign RHS, or expr-stmt
-	// curFile: absolute .clio path of the function / let being checked (for pub / cross-file rules)
+	// curFile: absolute .kodae path of the function / let being checked (for pub / cross-file rules)
 	curFile string
 	// externTypeCtx > 0 while resolving types inside extern fn signatures (allows f32)
 	externTypeCtx int

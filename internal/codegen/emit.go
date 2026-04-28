@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"clio/internal/ast"
-	"clio/internal/check"
-	"clio/internal/cruntime"
+	"kodae/internal/ast"
+	"kodae/internal/check"
+	"kodae/internal/cruntime"
 )
 
 var cReserved = map[string]struct{}{
@@ -56,7 +56,7 @@ func cT(t *check.Type) string {
 	case check.KU8:
 		return "uint8_t"
 	case check.KStr:
-		return "clio_str"
+		return "kodae_str"
 	case check.KBool:
 		return "bool"
 	case check.KEnum:
@@ -89,14 +89,14 @@ func cT(t *check.Type) string {
 			return "double*"
 		}
 		if t.Pointee.Kind == check.KStr {
-			return "clio_str*"
+			return "kodae_str*"
 		}
 		if t.Pointee.Kind == check.KBool {
 			return "bool*"
 		}
 		return "const void*"
 	case check.KList:
-		return "clio_list"
+		return "kodae_list"
 	case check.KResult:
 		return cResultCName(t.Res)
 	default:
@@ -107,23 +107,23 @@ func cT(t *check.Type) string {
 // cResultCName is the C typedef for result[T] (value, err, ok — see build-spec).
 func cResultCName(res *check.Type) string {
 	if res == nil {
-		return "clio_res_i64"
+		return "kodae_res_i64"
 	}
 	switch res.Kind {
 	case check.KInt, check.KEnum:
-		return "clio_res_i64"
+		return "kodae_res_i64"
 	case check.KFloat:
-		return "clio_res_f64"
+		return "kodae_res_f64"
 	case check.KStr:
-		return "clio_res_str"
+		return "kodae_res_str"
 	case check.KBool:
-		return "clio_res_bool"
+		return "kodae_res_bool"
 	default:
-		return "clio_res_i64"
+		return "kodae_res_i64"
 	}
 }
 
-// cStructCName is the C typedef name for a Clio struct.
+// cStructCName is the C typedef name for a Kodae struct.
 func cStructCName(n string) string { return "S_" + cid(n) }
 
 func cStructTagName(n string) string { return "s_" + cid(n) + "_" }
@@ -138,19 +138,19 @@ func cParamT(t *check.Type) string {
 
 func cOptStruct(inner *check.Type) string {
 	if inner == nil {
-		return "clio_opt_i64"
+		return "kodae_opt_i64"
 	}
 	switch inner.Kind {
 	case check.KInt, check.KEnum:
-		return "clio_opt_i64"
+		return "kodae_opt_i64"
 	case check.KFloat:
-		return "clio_opt_f64"
+		return "kodae_opt_f64"
 	case check.KStr:
-		return "clio_opt_str"
+		return "kodae_opt_str"
 	case check.KBool:
-		return "clio_opt_bool"
+		return "kodae_opt_bool"
 	default:
-		return "clio_opt_i64"
+		return "kodae_opt_i64"
 	}
 }
 
@@ -354,7 +354,7 @@ func (em *emitter) cParamTFromExpr(t *ast.TypeExpr) (string, error) {
 }
 
 // cExternDeclParamT is the C type written in `extern` declarations: struct by value
-// (Raylib-style), not pointer like normal Clio user functions.
+// (Raylib-style), not pointer like normal Kodae user functions.
 func (em *emitter) cExternDeclParamT(t *ast.TypeExpr) (string, error) {
 	ty, err := em.resolveTypeExpr(t)
 	if err != nil {
@@ -372,7 +372,7 @@ func (em *emitter) emitExternCDecl(ex *ast.ExternDecl) (string, error) {
 			return "", err
 		}
 		ret = cT(rt)
-		// C stdio uses `int` for some returns; int64 in Clio is fine at ABI level but redeclare must match.
+		// C stdio uses `int` for some returns; int64 in Kodae is fine at ABI level but redeclare must match.
 		if ret == "int64_t" {
 			switch ex.Name {
 			case "printf", "puts", "putchar", "scanf", "perror", "remove":
@@ -488,10 +488,10 @@ func EmitCWithOptions(p *ast.Program, inf *check.Info, opts EmitOptions) (string
 	var out bytes.Buffer
 	out.WriteString(cruntime.BootstrapC)
 	out.WriteString("#include <math.h>\n\n")
-	out.WriteString(`typedef struct { bool has; int64_t v; } clio_opt_i64;
-typedef struct { bool has; double v; } clio_opt_f64;
-typedef struct { bool has; clio_str v; } clio_opt_str;
-typedef struct { bool has; bool v; } clio_opt_bool;
+	out.WriteString(`typedef struct { bool has; int64_t v; } kodae_opt_i64;
+typedef struct { bool has; double v; } kodae_opt_f64;
+typedef struct { bool has; kodae_str v; } kodae_opt_str;
+typedef struct { bool has; bool v; } kodae_opt_bool;
 
 `)
 
@@ -530,7 +530,7 @@ typedef struct { bool has; bool v; } clio_opt_bool;
 		needUndef = true
 	}
 	if needUndef {
-		// windows.h (via clio bootstrap) #defines these; Raylib uses the same names as real functions.
+		// windows.h (via kodae bootstrap) #defines these; Raylib uses the same names as real functions.
 		out.WriteString("#if defined(_WIN32)\n" +
 			"#undef CloseWindow\n" +
 			"#undef ShowCursor\n" +
@@ -645,14 +645,14 @@ func cPubType(t *check.Type) string {
 
 func pubMarshalArg(pt *check.Type, name string) string {
 	if pt != nil && pt.Kind == check.KStr {
-		return fmt.Sprintf("clio_str_lit(%s)", name)
+		return fmt.Sprintf("kodae_str_lit(%s)", name)
 	}
 	return name
 }
 
 func pubMarshalRet(rt *check.Type, expr string) string {
 	if rt != nil && rt.Kind == check.KStr {
-		return fmt.Sprintf("clio_str_to_cstr(%s)", expr)
+		return fmt.Sprintf("kodae_str_to_cstr(%s)", expr)
 	}
 	return expr
 }
@@ -753,16 +753,16 @@ func (em *emitter) cZeroValue(t *check.Type) string {
 	case check.KFloat:
 		return "0.0"
 	case check.KStr:
-		return "(clio_str){0}"
+		return "(kodae_str){0}"
 	case check.KBool:
 		return "false"
 	case check.KStruct:
 		return fmt.Sprintf("((%s){0})", cStructCName(t.StructName))
 	case check.KList:
 		if t.Elem == nil {
-			return "clio_list_new((int64_t)sizeof(int64_t))"
+			return "kodae_list_new((int64_t)sizeof(int64_t))"
 		}
-		return fmt.Sprintf("clio_list_new((int64_t)sizeof(%s))", cT(t.Elem))
+		return fmt.Sprintf("kodae_list_new((int64_t)sizeof(%s))", cT(t.Elem))
 	case check.KResult:
 		return fmt.Sprintf("((%s){0})", cResultCName(t.Res))
 	case check.KVoid:
@@ -774,8 +774,8 @@ func (em *emitter) cZeroValue(t *check.Type) string {
 
 func (em *emitter) zeroOptional(t *check.Type) string {
 	switch cOptStruct(t.Opt) {
-	case "clio_opt_str":
-		return "{false, (clio_str){NULL, 0}}"
+	case "kodae_opt_str":
+		return "{false, (kodae_str){NULL, 0}}"
 	default:
 		return "{false, 0}"
 	}
@@ -923,7 +923,7 @@ func (em *emitter) emitMain(out *bytes.Buffer, f *ast.FnDecl) error {
 	}
 
 	out.WriteString("int main(void) {\n")
-	out.WriteString("clio_console_utf8_init();\n")
+	out.WriteString("kodae_console_utf8_init();\n")
 	em.inMain = true
 	em.pushScope()
 	defer em.popScope()
@@ -1032,7 +1032,7 @@ func (em *emitter) emitLetResultCatch(out *bytes.Buffer, ls *ast.LetStmt, rce *a
 	fmt.Fprintf(out, "%s %s = %s;\n", resC, tmp, sub)
 	fmt.Fprintf(out, "if (!(%s).ok) {\n", tmp)
 	eid := cid(rce.ErrName)
-	fmt.Fprintf(out, "clio_str %s = (%s).err;\n", eid, tmp)
+	fmt.Fprintf(out, "kodae_str %s = (%s).err;\n", eid, tmp)
 	em.pushScope()
 	em.addLocal(rce.ErrName)
 	if rce.Body != nil {
@@ -1150,7 +1150,7 @@ func (em *emitter) emitStmt(out *bytes.Buffer, s ast.Stmt) error {
 		em.pushScope()
 		em.addLocal(x.Var)
 		out.WriteString("{\n")
-		fmt.Fprintf(out, "%s %s = (*((%s*)clio_list_at_ptr(&(%s), %s)));\n", cT(it.Elem), iv, cT(it.Elem), lv, idx)
+		fmt.Fprintf(out, "%s %s = (*((%s*)kodae_list_at_ptr(&(%s), %s)));\n", cT(it.Elem), iv, cT(it.Elem), lv, idx)
 		for _, st := range x.Body.Stmts {
 			if err := em.emitStmt(out, st); err != nil {
 				em.popScope()
@@ -1343,7 +1343,7 @@ func (em *emitter) emitLvalue(e ast.Expr) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), (int64_t)(%s))))", cT(lt.Elem), base, ix), nil
+		return fmt.Sprintf("(*((%s*)kodae_list_at_ptr(&(%s), (int64_t)(%s))))", cT(lt.Elem), base, ix), nil
 	default:
 		return "", fmt.Errorf("assign: need identifier or x.y field path on the left, got %T", e)
 	}
@@ -1375,7 +1375,7 @@ func (em *emitter) emitReturnResultCatch(out *bytes.Buffer, rce *ast.ResultCatch
 	fmt.Fprintf(out, "%s %s = %s;\n", resC, tmp, sub)
 	fmt.Fprintf(out, "if (!(%s).ok) {\n", tmp)
 	eid := cid(rce.ErrName)
-	fmt.Fprintf(out, "clio_str %s = (%s).err;\n", eid, tmp)
+	fmt.Fprintf(out, "kodae_str %s = (%s).err;\n", eid, tmp)
 	em.pushScope()
 	em.addLocal(rce.ErrName)
 	if rce.Body != nil {
@@ -1428,7 +1428,7 @@ func (em *emitter) emitExprResultCatch(out *bytes.Buffer, rce *ast.ResultCatchEx
 	fmt.Fprintf(out, "%s %s = %s;\n", resC, tmp, sub)
 	fmt.Fprintf(out, "if (!(%s).ok) {\n", tmp)
 	eid := cid(rce.ErrName)
-	fmt.Fprintf(out, "clio_str %s = (%s).err;\n", eid, tmp)
+	fmt.Fprintf(out, "kodae_str %s = (%s).err;\n", eid, tmp)
 	em.pushScope()
 	em.addLocal(rce.ErrName)
 	if rce.Body != nil {
@@ -1482,7 +1482,7 @@ func (em *emitter) emitAssignResultCatch(out *bytes.Buffer, a *ast.AssignStmt, r
 	fmt.Fprintf(out, "%s %s = %s;\n", resC, tmp, sub)
 	fmt.Fprintf(out, "if (!(%s).ok) {\n", tmp)
 	eid := cid(rce.ErrName)
-	fmt.Fprintf(out, "clio_str %s = (%s).err;\n", eid, tmp)
+	fmt.Fprintf(out, "kodae_str %s = (%s).err;\n", eid, tmp)
 	em.pushScope()
 	em.addLocal(rce.ErrName)
 	if rce.Body != nil {
@@ -1526,7 +1526,7 @@ func (em *emitter) emitAssign(out *bytes.Buffer, x *ast.AssignStmt) error {
 		fmt.Fprintf(out, "%s = %s;\n", lhs, rv)
 	case "+=":
 		if lt.Kind == check.KStr && rt.Kind == check.KStr {
-			fmt.Fprintf(out, "%s = clio_str_concat(%s, %s);\n", lhs, lhs, rv)
+			fmt.Fprintf(out, "%s = kodae_str_concat(%s, %s);\n", lhs, lhs, rv)
 			return nil
 		}
 		fmt.Fprintf(out, "%s += %s;\n", lhs, rv)
@@ -1605,7 +1605,7 @@ func (em *emitter) flushTryPre(out *bytes.Buffer) {
 
 func (em *emitter) emitTryUnwrap(x *ast.TryUnwrapExpr) (string, error) {
 	_ = x
-	return "", fmt.Errorf("? is not supported in Clio v1; use catch")
+	return "", fmt.Errorf("? is not supported in Kodae v1; use catch")
 }
 
 func (em *emitter) emitExpr(e ast.Expr) (string, error) {
@@ -1647,7 +1647,7 @@ func (em *emitter) emitExpr(e ast.Expr) (string, error) {
 		if _, err := em.typeOf(e); err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("clio_str_lit(%s)", cQuote(x.Val)), nil
+		return fmt.Sprintf("kodae_str_lit(%s)", cQuote(x.Val)), nil
 	case *ast.BoolLit:
 		if _, err := em.typeOf(e); err != nil {
 			return "", err
@@ -1814,21 +1814,21 @@ func (em *emitter) emitBinary(b *ast.BinaryExpr) (string, error) {
 	}
 
 	if b.Op == "+" && lt.Kind == check.KStr && rt.Kind == check.KStr {
-		return fmt.Sprintf("(clio_str_concat((%s), (%s)))", l, r), nil
+		return fmt.Sprintf("(kodae_str_concat((%s), (%s)))", l, r), nil
 	}
 	if b.Op == "+" && lt.Kind == check.KStr && checkCoercesToString(rt) {
 		rs, err := em.emitToStr(b.R)
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("(clio_str_concat((%s), (%s)))", l, rs), nil
+		return fmt.Sprintf("(kodae_str_concat((%s), (%s)))", l, rs), nil
 	}
 	if b.Op == "+" && checkCoercesToString(lt) && rt.Kind == check.KStr {
 		ls, err := em.emitToStr(b.L)
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("(clio_str_concat((%s), (%s)))", ls, r), nil
+		return fmt.Sprintf("(kodae_str_concat((%s), (%s)))", ls, r), nil
 	}
 
 	if (b.Op == "==" || b.Op == "!=") && lt.Kind == check.KStr && rt.Kind == check.KStr {
@@ -1967,7 +1967,7 @@ func (em *emitter) emitMember(m *ast.MemberExpr) (string, error) {
 	}
 	if lt == nil || lt.Kind != check.KStruct {
 		if m.Field == "ok" || m.Field == "value" || m.Field == "err" {
-			return "", fmt.Errorf("result field access (.ok/.value/.err) is not part of Clio v1; use catch")
+			return "", fmt.Errorf("result field access (.ok/.value/.err) is not part of Kodae v1; use catch")
 		}
 		return "", fmt.Errorf("member: expected struct value on left, got %v", lt)
 	}
@@ -2044,17 +2044,17 @@ func (em *emitter) emitCast(c *ast.CastExpr) (string, error) {
 		case check.KStr:
 			return "(" + arg + ")", nil
 		case check.KInt, check.KEnum:
-			return fmt.Sprintf("(clio_int_to_str((int64_t)(%s)))", arg), nil
+			return fmt.Sprintf("(kodae_int_to_str((int64_t)(%s)))", arg), nil
 		case check.KFloat:
-			return fmt.Sprintf("(clio_float_to_str(%s))", arg), nil
+			return fmt.Sprintf("(kodae_float_to_str(%s))", arg), nil
 		case check.KBool:
-			return fmt.Sprintf("(clio_bool_to_str(%s))", arg), nil
+			return fmt.Sprintf("(kodae_bool_to_str(%s))", arg), nil
 		case check.KList:
-			return fmt.Sprintf("clio_str_lit(\"[list]\")"), nil
+			return fmt.Sprintf("kodae_str_lit(\"[list]\")"), nil
 		case check.KStruct:
-			return fmt.Sprintf("clio_str_lit(\"[struct]\")"), nil
+			return fmt.Sprintf("kodae_str_lit(\"[struct]\")"), nil
 		default:
-			return fmt.Sprintf("(clio_int_to_str((int64_t)(%s)))", arg), nil
+			return fmt.Sprintf("(kodae_int_to_str((int64_t)(%s)))", arg), nil
 		}
 	default:
 		return "", fmt.Errorf("cast to %s", c.To)
@@ -2170,7 +2170,7 @@ func (em *emitter) emitIndexExpr(ix *ast.IndexExpr) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), (int64_t)(%s))))", cT(lt.Elem), base, i), nil
+	return fmt.Sprintf("(*((%s*)kodae_list_at_ptr(&(%s), (int64_t)(%s))))", cT(lt.Elem), base, i), nil
 }
 
 func (em *emitter) emitListElemAddr(et *check.Type, arg string) string {
@@ -2192,13 +2192,13 @@ func (em *emitter) emitListLit(ll *ast.ListLit) (string, error) {
 	}
 	em.tryN++
 	tmp := fmt.Sprintf("c_list_%d", em.tryN)
-	em.tryPre = append(em.tryPre, fmt.Sprintf("clio_list %s = clio_list_new((int64_t)sizeof(%s));\n", tmp, cT(tt.Elem)))
+	em.tryPre = append(em.tryPre, fmt.Sprintf("kodae_list %s = kodae_list_new((int64_t)sizeof(%s));\n", tmp, cT(tt.Elem)))
 	for _, el := range ll.Elems {
 		ev, err := em.emitExpr(el)
 		if err != nil {
 			return "", err
 		}
-		em.tryPre = append(em.tryPre, fmt.Sprintf("clio_list_push(&%s, %s);\n", tmp, em.emitListElemAddr(tt.Elem, ev)))
+		em.tryPre = append(em.tryPre, fmt.Sprintf("kodae_list_push(&%s, %s);\n", tmp, em.emitListElemAddr(tt.Elem, ev)))
 	}
 	return tmp, nil
 }
@@ -2220,7 +2220,7 @@ func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *c
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("clio_list_push(&(%s), %s)", base, em.emitListElemAddr(lt.Elem, v)), nil
+		return fmt.Sprintf("kodae_list_push(&(%s), %s)", base, em.emitListElemAddr(lt.Elem, v)), nil
 	case "append":
 		if len(c.Args) != 1 {
 			return "", fmt.Errorf("append: need 1 argument")
@@ -2229,7 +2229,7 @@ func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *c
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("clio_list_append(&(%s), &(%s))", base, r), nil
+		return fmt.Sprintf("kodae_list_append(&(%s), &(%s))", base, r), nil
 	case "pop":
 		if len(c.Args) != 0 {
 			return "", fmt.Errorf("pop: no arguments")
@@ -2238,7 +2238,7 @@ func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *c
 		tmp := fmt.Sprintf("c_pop_%d", em.tryN)
 		em.tryPre = append(em.tryPre,
 			fmt.Sprintf("%s %s;\n", cT(lt.Elem), tmp),
-			fmt.Sprintf("clio_list_pop(&(%s), &%s);\n", base, tmp))
+			fmt.Sprintf("kodae_list_pop(&(%s), &%s);\n", base, tmp))
 		return tmp, nil
 	case "remove":
 		if len(c.Args) != 1 {
@@ -2252,18 +2252,18 @@ func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *c
 		tmp := fmt.Sprintf("c_rem_%d", em.tryN)
 		em.tryPre = append(em.tryPre,
 			fmt.Sprintf("%s %s;\n", cT(lt.Elem), tmp),
-			fmt.Sprintf("clio_list_remove_at(&(%s), (int64_t)(%s), &%s);\n", base, i, tmp))
+			fmt.Sprintf("kodae_list_remove_at(&(%s), (int64_t)(%s), &%s);\n", base, i, tmp))
 		return tmp, nil
 	case "shuffle":
-		return fmt.Sprintf("clio_list_shuffle(&(%s))", base), nil
+		return fmt.Sprintf("kodae_list_shuffle(&(%s))", base), nil
 	case "first":
-		return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), 0)))", cT(lt.Elem), base), nil
+		return fmt.Sprintf("(*((%s*)kodae_list_at_ptr(&(%s), 0)))", cT(lt.Elem), base), nil
 	case "last":
-		return fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), (int64_t)((%s).len - 1))))", cT(lt.Elem), base, base), nil
+		return fmt.Sprintf("(*((%s*)kodae_list_at_ptr(&(%s), (int64_t)((%s).len - 1))))", cT(lt.Elem), base, base), nil
 	case "reverse":
-		return fmt.Sprintf("clio_list_reverse(&(%s))", base), nil
+		return fmt.Sprintf("kodae_list_reverse(&(%s))", base), nil
 	case "sort":
-		return fmt.Sprintf("clio_list_sort(&(%s))", base), nil
+		return fmt.Sprintf("kodae_list_sort(&(%s))", base), nil
 	default:
 		return "", fmt.Errorf("list has no method %q", me.Field)
 	}
@@ -2278,24 +2278,24 @@ func (em *emitter) emitStringMethodCall(c *ast.CallExpr, me *ast.MemberExpr) (st
 	case "len":
 		return fmt.Sprintf("((int64_t)(%s).len)", base), nil
 	case "upper", "lower", "trim", "reverse", "is_empty", "is_number":
-		return fmt.Sprintf("clio_str_%s(%s)", me.Field, base), nil
+		return fmt.Sprintf("kodae_str_%s(%s)", me.Field, base), nil
 	case "repeat":
 		a0, _ := em.emitExpr(c.Args[0])
-		return fmt.Sprintf("clio_str_repeat(%s, (int64_t)%s)", base, a0), nil
+		return fmt.Sprintf("kodae_str_repeat(%s, (int64_t)%s)", base, a0), nil
 	case "contains", "starts", "ends":
 		a0, _ := em.emitExpr(c.Args[0])
-		return fmt.Sprintf("clio_str_%s(%s, %s)", me.Field, base, a0), nil
+		return fmt.Sprintf("kodae_str_%s(%s, %s)", me.Field, base, a0), nil
 	case "replace":
 		a0, _ := em.emitExpr(c.Args[0])
 		a1, _ := em.emitExpr(c.Args[1])
-		return fmt.Sprintf("clio_str_replace(%s, %s, %s)", base, a0, a1), nil
+		return fmt.Sprintf("kodae_str_replace(%s, %s, %s)", base, a0, a1), nil
 	case "split":
 		a0, _ := em.emitExpr(c.Args[0])
-		return fmt.Sprintf("clio_str_split(%s, %s)", base, a0), nil
+		return fmt.Sprintf("kodae_str_split(%s, %s)", base, a0), nil
 	case "slice":
 		a0, _ := em.emitExpr(c.Args[0])
 		a1, _ := em.emitExpr(c.Args[1])
-		return fmt.Sprintf("clio_str_slice(%s, (int64_t)%s, (int64_t)%s)", base, a0, a1), nil
+		return fmt.Sprintf("kodae_str_slice(%s, (int64_t)%s, (int64_t)%s)", base, a0, a1), nil
 	default:
 		return "", fmt.Errorf("str has no method %q", me.Field)
 	}
@@ -2351,7 +2351,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("(clio_input((%s)))", p), nil
+		return fmt.Sprintf("(kodae_input((%s)))", p), nil
 	case "random":
 		if len(c.Args) != 2 {
 			return "", fmt.Errorf("random: need two arguments")
@@ -2364,7 +2364,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		if e2 != nil {
 			return "", e2
 		}
-		return fmt.Sprintf("(clio_random((int64_t)(%s), (int64_t)(%s)))", a0, a1), nil
+		return fmt.Sprintf("(kodae_random((int64_t)(%s), (int64_t)(%s)))", a0, a1), nil
 	case "len":
 		if len(c.Args) != 1 {
 			return "", fmt.Errorf("len: need one argument")
@@ -2378,9 +2378,9 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		if len(c.Args) != 0 {
 			return "", fmt.Errorf("clear_screen: no arguments")
 		}
-		return "clio_clear_screen()", nil
+		return "kodae_clear_screen()", nil
 	case "ok", "err":
-		return "", fmt.Errorf("%s(...) is not supported in Clio v1; use catch", name)
+		return "", fmt.Errorf("%s(...) is not supported in Kodae v1; use catch", name)
 	case "int", "float", "str", "bool":
 		if len(c.Args) != 1 {
 			return "", fmt.Errorf("%s: need one argument", name)
@@ -2424,7 +2424,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		if name == "log" {
 			t, _ := em.typeOf(c.Args[0])
 			if t.Kind == check.KStr {
-				return fmt.Sprintf("clio_log(%s)", a0), nil
+				return fmt.Sprintf("kodae_log(%s)", a0), nil
 			}
 		}
 		cname := name
@@ -2454,9 +2454,9 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		}
 		t, _ := em.typeOf(c)
 		if t.Kind == check.KFloat {
-			return fmt.Sprintf("clio_clamp_float(%s, %s, %s)", a0, a1, a2), nil
+			return fmt.Sprintf("kodae_clamp_float(%s, %s, %s)", a0, a1, a2), nil
 		}
-		return fmt.Sprintf("clio_clamp_int(%s, %s, %s)", a0, a1, a2), nil
+		return fmt.Sprintf("kodae_clamp_int(%s, %s, %s)", a0, a1, a2), nil
 	case "lerp":
 		a0, err := em.emitExpr(c.Args[0])
 		if err != nil {
@@ -2470,7 +2470,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("clio_lerp(%s, %s, %s)", a0, a1, a2), nil
+		return fmt.Sprintf("kodae_lerp(%s, %s, %s)", a0, a1, a2), nil
 	case "map":
 		args := make([]string, 5)
 		for i := 0; i < 5; i++ {
@@ -2480,7 +2480,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 			}
 			args[i] = s
 		}
-		return fmt.Sprintf("clio_map(%s, %s, %s, %s, %s)", args[0], args[1], args[2], args[3], args[4]), nil
+		return fmt.Sprintf("kodae_map(%s, %s, %s, %s, %s)", args[0], args[1], args[2], args[3], args[4]), nil
 	case "distance":
 		args := make([]string, 4)
 		for i := 0; i < 4; i++ {
@@ -2490,7 +2490,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 			}
 			args[i] = s
 		}
-		return fmt.Sprintf("clio_distance(%s, %s, %s, %s)", args[0], args[1], args[2], args[3]), nil
+		return fmt.Sprintf("kodae_distance(%s, %s, %s, %s)", args[0], args[1], args[2], args[3]), nil
 	case "angle_to":
 		args := make([]string, 4)
 		for i := 0; i < 4; i++ {
@@ -2500,55 +2500,55 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 			}
 			args[i] = s
 		}
-		return fmt.Sprintf("clio_angle_to(%s, %s, %s, %s)", args[0], args[1], args[2], args[3]), nil
+		return fmt.Sprintf("kodae_angle_to(%s, %s, %s, %s)", args[0], args[1], args[2], args[3]), nil
 	case "time", "time_ms", "timer_start":
-		return "clio_" + name + "()", nil
+		return "kodae_" + name + "()", nil
 	case "timer_elapsed", "countdown", "wait", "wait_ms":
 		a0, err := em.emitExpr(c.Args[0])
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("clio_%s(%s)", name, a0), nil
+		return fmt.Sprintf("kodae_%s(%s)", name, a0), nil
 	case "countdown_done":
 		a0, err := em.emitExpr(c.Args[0])
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("clio_countdown_done(%s)", a0), nil
+		return fmt.Sprintf("kodae_countdown_done(%s)", a0), nil
 	case "random_float", "random_bool":
 		if name == "random_bool" {
-			return "clio_random_bool()", nil
+			return "kodae_random_bool()", nil
 		}
 		a0, _ := em.emitExpr(c.Args[0])
 		a1, _ := em.emitExpr(c.Args[1])
-		return fmt.Sprintf("clio_random_float(%s, %s)", a0, a1), nil
+		return fmt.Sprintf("kodae_random_float(%s, %s)", a0, a1), nil
 	case "chance":
 		a0, _ := em.emitExpr(c.Args[0])
-		return fmt.Sprintf("clio_chance(%s)", a0), nil
+		return fmt.Sprintf("kodae_chance(%s)", a0), nil
 	case "random_pick":
 		a0, _ := em.emitExpr(c.Args[0])
 		lt, _ := em.typeOf(c.Args[0])
-		return fmt.Sprintf("(*((%s*)clio_random_pick(&(%s))))", cT(lt.Elem), a0), nil
+		return fmt.Sprintf("(*((%s*)kodae_random_pick(&(%s))))", cT(lt.Elem), a0), nil
 	case "read_file", "file_exists", "delete_file", "make_folder", "delete_folder", "folder_exists", "os_name", "clipboard_get":
 		if len(c.Args) == 0 {
-			return "clio_" + name + "()", nil
+			return "kodae_" + name + "()", nil
 		}
 		a0, _ := em.emitExpr(c.Args[0])
-		return fmt.Sprintf("clio_%s(%s)", name, a0), nil
+		return fmt.Sprintf("kodae_%s(%s)", name, a0), nil
 	case "write_file", "append_file", "copy_file", "move_file", "clipboard_set", "open_url", "run":
 		args := make([]string, len(c.Args))
 		for i := 0; i < len(c.Args); i++ {
 			args[i], _ = em.emitExpr(c.Args[i])
 		}
-		return "clio_" + name + "(" + strings.Join(args, ", ") + ")", nil
+		return "kodae_" + name + "(" + strings.Join(args, ", ") + ")", nil
 	case "list_files":
 		a0, _ := em.emitExpr(c.Args[0])
-		return fmt.Sprintf("clio_list_files(%s)", a0), nil
+		return fmt.Sprintf("kodae_list_files(%s)", a0), nil
 	case "printn":
 		return em.emitPrintInternal(c, false)
 	case "input_int", "input_float":
 		a0, _ := em.emitExpr(c.Args[0])
-		return "clio_" + name + "(" + a0 + ")", nil
+		return "kodae_" + name + "(" + a0 + ")", nil
 	case "swap":
 		a0, _ := em.emitLvalue(c.Args[0])
 		a1, _ := em.emitLvalue(c.Args[1])
@@ -2559,27 +2559,27 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		for i := 0; i < 3; i++ {
 			args[i], _ = em.emitExpr(c.Args[i])
 		}
-		return fmt.Sprintf("clio_in_range(%s, %s, %s)", args[0], args[1], args[2]), nil
+		return fmt.Sprintf("kodae_in_range(%s, %s, %s)", args[0], args[1], args[2]), nil
 	case "in_rect":
 		args := make([]string, 6)
 		for i := 0; i < 6; i++ {
 			args[i], _ = em.emitExpr(c.Args[i])
 		}
-		return fmt.Sprintf("clio_in_rect(%s, %s, %s, %s, %s, %s)", args[0], args[1], args[2], args[3], args[4], args[5]), nil
+		return fmt.Sprintf("kodae_in_rect(%s, %s, %s, %s, %s, %s)", args[0], args[1], args[2], args[3], args[4], args[5]), nil
 	case "exit":
 		a0, _ := em.emitExpr(c.Args[0])
 		return "exit((int)(" + a0 + "))", nil
 	case "args":
-		return "clio_args()", nil
+		return "kodae_args()", nil
 	case "env":
 		a0, _ := em.emitExpr(c.Args[0])
-		return "clio_env(" + a0 + ")", nil
+		return "kodae_env(" + a0 + ")", nil
 	case "is_windows", "is_mac", "is_linux":
-		return "clio_" + name + "()", nil
+		return "kodae_" + name + "()", nil
 	case "assert":
 		a0, _ := em.emitExpr(c.Args[0])
 		a1, _ := em.emitExpr(c.Args[1])
-		return "clio_assert(" + a0 + ", " + a1 + ")", nil
+		return "kodae_assert(" + a0 + ", " + a1 + ")", nil
 	case "debug":
 		a0, _ := em.emitExpr(c.Args[0])
 		at, _ := em.typeOf(c.Args[0])
@@ -2591,21 +2591,21 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		return b.String(), nil
 	case "todo":
 		a0, _ := em.emitExpr(c.Args[0])
-		return "clio_" + name + "(" + a0 + ")", nil
+		return "kodae_" + name + "(" + a0 + ")", nil
 	case "benchmark_start":
-		return "clio_time()", nil
+		return "kodae_time()", nil
 	case "benchmark_end":
 		a0, _ := em.emitExpr(c.Args[0])
 		a1, _ := em.emitExpr(c.Args[1])
-		return "clio_benchmark_end(" + a0 + ", " + a1 + ")", nil
+		return "kodae_benchmark_end(" + a0 + ", " + a1 + ")", nil
 	case "json_read":
 		a0, _ := em.emitExpr(c.Args[0])
-		return "clio_json_read(" + a0 + ")", nil
+		return "kodae_json_read(" + a0 + ")", nil
 	case "json_write":
 		a0, _ := em.emitExpr(c.Args[0])
 		a1, _ := em.emitExpr(c.Args[1])
 		// For now, only structs/lists/scalars are supported in json_write
-		return "clio_json_write(" + a0 + ", " + a1 + ")", nil
+		return "kodae_json_write(" + a0 + ", " + a1 + ")", nil
 	case "abs":
 		if len(c.Args) != 1 {
 			return "", fmt.Errorf("abs: need one argument")
@@ -2630,7 +2630,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 	}
 }
 
-// emitStrAsCStr passes a clio_str value to a C `const char*` / ptr[byte] param.
+// emitStrAsCStr passes a kodae_str value to a C `const char*` / ptr[byte] param.
 func (em *emitter) emitStrAsCDataPtr(strExpr string) string {
 	return fmt.Sprintf("((const char*)((%s).data))", strExpr)
 }
@@ -2769,13 +2769,13 @@ func (em *emitter) appendShowValueC(b *strings.Builder, cexpr string, t *check.T
 	}
 	switch t.Kind {
 	case check.KInt, check.KEnum:
-		fmt.Fprintf(b, "clio_show_int((int64_t)(%s));\n", cexpr)
+		fmt.Fprintf(b, "kodae_show_int((int64_t)(%s));\n", cexpr)
 	case check.KFloat:
-		fmt.Fprintf(b, "clio_show_float((double)(%s));\n", cexpr)
+		fmt.Fprintf(b, "kodae_show_float((double)(%s));\n", cexpr)
 	case check.KBool:
-		fmt.Fprintf(b, "clio_show_bool((bool)(%s));\n", cexpr)
+		fmt.Fprintf(b, "kodae_show_bool((bool)(%s));\n", cexpr)
 	case check.KStr:
-		fmt.Fprintf(b, "clio_show_str((%s));\n", cexpr)
+		fmt.Fprintf(b, "kodae_show_str((%s));\n", cexpr)
 	case check.KList:
 		if t.Elem == nil {
 			return fmt.Errorf("list: missing element type")
@@ -2795,7 +2795,7 @@ func (em *emitter) appendShowListBlock(b *strings.Builder, varExpr string, t *ch
 	fmt.Fprintf(b, "printf(\"[\"); ")
 	fmt.Fprintf(b, "for (int64_t %s = 0; %s < (int64_t)(%s).len; %s++) { ", idx, idx, varExpr, idx)
 	fmt.Fprintf(b, "if (%s > 0) printf(\", \"); ", idx)
-	elemAddr := fmt.Sprintf("(*((%s*)clio_list_at_ptr(&(%s), %s)))", cT(t.Elem), varExpr, idx)
+	elemAddr := fmt.Sprintf("(*((%s*)kodae_list_at_ptr(&(%s), %s)))", cT(t.Elem), varExpr, idx)
 	if err := em.appendShowValueC(b, elemAddr, t.Elem); err != nil {
 		return err
 	}
@@ -2850,13 +2850,13 @@ func (em *emitter) emitPrintInternal(c *ast.CallExpr, newline bool) (string, err
 			}
 			switch in.Kind {
 			case check.KInt, check.KEnum:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_int((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { kodae_print_int((%s).v); }\n", av, av)
 			case check.KFloat:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_float((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { kodae_print_float((%s).v); }\n", av, av)
 			case check.KStr:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_str((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { kodae_print_str((%s).v); }\n", av, av)
 			case check.KBool:
-				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { clio_print_bool((%s).v); }\n", av, av)
+				fmt.Fprintf(&b, "if (!(%s).has) { printf(\"none\"); } else { kodae_print_bool((%s).v); }\n", av, av)
 			case check.KStruct:
 				innerT := in
 				if innerT.StructDef == nil {
@@ -2874,13 +2874,13 @@ func (em *emitter) emitPrintInternal(c *ast.CallExpr, newline bool) (string, err
 		}
 		switch t.Kind {
 		case check.KInt, check.KEnum:
-			fmt.Fprintf(&b, "clio_print_int((int64_t)(%s));\n", av)
+			fmt.Fprintf(&b, "kodae_print_int((int64_t)(%s));\n", av)
 		case check.KFloat:
-			fmt.Fprintf(&b, "clio_print_float(%s);\n", av)
+			fmt.Fprintf(&b, "kodae_print_float(%s);\n", av)
 		case check.KBool:
-			fmt.Fprintf(&b, "clio_print_bool(%s);\n", av)
+			fmt.Fprintf(&b, "kodae_print_bool(%s);\n", av)
 		case check.KStr:
-			fmt.Fprintf(&b, "clio_print_str(%s);\n", av)
+			fmt.Fprintf(&b, "kodae_print_str(%s);\n", av)
 		case check.KStruct:
 			if t.StructDef == nil {
 				return "", fmt.Errorf("struct %s has no metadata", t)
@@ -2947,13 +2947,13 @@ func (em *emitter) emitBuiltinCast(name string, arg ast.Expr) (string, error) {
 		case check.KStr:
 			return av, nil
 		case check.KInt, check.KEnum:
-			return fmt.Sprintf("(clio_int_to_str((int64_t)(%s)))", av), nil
+			return fmt.Sprintf("(kodae_int_to_str((int64_t)(%s)))", av), nil
 		case check.KFloat:
-			return fmt.Sprintf("(clio_float_to_str(%s))", av), nil
+			return fmt.Sprintf("(kodae_float_to_str(%s))", av), nil
 		case check.KBool:
-			return fmt.Sprintf("(clio_bool_to_str(%s))", av), nil
+			return fmt.Sprintf("(kodae_bool_to_str(%s))", av), nil
 		default:
-			return fmt.Sprintf("(clio_int_to_str((int64_t)(%s)))", av), nil
+			return fmt.Sprintf("(kodae_int_to_str((int64_t)(%s)))", av), nil
 		}
 	}
 	return "", fmt.Errorf("builtin %s", name)

@@ -1,0 +1,836 @@
+/* Inlined C bootstrap for a single out.c (no second compile unit). */
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <locale.h>
+#include <math.h>
+#include <sys/stat.h>
+
+#if defined(_WIN32)
+/* Do not #include <windows.h> here: winuser.h declares Win32 CloseWindow, ShowCursor, and
+ * DrawText, which conflict with Raylib’s same-named functions in a single C file. We only
+ * need kernel32 for UTF-8 console. */
+#  if defined(__GNUC__) || defined(__clang__)
+__attribute__((dllimport)) int __attribute__((__stdcall__)) SetConsoleOutputCP(unsigned int wParam);
+__attribute__((dllimport)) int __attribute__((__stdcall__)) SetConsoleCP(unsigned int wParam);
+#  else
+__declspec(dllimport) int __stdcall SetConsoleOutputCP(unsigned int wParam);
+__declspec(dllimport) int __stdcall SetConsoleCP(unsigned int wParam);
+#  endif
+#include <direct.h>
+#include <io.h>
+#else
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/types.h>
+#endif
+
+/* Call at program start (see generated main). Windows: UTF-8 console. POSIX: honor LANG/LC_* so
+   UTF-8 literals and string building match the terminal. */
+void kodae_console_utf8_init(void) {
+#if defined(_WIN32)
+  (void)SetConsoleOutputCP(65001u);
+  (void)SetConsoleCP(65001u);
+#else
+  (void)setlocale(LC_ALL, "");
+#endif
+}
+
+typedef struct {
+  const char *data;
+  int64_t      len;
+} kodae_str;
+
+/* result[T] (value, err, ok) */
+typedef struct { int64_t value; kodae_str err; bool ok; } kodae_res_i64;
+typedef struct { double value; kodae_str err; bool ok; } kodae_res_f64;
+typedef struct { kodae_str value; kodae_str err; bool ok; } kodae_res_str;
+typedef struct { bool value; kodae_str err; bool ok; } kodae_res_bool;
+
+typedef struct {
+  uint8_t* data;
+  int64_t len;
+  int64_t cap;
+  int64_t elem_size;
+} kodae_list;
+
+/* Forward declarations */
+static inline kodae_str kodae_str_lit(const char *c);
+const char* kodae_str_to_cstr(kodae_str s);
+kodae_str kodae_str_concat(kodae_str a, kodae_str b);
+kodae_str kodae_int_to_str(int64_t v);
+kodae_str kodae_float_to_str(double v);
+kodae_str kodae_bool_to_str(bool v);
+void kodae_print_int(int64_t v);
+void kodae_print_float(double v);
+void kodae_print_bool(bool v);
+void kodae_print_str(kodae_str s);
+void kodae_show_int(int64_t v);
+void kodae_show_float(double v);
+void kodae_show_bool(bool v);
+void kodae_show_str(kodae_str s);
+void kodae_show_endl(void);
+void kodae_clear_screen(void);
+kodae_str kodae_input(kodae_str prompt);
+int64_t kodae_input_int(kodae_str prompt);
+double kodae_input_float(kodae_str prompt);
+int64_t kodae_random(int64_t lo, int64_t hi);
+double kodae_random_float(double lo, double hi);
+bool kodae_random_bool(void);
+bool kodae_chance(int64_t pct);
+kodae_list kodae_list_new(int64_t elem_size);
+void kodae_list_push(kodae_list* l, const void* elem);
+void* kodae_list_at_ptr(kodae_list* l, int64_t idx);
+double kodae_time(void);
+int64_t kodae_time_ms(void);
+void kodae_wait(double secs);
+void kodae_wait_ms(int64_t ms);
+bool kodae_file_exists(kodae_str path);
+kodae_str kodae_read_file(kodae_str path);
+void kodae_write_file(kodae_str path, kodae_str content);
+kodae_str kodae_os_name(void);
+void kodae_log(kodae_str msg);
+kodae_list kodae_args(void);
+kodae_str kodae_env(kodae_str name);
+void kodae_list_shuffle(kodae_list* l);
+void kodae_list_reverse(kodae_list* l);
+void kodae_list_sort(kodae_list* l);
+bool kodae_in_range(double v, double lo, double hi);
+bool kodae_in_rect(double px, double py, double rx, double ry, double rw, double rh);
+void kodae_run(kodae_str cmd);
+void kodae_open_url(kodae_str url);
+void kodae_clipboard_set(kodae_str val);
+kodae_str kodae_clipboard_get(void);
+kodae_str kodae_str_reverse(kodae_str s);
+kodae_str kodae_str_repeat(kodae_str s, int64_t n);
+bool kodae_str_starts(kodae_str s, kodae_str sub);
+bool kodae_str_ends(kodae_str s, kodae_str sub);
+uint32_t kodae_color_rgb(int r, int g, int b);
+uint32_t kodae_color_rgba(int r, int g, int b, int a);
+uint32_t kodae_color_lerp(uint32_t a, uint32_t b, double t);
+uint32_t kodae_color_fade(uint32_t c, double alpha);
+
+static inline kodae_str kodae_str_lit(const char *c) {
+  if (!c) { return (kodae_str){NULL, 0}; }
+  return (kodae_str){c, (int64_t)strlen(c)};
+}
+
+const char* kodae_str_to_cstr(kodae_str s) {
+  if (!s.data) { return ""; }
+  char* p = (char*)malloc((size_t)s.len + 1);
+  if (!p) { exit(1); }
+  if (s.len > 0) { memcpy(p, s.data, (size_t)s.len); }
+  p[s.len] = 0;
+  return p;
+}
+
+kodae_str kodae_str_concat(kodae_str a, kodae_str b) {
+  int64_t n = a.len + b.len;
+  if (n <= 0) { return (kodae_str){"", 0}; }
+  char *p = (char *)malloc((size_t)n + 1);
+  if (!p) {
+    fprintf(stderr, "kodae: oom in str concat\n");
+    exit(1);
+  }
+  if (a.len > 0) { memcpy(p, a.data, (size_t)a.len); }
+  if (b.len > 0) { memcpy(p + a.len, b.data, (size_t)b.len); }
+  p[n] = 0;
+  return (kodae_str){p, n};
+}
+
+kodae_str kodae_int_to_str(int64_t v) {
+  char buf[32];
+  int n = snprintf(buf, sizeof buf, "%" PRId64, v);
+  if (n < 0) { n = 0; }
+  if (n >= (int)sizeof buf) { n = (int)sizeof buf - 1; }
+  char *p = (char *)malloc((size_t)n + 1);
+  if (!p) { exit(1); }
+  memcpy(p, buf, (size_t)n);
+  p[n] = 0;
+  return (kodae_str){p, n};
+}
+
+kodae_str kodae_float_to_str(double v) {
+  char buf[64];
+  int n = snprintf(buf, sizeof buf, "%.17g", v);
+  if (n < 0) { n = 0; }
+  char *p = (char *)malloc((size_t)n + 1);
+  if (!p) { exit(1); }
+  memcpy(p, buf, (size_t)n);
+  p[n] = 0;
+  return (kodae_str){p, n};
+}
+
+kodae_str kodae_bool_to_str(bool v) { return v ? kodae_str_lit("true") : kodae_str_lit("false"); }
+
+void kodae_print_int(int64_t v)  { printf("%" PRId64 "\n", v); }
+void kodae_print_float(double v) { printf("%g\n", v); }
+void kodae_print_bool(bool v)     { printf("%s\n", v ? "true" : "false"); }
+void kodae_print_str(kodae_str s) {
+  if (s.data && s.len > 0) { fwrite(s.data, 1, (size_t)s.len, stdout); }
+  putchar('\n');
+}
+/* Composable: no trailing newline (for struct / nested print). */
+void kodae_show_int(int64_t v)  { printf("%" PRId64, v); }
+void kodae_show_float(double v) { printf("%g", v); }
+void kodae_show_bool(bool v)    { printf("%s", v ? "true" : "false"); }
+void kodae_show_str(kodae_str s) {
+  if (s.data && s.len > 0) { fwrite(s.data, 1, (size_t)s.len, stdout); }
+}
+void kodae_show_endl(void) { putchar('\n'); }
+
+/* Console helpers (text I/O, demos). */
+void kodae_clear_screen(void) {
+#if defined(_WIN32)
+  (void)system("cls");
+#else
+  printf("\033[2J\033[H");
+  fflush(stdout);
+#endif
+}
+
+kodae_str kodae_input(kodae_str prompt) {
+  if (prompt.data && prompt.len > 0) {
+    fwrite(prompt.data, 1, (size_t)prompt.len, stdout);
+    fflush(stdout);
+  }
+  char line[4096];
+  if (fgets(line, (int)sizeof line, stdin) == NULL) {
+    return (kodae_str){NULL, 0};
+  }
+  int64_t n = 0;
+  while (n < (int64_t)sizeof line - 1 && line[n] && line[n] != '\n' && line[n] != '\r') {
+    n++;
+  }
+  char *p = (char *)malloc((size_t)(n < 0 ? 0 : n) + 1);
+  if (!p) { exit(1); }
+  if (n > 0) { memcpy(p, line, (size_t)n); }
+  p[n] = 0;
+  return (kodae_str){p, n};
+}
+
+int64_t kodae_input_int(kodae_str prompt) {
+  kodae_str s = kodae_input(prompt);
+  if (s.len == 0) return 0;
+  return strtoll(s.data, NULL, 10);
+}
+
+double kodae_input_float(kodae_str prompt) {
+  kodae_str s = kodae_input(prompt);
+  if (s.len == 0) return 0.0;
+  return strtod(s.data, NULL);
+}
+
+static int kodae_random_seeded;
+int64_t kodae_random(int64_t lo, int64_t hi) {
+  if (!kodae_random_seeded) { srand((unsigned)time(NULL)); kodae_random_seeded = 1; }
+  if (hi < lo) { int64_t t = lo; lo = hi; hi = t; }
+  int64_t span = hi - lo + 1;
+  if (span <= 0) { return lo; }
+  return lo + (int64_t)(rand() % span);
+}
+
+double kodae_random_float(double lo, double hi) {
+  if (!kodae_random_seeded) { srand((unsigned)time(NULL)); kodae_random_seeded = 1; }
+  double r = (double)rand() / (double)RAND_MAX;
+  return lo + r * (hi - lo);
+}
+
+bool kodae_random_bool(void) {
+  if (!kodae_random_seeded) { srand((unsigned)time(NULL)); kodae_random_seeded = 1; }
+  return rand() % 2 == 0;
+}
+
+bool kodae_chance(int64_t pct) {
+  if (!kodae_random_seeded) { srand((unsigned)time(NULL)); kodae_random_seeded = 1; }
+  return (rand() % 100) < pct;
+}
+
+void* kodae_random_pick(kodae_list* l) {
+  if (!l || l->len <= 0) return NULL;
+  return kodae_list_at_ptr(l, kodae_random(0, l->len - 1));
+}
+
+double kodae_time(void) {
+  return (double)time(NULL);
+}
+
+int64_t kodae_time_ms(void) {
+  return (int64_t)time(NULL) * 1000;
+}
+
+double kodae_timer_start(void) {
+  return kodae_time();
+}
+
+double kodae_timer_elapsed(double t) {
+  return kodae_time() - t;
+}
+
+double kodae_countdown(double secs) {
+  return kodae_time() + secs;
+}
+
+bool kodae_countdown_done(double t) {
+  return kodae_time() >= t;
+}
+
+#if defined(_WIN32)
+__attribute__((dllimport)) void __attribute__((__stdcall__)) Sleep(unsigned int dwMilliseconds);
+#endif
+
+void kodae_wait(double secs) {
+#if defined(_WIN32)
+  Sleep((unsigned int)(secs * 1000));
+#else
+  usleep((unsigned int)(secs * 1000000));
+#endif
+}
+
+void kodae_wait_ms(int64_t ms) {
+#if defined(_WIN32)
+  Sleep((unsigned int)ms);
+#else
+  usleep((unsigned int)(ms * 1000));
+#endif
+}
+
+int64_t kodae_clamp_int(int64_t v, int64_t lo, int64_t hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+double kodae_clamp_float(double v, double lo, double hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+double kodae_lerp(double a, double b, double t) {
+  return a + t * (b - a);
+}
+
+double kodae_map(double v, double in_lo, double in_hi, double out_lo, double out_hi) {
+  return out_lo + (v - in_lo) * (out_hi - out_lo) / (in_hi - in_lo);
+}
+
+double kodae_distance(double x1, double y1, double x2, double y2) {
+  double dx = x2 - x1;
+  double dy = y2 - y1;
+  return sqrt(dx * dx + dy * dy);
+}
+
+double kodae_angle_to(double x1, double y1, double x2, double y2) {
+  return atan2(y2 - y1, x2 - x1);
+}
+
+bool kodae_file_exists(kodae_str path) {
+  const char* c = kodae_str_to_cstr(path);
+  struct stat st;
+  bool ok = (stat(c, &st) == 0 && (st.st_mode & S_IFREG));
+  free((void*)c);
+  return ok;
+}
+
+bool kodae_folder_exists(kodae_str path) {
+  const char* c = kodae_str_to_cstr(path);
+  struct stat st;
+  bool ok = (stat(c, &st) == 0 && (st.st_mode & S_IFDIR));
+  free((void*)c);
+  return ok;
+}
+
+kodae_str kodae_read_file(kodae_str path) {
+  const char* c = kodae_str_to_cstr(path);
+  FILE* f = fopen(c, "rb");
+  free((void*)c);
+  if (!f) return (kodae_str){NULL, 0};
+  fseek(f, 0, SEEK_END);
+  long size = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  char* buf = (char*)malloc(size + 1);
+  if (!buf) { fclose(f); return (kodae_str){NULL, 0}; }
+  fread(buf, 1, size, f);
+  buf[size] = 0;
+  fclose(f);
+  return (kodae_str){buf, (int64_t)size};
+}
+
+void kodae_write_file(kodae_str path, kodae_str content) {
+  const char* c = kodae_str_to_cstr(path);
+  FILE* f = fopen(c, "wb");
+  free((void*)c);
+  if (!f) return;
+  if (content.len > 0) fwrite(content.data, 1, content.len, f);
+  fclose(f);
+}
+
+void kodae_append_file(kodae_str path, kodae_str content) {
+  const char* c = kodae_str_to_cstr(path);
+  FILE* f = fopen(c, "ab");
+  free((void*)c);
+  if (!f) return;
+  if (content.len > 0) fwrite(content.data, 1, content.len, f);
+  fclose(f);
+}
+
+void kodae_delete_file(kodae_str path) {
+  const char* c = kodae_str_to_cstr(path);
+  remove(c);
+  free((void*)c);
+}
+
+void kodae_delete_folder(kodae_str path) {
+  const char* c = kodae_str_to_cstr(path);
+#if defined(_WIN32)
+  _rmdir(c);
+#else
+  rmdir(c);
+#endif
+  free((void*)c);
+}
+
+
+kodae_str kodae_os_name(void) {
+#if defined(_WIN32)
+  return kodae_str_lit("windows");
+#elif defined(__APPLE__)
+  return kodae_str_lit("macos");
+#else
+  return kodae_str_lit("linux");
+#endif
+}
+
+bool kodae_is_windows(void) {
+#if defined(_WIN32)
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool kodae_is_mac(void) {
+#if defined(__APPLE__)
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool kodae_is_linux(void) {
+#if !defined(_WIN32) && !defined(__APPLE__)
+  return true;
+#else
+  return false;
+#endif
+}
+
+void kodae_assert(bool cond, kodae_str msg) {
+  if (!cond) {
+    fprintf(stderr, "Assertion failed: %.*s\n", (int)msg.len, msg.data);
+    exit(1);
+  }
+}
+
+void kodae_log(kodae_str msg) {
+  fprintf(stderr, "[LOG] %.*s\n", (int)msg.len, msg.data);
+}
+
+void kodae_todo(kodae_str msg) {
+  fprintf(stderr, "[TODO] %.*s\n", (int)msg.len, msg.data);
+}
+
+kodae_list kodae_list_new(int64_t elem_size) {
+  kodae_list l;
+  l.data = NULL;
+  l.len = 0;
+  l.cap = 0;
+  l.elem_size = elem_size;
+  return l;
+}
+
+static void kodae_list_reserve(kodae_list* l, int64_t need) {
+  if (!l || need <= l->cap) { return; }
+  int64_t nc = l->cap > 0 ? l->cap : 4;
+  while (nc < need) { nc *= 2; }
+  size_t bytes = (size_t)(nc * l->elem_size);
+  uint8_t* p = (uint8_t*)realloc(l->data, bytes);
+  if (!p) {
+    fprintf(stderr, "kodae: oom in list reserve\n");
+    exit(1);
+  }
+  l->data = p;
+  l->cap = nc;
+}
+
+void kodae_list_push(kodae_list* l, const void* elem) {
+  if (!l || !elem) { return; }
+  kodae_list_reserve(l, l->len + 1);
+  memcpy(l->data + (size_t)(l->len * l->elem_size), elem, (size_t)l->elem_size);
+  l->len++;
+}
+
+void kodae_list_append(kodae_list* l, const kodae_list* other) {
+  if (!l || !other) { return; }
+  if (l->elem_size != other->elem_size) {
+    fprintf(stderr, "kodae: append element-size mismatch\n");
+    exit(1);
+  }
+  kodae_list_reserve(l, l->len + other->len);
+  if (other->len > 0) {
+    memcpy(l->data + (size_t)(l->len * l->elem_size), other->data, (size_t)(other->len * other->elem_size));
+  }
+  l->len += other->len;
+}
+
+void kodae_list_pop(kodae_list* l, void* out) {
+  if (!l || !out || l->len <= 0) {
+    fprintf(stderr, "kodae: pop from empty list\n");
+    exit(1);
+  }
+  l->len--;
+  memcpy(out, l->data + (size_t)(l->len * l->elem_size), (size_t)l->elem_size);
+}
+
+void kodae_list_remove_at(kodae_list* l, int64_t idx, void* out) {
+  if (!l || !out || idx < 0 || idx >= l->len) {
+    fprintf(stderr, "kodae: remove index out of range\n");
+    exit(1);
+  }
+  memcpy(out, l->data + (size_t)(idx * l->elem_size), (size_t)l->elem_size);
+  int64_t tail = l->len - idx - 1;
+  if (tail > 0) {
+    memmove(l->data + (size_t)(idx * l->elem_size),
+            l->data + (size_t)((idx + 1) * l->elem_size),
+            (size_t)(tail * l->elem_size));
+  }
+  l->len--;
+}
+
+void* kodae_list_at_ptr(kodae_list* l, int64_t idx) {
+  if (!l || idx < 0 || idx >= l->len) {
+    fprintf(stderr, "kodae: index out of range\n");
+    exit(1);
+  }
+  return l->data + (size_t)(idx * l->elem_size);
+}
+
+kodae_str kodae_str_upper(kodae_str s) {
+  if (s.len <= 0) return s;
+  char* p = (char*)malloc(s.len + 1);
+  for (int64_t i = 0; i < s.len; i++) {
+    char c = s.data[i];
+    if (c >= 'a' && c <= 'z') c -= 32;
+    p[i] = c;
+  }
+  p[s.len] = 0;
+  return (kodae_str){p, s.len};
+}
+
+kodae_str kodae_str_lower(kodae_str s) {
+  if (s.len <= 0) return s;
+  char* p = (char*)malloc(s.len + 1);
+  for (int64_t i = 0; i < s.len; i++) {
+    char c = s.data[i];
+    if (c >= 'A' && c <= 'Z') c += 32;
+    p[i] = c;
+  }
+  p[s.len] = 0;
+  return (kodae_str){p, s.len};
+}
+
+kodae_str kodae_str_trim(kodae_str s) {
+  if (s.len <= 0) return s;
+  int64_t start = 0;
+  while (start < s.len && (unsigned char)s.data[start] <= 32) start++;
+  int64_t end = s.len - 1;
+  while (end >= start && (unsigned char)s.data[end] <= 32) end--;
+  int64_t n = end - start + 1;
+  if (n <= 0) return (kodae_str){"", 0};
+  char* p = (char*)malloc(n + 1);
+  memcpy(p, s.data + start, n);
+  p[n] = 0;
+  return (kodae_str){p, n};
+}
+
+bool kodae_str_contains(kodae_str s, kodae_str sub) {
+  if (sub.len == 0) return true;
+  if (s.len < sub.len) return false;
+  for (int64_t i = 0; i <= s.len - sub.len; i++) {
+    if (memcmp(s.data + i, sub.data, sub.len) == 0) return true;
+  }
+  return false;
+}
+
+kodae_str kodae_str_replace(kodae_str s, kodae_str old_s, kodae_str new_s) {
+  if (old_s.len == 0) return s;
+  int64_t count = 0;
+  for (int64_t i = 0; i <= s.len - old_s.len; ) {
+    if (memcmp(s.data + i, old_s.data, old_s.len) == 0) {
+      count++;
+      i += old_s.len;
+    } else {
+      i++;
+    }
+  }
+  if (count == 0) return s;
+  int64_t new_len = s.len + count * (new_s.len - old_s.len);
+  char* p = (char*)malloc(new_len + 1);
+  char* dest = p;
+  for (int64_t i = 0; i < s.len; ) {
+    if (i <= s.len - old_s.len && memcmp(s.data + i, old_s.data, old_s.len) == 0) {
+      memcpy(dest, new_s.data, new_s.len);
+      dest += new_s.len;
+      i += old_s.len;
+    } else {
+      *dest++ = s.data[i++];
+    }
+  }
+  *dest = 0;
+  return (kodae_str){p, new_len};
+}
+
+kodae_list kodae_str_split(kodae_str s, kodae_str delim) {
+  kodae_list l = kodae_list_new(sizeof(kodae_str));
+  if (s.len == 0) return l;
+  if (delim.len == 0) {
+    for (int64_t i = 0; i < s.len; i++) {
+      kodae_str sub = {s.data + i, 1};
+      kodae_list_push(&l, &sub);
+    }
+    return l;
+  }
+  int64_t start = 0;
+  for (int64_t i = 0; i <= s.len - delim.len; ) {
+    if (memcmp(s.data + i, delim.data, delim.len) == 0) {
+      kodae_str sub = {s.data + start, i - start};
+      kodae_list_push(&l, &sub);
+      i += delim.len;
+      start = i;
+    } else {
+      i++;
+    }
+  }
+  kodae_str last = {s.data + start, s.len - start};
+  kodae_list_push(&l, &last);
+  return l;
+}
+
+kodae_str kodae_str_slice(kodae_str s, int64_t start, int64_t end) {
+  if (start < 0) start = 0;
+  if (end > s.len) end = s.len;
+  if (start >= end) return (kodae_str){"", 0};
+  int64_t n = end - start;
+  char* p = (char*)malloc(n + 1);
+  memcpy(p, s.data + start, n);
+  p[n] = 0;
+  return (kodae_str){p, n};
+}
+
+bool kodae_make_folder(kodae_str path) {
+  const char* c = kodae_str_to_cstr(path);
+#if defined(_WIN32)
+  int res = _mkdir(c);
+#else
+  int res = mkdir(c, 0755);
+#endif
+  free((void*)c);
+  return res == 0;
+}
+
+kodae_list kodae_list_files(kodae_str path) {
+  kodae_list l = kodae_list_new(sizeof(kodae_str));
+  const char* c = kodae_str_to_cstr(path);
+#if defined(_WIN32)
+  struct _finddata_t fd;
+  char pattern[4096];
+  snprintf(pattern, sizeof pattern, "%s/*", c);
+  intptr_t h = _findfirst(pattern, &fd);
+  if (h != -1) {
+    do {
+      if (strcmp(fd.name, ".") != 0 && strcmp(fd.name, "..") != 0) {
+        kodae_str s = kodae_str_lit(strdup(fd.name));
+        kodae_list_push(&l, &s);
+      }
+    } while (_findnext(h, &fd) == 0);
+    _findclose(h);
+  }
+#else
+  DIR* d = opendir(c);
+  if (d) {
+    struct dirent* de;
+    while ((de = readdir(d))) {
+      if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
+        kodae_str s = kodae_str_lit(strdup(de->d_name));
+        kodae_list_push(&l, &s);
+      }
+    }
+    closedir(d);
+  }
+#endif
+  free((void*)c);
+  return l;
+}
+
+int kodae_argc;
+char** kodae_argv;
+kodae_list kodae_args(void) {
+  kodae_list l = kodae_list_new(sizeof(kodae_str));
+  for (int i = 0; i < kodae_argc; i++) {
+    kodae_str s = kodae_str_lit(kodae_argv[i]);
+    kodae_list_push(&l, &s);
+  }
+  return l;
+}
+
+kodae_str kodae_env(kodae_str name) {
+  const char* c = kodae_str_to_cstr(name);
+  char* v = getenv(c);
+  free((void*)c);
+  return kodae_str_lit(v);
+}
+
+void kodae_list_shuffle(kodae_list* l) {
+  if (!l || l->len <= 1) return;
+  if (!kodae_random_seeded) { srand((unsigned)time(NULL)); kodae_random_seeded = 1; }
+  for (int64_t i = l->len - 1; i > 0; i--) {
+    int64_t j = (int64_t)rand() % (i + 1);
+    uint8_t tmp[1024]; 
+    size_t sz = (size_t)l->elem_size;
+    memcpy(tmp, l->data + (size_t)(i * l->elem_size), sz);
+    memcpy(l->data + (size_t)(i * l->elem_size), l->data + (size_t)(j * l->elem_size), sz);
+    memcpy(l->data + (size_t)(j * l->elem_size), tmp, sz);
+  }
+}
+
+void kodae_list_reverse(kodae_list* l) {
+  if (!l || l->len <= 1) return;
+  for (int64_t i = 0; i < l->len / 2; i++) {
+    int64_t j = l->len - 1 - i;
+    uint8_t tmp[1024];
+    size_t sz = (size_t)l->elem_size;
+    memcpy(tmp, l->data + (size_t)(i * l->elem_size), sz);
+    memcpy(l->data + (size_t)(i * l->elem_size), l->data + (size_t)(j * l->elem_size), sz);
+    memcpy(l->data + (size_t)(j * l->elem_size), tmp, sz);
+  }
+}
+
+static int kodae_cmp_i64(const void* a, const void* b) {
+  int64_t va = *(const int64_t*)a;
+  int64_t vb = *(const int64_t*)b;
+  return (va > vb) - (va < vb);
+}
+static int kodae_cmp_f64(const void* a, const void* b) {
+  double va = *(const double*)a;
+  double vb = *(const double*)b;
+  return (va > vb) - (va < vb);
+}
+static int kodae_cmp_str(const void* a, const void* b) {
+  kodae_str sa = *(const kodae_str*)a;
+  kodae_str sb = *(const kodae_str*)b;
+  int64_t min_len = sa.len < sb.len ? sa.len : sb.len;
+  int res = memcmp(sa.data, sb.data, (size_t)min_len);
+  if (res == 0) return (sa.len > sb.len) - (sa.len < sb.len);
+  return res;
+}
+
+void kodae_list_sort(kodae_list* l) {
+  if (!l || l->len <= 1) return;
+  if (l->elem_size == 8) {
+    /* Heuristic: assume int64 (or double, they sort similarly for positives) */
+    qsort(l->data, (size_t)l->len, (size_t)l->elem_size, kodae_cmp_i64);
+  } else if (l->elem_size == sizeof(kodae_str)) {
+    qsort(l->data, (size_t)l->len, (size_t)l->elem_size, kodae_cmp_str);
+  }
+}
+
+bool kodae_in_range(double v, double lo, double hi) { return v >= lo && v <= hi; }
+bool kodae_in_rect(double px, double py, double rx, double ry, double rw, double rh) {
+  return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+}
+
+void kodae_run(kodae_str cmd) {
+  const char* c = kodae_str_to_cstr(cmd);
+  (void)system(c);
+  free((void*)c);
+}
+
+void kodae_open_url(kodae_str url) {
+  const char* c = kodae_str_to_cstr(url);
+#if defined(_WIN32)
+  /* We use ShellExecuteA via a trick or system() for simplicity in bootstrap */
+  char buf[4096];
+  snprintf(buf, sizeof buf, "start %s", c);
+  (void)system(buf);
+#elif defined(__APPLE__)
+  char buf[4096];
+  snprintf(buf, sizeof buf, "open %s", c);
+  (void)system(buf);
+#else
+  char buf[4096];
+  snprintf(buf, sizeof buf, "xdg-open %s", c);
+  (void)system(buf);
+#endif
+  free((void*)c);
+}
+
+void kodae_clipboard_set(kodae_str val) {
+  /* Win32 clipboard would require windows.h which conflicts. Placeholder. */
+}
+
+kodae_str kodae_clipboard_get(void) {
+  return kodae_str_lit("");
+}
+
+kodae_str kodae_str_reverse(kodae_str s) {
+  if (s.len <= 1) return s;
+  char* d = (char*)malloc((size_t)s.len);
+  for (int64_t i = 0; i < s.len; i++) d[i] = s.data[s.len - 1 - i];
+  return (kodae_str){d, s.len};
+}
+
+kodae_str kodae_str_repeat(kodae_str s, int64_t n) {
+  if (n <= 0) return (kodae_str){"", 0};
+  int64_t total = s.len * n;
+  char* d = (char*)malloc((size_t)total);
+  for (int64_t i = 0; i < n; i++) memcpy(d + (size_t)(i * s.len), s.data, (size_t)s.len);
+  return (kodae_str){d, total};
+}
+
+bool kodae_str_starts(kodae_str s, kodae_str sub) {
+  if (sub.len > s.len) return false;
+  return memcmp(s.data, sub.data, (size_t)sub.len) == 0;
+}
+
+bool kodae_str_ends(kodae_str s, kodae_str sub) {
+  if (sub.len > s.len) return false;
+  return memcmp(s.data + (size_t)(s.len - sub.len), sub.data, (size_t)sub.len) == 0;
+}
+
+uint32_t kodae_color_rgb(int r, int g, int b) {
+  return (uint32_t)(0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF));
+}
+
+uint32_t kodae_color_rgba(int r, int g, int b, int a) {
+  return (uint32_t)(((a & 0xFF) << 24) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF));
+}
+
+uint32_t kodae_color_lerp(uint32_t a, uint32_t b, double t) {
+  if (t < 0) t = 0; if (t > 1) t = 1;
+  int r1 = a & 0xFF, g1 = (a >> 8) & 0xFF, b1 = (a >> 16) & 0xFF, a1 = (a >> 24) & 0xFF;
+  int r2 = b & 0xFF, g2 = (b >> 8) & 0xFF, b2 = (b >> 16) & 0xFF, a2 = (b >> 24) & 0xFF;
+  return kodae_color_rgba((int)(r1 + (r2-r1)*t), (int)(g1 + (g2-g1)*t), (int)(b1 + (b2-b1)*t), (int)(a1 + (a2-a1)*t));
+}
+
+uint32_t kodae_color_fade(uint32_t c, double alpha) {
+  if (alpha < 0) alpha = 0; if (alpha > 1) alpha = 1;
+  return (c & 0x00FFFFFF) | (((uint32_t)((c >> 24) * alpha)) << 24);
+}
+
+kodae_str kodae_json_read(kodae_str path) { return kodae_read_file(path); }
+void kodae_json_write(kodae_str path, kodae_str val) { kodae_write_file(path, val); }
+

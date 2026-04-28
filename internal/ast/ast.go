@@ -1,4 +1,4 @@
-// Package ast defines Clio abstract syntax.
+// Package ast defines Kodae abstract syntax.
 package ast
 
 // Program is a translation unit: top-level declarations and statements.

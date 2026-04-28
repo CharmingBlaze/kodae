@@ -3,7 +3,7 @@ package lex
 import (
 	"testing"
 
-	"clio/internal/token"
+	"kodae/internal/token"
 )
 
 func TestTokenize_Operators(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"clio/internal/ast"
-	lex "clio/internal/lexer"
-	"clio/internal/token"
+	"kodae/internal/ast"
+	lex "kodae/internal/lexer"
+	"kodae/internal/token"
 )
 
 // ParseExpressionFragment parses a single expression and requires EOF.

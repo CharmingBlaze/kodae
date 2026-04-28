@@ -1,6 +1,0 @@
-' Smallest useful program: build or run with  clio run examples/hello.clio
-fn main() {
-  let x: int = 1
-  print("Hello, Clio")
-  print("x = " + str(x))
-}

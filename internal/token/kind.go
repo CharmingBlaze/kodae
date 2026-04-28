@@ -1,4 +1,4 @@
-// Package token defines Clio lexemes.
+// Package token defines Kodae lexemes.
 package token
 
 // Type is a token/keyword kind.

@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"clio/internal/ast"
-	"clio/internal/token"
+	"kodae/internal/ast"
+	"kodae/internal/token"
 )
 
 func (p *Parser) parseBlock() *ast.BlockStmt {

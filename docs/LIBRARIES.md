@@ -1,10 +1,10 @@
-# Clio C Libraries
+# Kodae C Libraries
 
-This guide covers exporting Clio code as a C library.
+This guide covers exporting Kodae code as a C library.
 
 ## 1) Mark exports with `pub`
 
-```clio
+```kodae
 #mode "library"
 #library "mymath"
 #version "1.0.0"
@@ -25,7 +25,7 @@ Only `pub` symbols are exported in the generated header.
 ## 2) Build as a library
 
 ```bash
-clio build --lib mymath.clio
+kodae build --lib mymath.kodae
 ```
 
 Produces:
@@ -37,7 +37,7 @@ Produces:
 
 ## 3) ABI mapping
 
-Public Clio -> C mapping:
+Public Kodae -> C mapping:
 
 - `int` -> `int64_t`
 - `float` -> `double`
@@ -54,7 +54,7 @@ Not exportable in `pub` API:
 ## 4) String boundary
 
 Exported `str` parameters/returns become `const char*` in generated headers.
-Wrapper code converts between ABI strings and internal Clio string values.
+Wrapper code converts between ABI strings and internal Kodae string values.
 
 ## 5) C consumer example
 

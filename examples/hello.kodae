@@ -1,0 +1,6 @@
+' Smallest useful program: build or run with  kodae run examples/hello.kodae
+fn main() {
+  let x: int = 1
+  print("Hello, Kodae")
+  print("x = " + str(x))
+}

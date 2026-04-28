@@ -1,0 +1,51 @@
+fn main() {
+    print("Kodae Standard Library Test")
+    print("--------------------------")
+
+    ' Time
+    let t = time()
+    print("Current time (s): $t")
+    wait(0.1)
+    print("Elapsed since wait: ${time() - t}")
+
+    ' Random
+    let r = random(1, 100)
+    print("Random 1-100: $r")
+    if (chance(50)) {
+        print("50% chance hit!")
+    }
+
+    ' Strings
+    let s = "  hello kodae  "
+    print("Original: '$s'")
+    print("Trimmed: '${s.trim()}'")
+    print("Upper: '${s.trim().upper()}'")
+    
+    if (s.contains("kodae")) {
+        print("Contains 'kodae'")
+    }
+
+    ' Math
+    print("sqrt(16) = ${sqrt(16.0)}")
+    print("abs(-42) = ${abs(-42)}")
+    print("clamp(10, 0, 5) = ${clamp(10, 0, 5)}")
+
+    ' File (temporary)
+    write_file("test.txt", "hello from kodae")
+    if (file_exists("test.txt")) {
+        print("File test.txt created")
+        let content = read_file("test.txt")
+        print("Content: '$content'")
+        delete_file("test.txt")
+        print("File test.txt deleted")
+    }
+
+    ' OS
+    print("OS: ${os_name()}")
+    if (is_windows()) {
+        print("Running on Windows")
+    }
+
+    print("--------------------------")
+    print("All tests passed!")
+}

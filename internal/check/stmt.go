@@ -3,7 +3,7 @@ package check
 import (
 	"fmt"
 
-	"clio/internal/ast"
+	"kodae/internal/ast"
 )
 
 func (c *Checker) stmts(st []ast.Stmt) {

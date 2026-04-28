@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"clio/internal/check"
-	lex "clio/internal/lexer"
-	"clio/internal/parser"
+	"kodae/internal/check"
+	lex "kodae/internal/lexer"
+	"kodae/internal/parser"
 )
 
 func TestEmit_ListOperations(t *testing.T) {
@@ -35,12 +35,12 @@ func TestEmit_ListOperations(t *testing.T) {
 		t.Fatalf("codegen: %v", err)
 	}
 	for _, want := range []string{
-		"clio_list_new",
-		"clio_list_push",
-		"clio_list_append",
-		"clio_list_pop",
-		"clio_list_remove_at",
-		"clio_list_at_ptr",
+		"kodae_list_new",
+		"kodae_list_push",
+		"kodae_list_append",
+		"kodae_list_pop",
+		"kodae_list_remove_at",
+		"kodae_list_at_ptr",
 	} {
 		if !strings.Contains(c, want) {
 			t.Fatalf("expected generated C to contain %q, got:\n%s", want, c)

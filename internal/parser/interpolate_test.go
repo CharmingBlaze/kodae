@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"clio/internal/ast"
+	"kodae/internal/ast"
 )
 
 func containsAll(s string, sub ...string) bool {

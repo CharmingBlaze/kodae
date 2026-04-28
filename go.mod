@@ -1,3 +1,3 @@
-module clio
+module kodae
 
 go 1.22

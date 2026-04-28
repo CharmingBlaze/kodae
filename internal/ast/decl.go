@@ -6,13 +6,13 @@ type EnumDecl struct {
 	Pub      bool
 	Name     string
 	Variants []string
-	// File is the absolute .clio path; used for pub / cross-file rules.
+	// File is the absolute .kodae path; used for pub / cross-file rules.
 	File     string
 }
 
 func (d *EnumDecl) decl() {}
 
-// File is the absolute path to the .clio source; used for cross-file visibility. Empty in tests / legacy.
+// File is the absolute path to the .kodae source; used for cross-file visibility. Empty in tests / legacy.
 type FnDecl struct {
 	Name   string
 	Pub    bool
@@ -28,7 +28,7 @@ type LetDecl struct {
 	Name string
 	T    *TypeExpr
 	Init Expr
-	// File is the absolute path of the containing .clio file (top-level let/const).
+	// File is the absolute path of the containing .kodae file (top-level let/const).
 	File string
 }
 
@@ -45,7 +45,7 @@ type StructDecl struct {
 	Pub    bool
 	Name   string
 	Fields []StructField
-	// File is the absolute .clio path; used for pub / cross-file rules.
+	// File is the absolute .kodae path; used for pub / cross-file rules.
 	File string
 }
 
@@ -64,7 +64,7 @@ type ExternDecl struct {
 	Name   string
 	Params []Param
 	Return *TypeExpr
-	// File is the absolute .clio path (externs are always linkable program-wide; field is for diagnostics).
+	// File is the absolute .kodae path (externs are always linkable program-wide; field is for diagnostics).
 	File string
 }
 
@@ -90,7 +90,7 @@ type LinkPathDecl struct{ Path string }
 
 func (d *LinkPathDecl) decl() {}
 
-// IncludeDecl is `# include "path"` — path is like `player`, `ui/hud`, or `raylib` (`.clio` added when missing).
+// IncludeDecl is `# include "path"` — path is like `player`, `ui/hud`, or `raylib` (`.kodae` added when missing).
 type IncludeDecl struct{ Path string }
 
 func (d *IncludeDecl) decl() {}

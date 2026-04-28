@@ -1,6 +1,6 @@
 package lex
 
-import "clio/internal/token"
+import "kodae/internal/token"
 
 // Next returns the next non-comment token. Newlines are explicit NEWLINE tokens.
 func (l *Lexer) Next() token.Token {
