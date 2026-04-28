@@ -11,7 +11,6 @@ func TestTokenize_Operators(t *testing.T) {
 		src  string
 		want []token.Type
 	}{
-		{"->", []token.Type{token.ARROW, token.EOF}},
 		{"==", []token.Type{token.EQ, token.EOF}},
 		{"!=", []token.Type{token.NEQ, token.EOF}},
 		{"<=", []token.Type{token.LEQ, token.EOF}},

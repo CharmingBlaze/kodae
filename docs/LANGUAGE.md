@@ -91,7 +91,7 @@ Functions group code together. They can have default parameters and return multi
 
 ```kodae
 ' b defaults to 0 if not provided
-fn add_and_double(a: int, b: int = 0) -> (int, int) {
+fn add_and_double(a: int, b: int = 0) (int, int) {
     let sum = a + b
     return sum, sum * 2
 }
@@ -189,22 +189,22 @@ Kodae includes many built-in functions out of the box to help you build games an
 - **Game Math:** `distance(x1, y1, x2, y2)`, `angle_to(x1, y1, x2, y2)`, `lerp(a, b, t)`, `map(x, in_min, in_max, out_min, out_max)`
 
 ### File Operations
-- `read_file("save.txt") -> str`
+- `read_file("save.txt") str`
 - `write_file("save.txt", "data")`
 - `append_file("log.txt", "line\n")`
-- `file_exists("save.dat") -> bool`
+- `file_exists("save.dat") bool`
 - `delete_file("old.txt")`
 - `copy_file("a.txt", "b.txt")`, `move_file("a.txt", "b.txt")`
 - `make_folder("saves")`, `delete_folder("saves")`, `folder_exists("saves")`
-- `list_files("./levels") -> list[str]`
+- `list_files("./levels") list[str]`
 
 ### Networking, JSON, and WebSockets (via `use net` or `#include "libs/net"`)
-- `http_get(url) -> result[str]`
-- `http_post(url, data) -> result[str]`
-- `download(url, dest) -> bool`
-- `is_online() -> bool`
-- `json_parse(text) -> Any`
-- `json_build(data) -> str`
+- `http_get(url) result[str]`
+- `http_post(url, data) result[str]`
+- `download(url, dest) bool`
+- `is_online() bool`
+- `json_parse(text) Any`
+- `json_build(data) str`
 
 **WebSockets:**
 ```kodae
@@ -230,7 +230,7 @@ You can split your project into multiple files using `#include`. Prefix things w
 
 **math.kodae**
 ```kodae
-pub fn double(x: int) -> int {
+pub fn double(x: int) int {
     return x * 2
 }
 ```

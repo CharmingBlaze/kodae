@@ -77,15 +77,14 @@ func (p *Parser) parseFnWithPub(pub bool) *ast.FnDecl {
 		params = p.fixMethodSelfType(recv, params)
 	}
 	var ret *ast.TypeExpr
-	if p.tok.Type == token.ARROW {
-		p.next()
+	if p.tok.Type != token.LBRACE {
 		ret = p.parseType()
 	}
 	body := p.parseBlock()
 	return &ast.FnDecl{Name: name, Pub: pub, Params: params, Return: ret, Body: body}
 }
 
-// parseExtern: `extern fn name(a: T, ...) -> R`  (no body)
+// parseExtern: `extern fn name(a: T, ...) R`  (no body)
 func (p *Parser) parseExtern() *ast.ExternDecl {
 	p.expect(token.EXTERN)
 	p.expect(token.FN)
@@ -98,11 +97,10 @@ func (p *Parser) parseExtern() *ast.ExternDecl {
 	p.expect(token.LPAREN)
 	params := p.parseParamList("", true, true)
 	var ret *ast.TypeExpr
-	if p.tok.Type == token.ARROW {
-		p.next()
+	if p.tok.Type != token.NEWLINE && p.tok.Type != token.EOF && p.tok.Type != token.SEMI {
 		ret = p.parseExternType()
 	} else {
-		p.failf("extern: need -> return type (use void for none)")
+		p.failf("extern: need return type (use void for none)")
 		return nil
 	}
 	if p.tok.Type == token.LBRACE {

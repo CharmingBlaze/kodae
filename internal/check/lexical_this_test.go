@@ -31,10 +31,10 @@ fn main() {}
 func TestLexicalThis_ReturnThisAndWith(t *testing.T) {
 	const src = `
 struct P { name: str health: int }
-fn P.me() -> P {
+fn P.me() P {
   return this
 }
-fn P.copy() -> P {
+fn P.copy() P {
   return this with { name: "copy" }
 }
 fn main() {}

@@ -118,8 +118,6 @@ func tokenKindName(t token.Type) string {
 		return "LEQ"
 	case token.GEQ:
 		return "GEQ"
-	case token.ARROW:
-		return "ARROW"
 	case token.DOT:
 		return "DOT"
 	case token.DOTDOT:

@@ -37,14 +37,6 @@ func TestParse_CompoundAndCast(t *testing.T) {
 	}
 }
 
-func TestParse_V1RejectsResultType(t *testing.T) {
-	const src = `fn f() -> result[int] { return 0 }`
-	p := New(lex.New(src))
-	_ = p.ParseProgram()
-	if p.Err() == nil {
-		t.Fatalf("expected parse error for result type")
-	}
-}
 
 func TestParse_V1RejectsTryUnwrap(t *testing.T) {
 	const src = `fn f() { g()? }`
@@ -110,7 +102,7 @@ func TestParse_LinkAndLinkpath(t *testing.T) {
 	t.Parallel()
 	const src = `# link "raylib"
 # linkpath "./raylib"
-extern fn X() -> void
+extern fn X() void
 fn main() { }`
 	p := New(lex.New(src))
 	pr := p.ParseProgram()
@@ -126,7 +118,7 @@ func TestParse_PubStructAndMetaDirectives(t *testing.T) {
 	const src = `#mode "library"
 #library "mylib"
 pub struct Vec2 { x: float, y: float }
-pub fn add(a: int, b: int) -> int { return a + b }`
+pub fn add(a: int, b: int) int { return a + b }`
 	p := New(lex.New(src))
 	pr := p.ParseProgram()
 	if p.Err() != nil {

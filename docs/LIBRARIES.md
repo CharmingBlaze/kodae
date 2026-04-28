@@ -10,7 +10,7 @@ This guide covers exporting Kodae code as a C library.
 #version "1.0.0"
 #author "Ada"
 
-pub fn add(a: int, b: int) -> int {
+pub fn add(a: int, b: int) int {
   return a + b
 }
 

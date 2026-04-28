@@ -32,7 +32,7 @@ C `enum` definitions are converted to Kodae `pub enum`.
 ### 3. Extern Functions
 C functions are converted to Kodae `extern fn`.
 - Return types and parameters are mapped.
-- `void` return type becomes `-> void`.
+- `void` return type becomes `void`.
 - Pointers (e.g., `const char*`, `void*`) are mapped to `ptr[byte]`.
 
 ## Type Mapping Reference
@@ -74,5 +74,5 @@ pub struct Vector2 {
   y: f32
 }
 
-extern fn Vector2Length(v: Vector2) -> f32
+extern fn Vector2Length(v: Vector2) f32
 ```

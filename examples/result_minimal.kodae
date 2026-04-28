@@ -1,5 +1,5 @@
 ' v1 catch-style sample (no result[T], ok/err, or ?)
-fn read_file(path: str) -> str {
+fn read_file(path: str) str {
   return path
 }
 

@@ -126,7 +126,7 @@ func parseFunction(node ClangASTNode, seenStructs map[string]bool) (string, bool
 		}
 	}
 
-	return fmt.Sprintf("extern fn %s(%s) -> %s", node.Name, strings.Join(params, ", "), retType), true
+	return fmt.Sprintf("extern fn %s(%s) %s", node.Name, strings.Join(params, ", "), retType), true
 }
 
 func mapCTypeToKodae(cType string) (string, bool) {

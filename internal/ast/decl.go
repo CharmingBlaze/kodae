@@ -66,7 +66,7 @@ type Param struct {
 	Init Expr
 }
 
-// ExternDecl is `extern fn name(...) -> T` with no body.
+// ExternDecl is `extern fn name(...) T` with no body.
 type ExternDecl struct {
 	Name   string
 	Params []Param

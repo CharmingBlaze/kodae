@@ -11,8 +11,8 @@ import (
 
 func TestGenerate_HeaderForPubAPI(t *testing.T) {
 	const src = `pub struct Vec2 { x: float, y: float }
-pub fn add(a: int, b: int) -> int { return a + b }
-pub fn greet(name: str) -> str { return "hi " + name }`
+pub fn add(a: int, b: int) int { return a + b }
+pub fn greet(name: str) str { return "hi " + name }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
 	if p.Err() != nil {

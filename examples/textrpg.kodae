@@ -35,7 +35,7 @@ fn Player.show_stats() {
     print("-----------------------------")
 }
 
-fn Player.is_alive() -> bool {
+fn Player.is_alive() bool {
     return this.health > 0
 }
 
@@ -70,7 +70,7 @@ fn Player.gain_xp(amount: int) {
 
 ' -- Enemy methods
 
-fn Enemy.is_alive() -> bool {
+fn Enemy.is_alive() bool {
     return this.health > 0
 }
 
@@ -81,7 +81,7 @@ fn Enemy.take_damage(dmg: int) {
 
 ' -- Combat
 
-fn get_choice() -> Choice {
+fn get_choice() Choice {
     print("  [1] Fight   [2] Run   [3] Heal (10g)")
     let raw = input("  > ")
     if (raw == "1") { return Choice.Fight }
@@ -90,7 +90,7 @@ fn get_choice() -> Choice {
     return Choice.Invalid
 }
 
-fn do_combat(player: Player, enemy: Enemy) -> bool {
+fn do_combat(player: Player, enemy: Enemy) bool {
     ' returns true if player survived
     print("")
     print("  A wild $enemy.name appears! (HP: $enemy.health)")
@@ -147,19 +147,19 @@ fn do_combat(player: Player, enemy: Enemy) -> bool {
 
 ' -- Enemies
 
-fn make_goblin() -> Enemy {
+fn make_goblin() Enemy {
     return Enemy { name: "Goblin", health: 30, attack: 8, reward: 15, xp: 40 }
 }
 
-fn make_orc() -> Enemy {
+fn make_orc() Enemy {
     return Enemy { name: "Orc Warrior", health: 55, attack: 14, reward: 30, xp: 80 }
 }
 
-fn make_dragon() -> Enemy {
+fn make_dragon() Enemy {
     return Enemy { name: "Cave Dragon", health: 120, attack: 22, reward: 200, xp: 300 }
 }
 
-fn random_enemy() -> Enemy {
+fn random_enemy() Enemy {
     let roll = random(1, 3)
     if (roll == 1) { return make_goblin() }
     if (roll == 2) { return make_orc() }

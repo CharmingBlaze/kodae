@@ -63,7 +63,6 @@ const (
 	GT
 	LEQ
 	GEQ
-	ARROW
 	DOT
 	DOTDOT
 	QUEST
@@ -102,8 +101,6 @@ func (t Type) String() string {
 		return "FLOATLIT"
 	case STRLIT:
 		return "STRLIT"
-	case ARROW:
-		return "->"
 	case DOTDOT:
 		return ".."
 	case HASH:

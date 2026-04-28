@@ -208,8 +208,7 @@ func (p *Parser) parseFuncLitExpr() ast.Expr {
 	p.expect(token.LPAREN)
 	params := p.parseParamList("", false, false)
 	var ret *ast.TypeExpr
-	if p.tok.Type == token.ARROW {
-		p.next()
+	if p.tok.Type != token.LBRACE {
 		ret = p.parseType()
 	}
 	body := p.parseBlock()

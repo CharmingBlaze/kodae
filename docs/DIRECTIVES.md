@@ -19,7 +19,7 @@ A minimal shareable library source file often starts like:
 #version "1.0.0"
 #author "Ada"
 
-pub fn square(x: int) -> int {
+pub fn square(x: int) int {
   return x * x
 }
 ```

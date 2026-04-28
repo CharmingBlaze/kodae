@@ -12,7 +12,7 @@ import (
 func TestLoadProgram_UseResolvesSameDir(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, "lib.kodae"), `pub fn double(n: int) -> int { return n * 2 }`)
+	write(t, filepath.Join(dir, "lib.kodae"), `pub fn double(n: int) int { return n * 2 }`)
 	write(t, filepath.Join(dir, "app.kodae"), `use lib
 fn main() {
   let v: int = double(3)
@@ -36,7 +36,7 @@ fn main() {
 func TestLoadProgram_UseDedupWithTwoPaths(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, "lib.kodae"), `fn f() -> int { return 1 }`)
+	write(t, filepath.Join(dir, "lib.kodae"), `fn f() int { return 1 }`)
 	write(t, filepath.Join(dir, "app.kodae"), `use lib
 fn main() { }`)
 

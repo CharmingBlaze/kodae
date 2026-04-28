@@ -15,7 +15,7 @@ func TestBuildLib_GeneratesArtifactsAndCConsumerBuilds(t *testing.T) {
 	src := filepath.Join(dir, "mymath.kodae")
 	code := `#mode "library"
 #library "mymath"
-pub fn add(a: int, b: int) -> int { return a + b }`
+pub fn add(a: int, b: int) int { return a + b }`
 	if err := os.WriteFile(src, []byte(code), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -49,6 +49,9 @@ int main(void){ printf("%lld\n", (long long)add(2,3)); return 0; }`
 	}
 	args := append([]string{}, cc.Prefix...)
 	args = append(args, "-std=c99", "-O2", "-o", out, csrc, filepath.Join(dir, "mymath.a"), "-lm")
+	if runtime.GOOS == "windows" {
+		args = append(args, "-lws2_32")
+	}
 	cmd := exec.Command(cc.Prog, args...)
 	cmd.Dir = dir
 	if b, err := cmd.CombinedOutput(); err != nil {

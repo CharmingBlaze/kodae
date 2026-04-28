@@ -52,7 +52,7 @@ func TestLoadProgramTwoFileMergeTypechecks(t *testing.T) {
 	dir := t.TempDir()
 	lib := filepath.Join(dir, "lib.kodae")
 	app := filepath.Join(dir, "app.kodae")
-	if err := os.WriteFile(lib, []byte("pub fn double(n: int) -> int { return n * 2 }\n"), 0644); err != nil {
+	if err := os.WriteFile(lib, []byte("pub fn double(n: int) int { return n * 2 }\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(app, []byte("fn main() {\n  let v: int = double(10)\n  print( str( v ) )\n}\n"), 0644); err != nil {

@@ -42,7 +42,7 @@ func fprintDecl(w io.Writer, d Decl, ind int) {
 		}
 		r := ""
 		if x.Return != nil {
-			r = " -> " + x.Return.String()
+			r = " " + x.Return.String()
 		}
 		fmt.Fprintf(w, ")%s\n", r)
 		fprintBlock(w, x.Body, ind+1)

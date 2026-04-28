@@ -11,7 +11,7 @@ func TestCheck_LinkAndLinkpathToLdFlags(t *testing.T) {
 	t.Parallel()
 	const src = `# link "raylib"
 # linkpath "./raylib"
-extern fn f() -> void
+extern fn f() void
 fn main() { }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
@@ -36,7 +36,7 @@ fn main() { }`
 func TestCheck_LinkPreformattedPassesThrough(t *testing.T) {
 	t.Parallel()
 	const src = `# link "-lfoo -L/bar"
-extern fn f() -> void
+extern fn f() void
 fn main() { }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
@@ -54,8 +54,8 @@ fn main() { }`
 
 func TestCheck_ExternF32WidensToFloat(t *testing.T) {
 	t.Parallel()
-	const src = `extern fn GetA() -> f32
-extern fn SetB(x: f32) -> void
+	const src = `extern fn GetA() f32
+extern fn SetB(x: f32) void
 fn main() {
   let a = GetA()
   let x: int = 1

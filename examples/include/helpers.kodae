@@ -1,7 +1,7 @@
 ' Shared by main.kodae via  #include "helpers"
 ' Symbols used from another file are exported with pub.
 
-pub fn triple(n: int) -> int {
+pub fn triple(n: int) int {
   return n * 3
 }
 
@@ -10,6 +10,6 @@ pub struct Point {
   y: int
 }
 
-pub fn point_sum(p: Point) -> int {
+pub fn point_sum(p: Point) int {
   return p.x + p.y
 }

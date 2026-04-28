@@ -28,8 +28,11 @@ func Compile(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool) error
 	argv = append(argv, ccc.Prefix...)
 	// LLVM, GCC, and "zig cc" all accept this GNU-style CLI on common targets.
 	argv = append(argv, "-std=c99", "-O2", "-o", outAbs, cAbs, "-lm")
-	if gui && runtime.GOOS == "windows" {
-		argv = append(argv, "-mwindows")
+	if runtime.GOOS == "windows" {
+		if gui {
+			argv = append(argv, "-mwindows")
+		}
+		argv = append(argv, "-lws2_32")
 	}
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)
@@ -105,8 +108,11 @@ func LinkShared(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool) er
 		argv = append(argv, "-shared", "-fPIC")
 	}
 	argv = append(argv, "-o", outAbs, cAbs, "-lm")
-	if gui && runtime.GOOS == "windows" {
-		argv = append(argv, "-mwindows")
+	if runtime.GOOS == "windows" {
+		if gui {
+			argv = append(argv, "-mwindows")
+		}
+		argv = append(argv, "-lws2_32")
 	}
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)

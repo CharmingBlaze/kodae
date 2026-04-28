@@ -90,7 +90,7 @@ type StructUpdateExpr struct {
 
 func (e *StructUpdateExpr) expr() {}
 
-// FuncLit: fn (params) -> T? { body } — expression-only closure (currently checked codegen supports fn() void only).
+// FuncLit: fn (params) T? { body } — expression-only closure (currently checked codegen supports fn() void only).
 type FuncLit struct {
 	Params []Param
 	Return *TypeExpr
@@ -212,7 +212,7 @@ func ExprString(e Expr) string {
 		}
 		s += ") "
 		if x.Return != nil {
-			s += "-> ... "
+			s += " ... "
 		}
 		return s + "{ ... }"
 	case *ListLit:

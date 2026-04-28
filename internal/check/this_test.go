@@ -9,7 +9,7 @@ import (
 )
 
 func TestThis_OutsideMethodRejected(t *testing.T) {
-	const src = `fn f() -> int { return this }`
+	const src = `fn f() int { return this }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
 	if p.Err() != nil {

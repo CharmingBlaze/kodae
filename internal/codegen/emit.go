@@ -556,12 +556,10 @@ func EmitCWithOptions(p *ast.Program, inf *check.Info, opts EmitOptions) (string
 	out.WriteString("\n")
 	out.WriteString(cruntime.BootstrapC)
 	out.WriteString("\n")
-	if !opts.LibraryMode {
-		out.WriteString(cruntime.ParsonC)
-		out.WriteString("\n")
-		out.WriteString(cruntime.WsClientC)
-		out.WriteString("\n")
-	}
+	out.WriteString(cruntime.ParsonC)
+	out.WriteString("\n")
+	out.WriteString(cruntime.WsClientC)
+	out.WriteString("\n")
 	out.WriteString("#include <math.h>\n\n")
 	out.WriteString(`typedef struct { bool has; int64_t v; } kodae_opt_i64;
 typedef struct { bool has; double v; } kodae_opt_f64;

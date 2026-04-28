@@ -11,7 +11,7 @@ func TestRunInstall_CopiesToUserLibDir(t *testing.T) {
 	t.Setenv("KODAE_HOME", home)
 	src := filepath.Join(t.TempDir(), "mathlib.kodae")
 	if err := os.WriteFile(src, []byte(`#library "mathlib"
-pub fn square(n: int) -> int { return n * n }
+pub fn square(n: int) int { return n * n }
 `), 0644); err != nil {
 		t.Fatal(err)
 	}

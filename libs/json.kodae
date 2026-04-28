@@ -1,47 +1,47 @@
 module json
 
-extern fn kodae_json_parse(s: str) -> Any
-extern fn kodae_json_build(a: Any) -> str
-extern fn kodae_any_get(a: Any, key: str) -> Any
-extern fn kodae_any_at(a: Any, idx: int) -> Any
-extern fn kodae_any_len(a: Any) -> int
-extern fn kodae_any_int(a: Any) -> int
-extern fn kodae_any_float(a: Any) -> float
-extern fn kodae_any_str(a: Any) -> str
-extern fn kodae_any_bool(a: Any) -> bool
+extern fn kodae_json_parse(s: str) Any
+extern fn kodae_json_build(a: Any) str
+extern fn kodae_any_get(a: Any, key: str) Any
+extern fn kodae_any_at(a: Any, idx: int) Any
+extern fn kodae_any_len(a: Any) int
+extern fn kodae_any_int(a: Any) int
+extern fn kodae_any_float(a: Any) float
+extern fn kodae_any_str(a: Any) str
+extern fn kodae_any_bool(a: Any) bool
 
-pub fn json_parse(s: str) -> Any {
+pub fn json_parse(s: str) Any {
     return kodae_json_parse(s)
 }
 
-pub fn json_build(a: Any) -> str {
+pub fn json_build(a: Any) str {
     return kodae_json_build(a)
 }
 
-pub fn json_get(a: Any, key: str) -> Any {
+pub fn json_get(a: Any, key: str) Any {
     return kodae_any_get(a, key)
 }
 
-pub fn json_at(a: Any, idx: int) -> Any {
+pub fn json_at(a: Any, idx: int) Any {
     return kodae_any_at(a, idx)
 }
 
-pub fn json_len(a: Any) -> int {
+pub fn json_len(a: Any) int {
     return kodae_any_len(a)
 }
 
-pub fn json_as_int(a: Any) -> int {
+pub fn json_as_int(a: Any) int {
     return kodae_any_int(a)
 }
 
-pub fn json_as_float(a: Any) -> float {
+pub fn json_as_float(a: Any) float {
     return kodae_any_float(a)
 }
 
-pub fn json_as_str(a: Any) -> str {
+pub fn json_as_str(a: Any) str {
     return kodae_any_str(a)
 }
 
-pub fn json_as_bool(a: Any) -> bool {
+pub fn json_as_bool(a: Any) bool {
     return kodae_any_bool(a)
 }

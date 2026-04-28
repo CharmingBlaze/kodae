@@ -9,7 +9,7 @@ import (
 )
 
 func TestPubFn_RejectsListInExport(t *testing.T) {
-	const src = `pub fn bad(xs: list[int]) -> int { return len(xs) }`
+	const src = `pub fn bad(xs: list[int]) int { return len(xs) }`
 	p := parser.New(lex.New(src))
 	pr := p.ParseProgram()
 	if p.Err() != nil {

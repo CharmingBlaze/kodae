@@ -7,5 +7,5 @@ pub struct Config {
   flag: ConfigFlag
 }
 
-extern fn ApplyConfig(c: Config) -> void
+extern fn ApplyConfig(c: Config) void
 

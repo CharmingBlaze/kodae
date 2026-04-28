@@ -45,7 +45,7 @@ C → Kodae type cheat sheet:
 | `int` | `int` |
 | `float` / `double` | `float` (Kodae `float` maps to C `double` in the compiler today) |
 | `bool` | `bool` |
-| `void` in return | `-> void` in Kodae |
+| `void` in return | `void` in Kodae |
 | `const char *` / `char *` (string pointer) | `ptr[byte]` in `extern fn` parameters |
 | `void *` | `ptr[byte]` (or another `ptr[...]`) in **extern** signatures only |
 | `unsigned int` | `int` for many cases, or be explicit in comments |
@@ -56,29 +56,29 @@ C → Kodae type cheat sheet:
 
 ```kodae
 ' C: void InitWindow(int width, int height, const char *title);
-extern fn InitWindow(w: int, h: int, title: ptr[byte]) -> void
+extern fn InitWindow(w: int, h: int, title: ptr[byte]) void
 
 ' C: bool WindowShouldClose(void);
-extern fn WindowShouldClose() -> bool
+extern fn WindowShouldClose() bool
 
 ' C: void BeginDrawing(void);
-extern fn BeginDrawing() -> void
+extern fn BeginDrawing() void
 
 ' C: void EndDrawing(void);
-extern fn EndDrawing() -> void
+extern fn EndDrawing() void
 
 ' C: void CloseWindow(void);
-extern fn CloseWindow() -> void
+extern fn CloseWindow() void
 
 ' C: void ClearBackground(Color color);
 pub struct Color { r: u8, g: u8, b: u8, a: u8 }
-extern fn ClearBackground(color: Color) -> void
+extern fn ClearBackground(color: Color) void
 
 ' C: void DrawText(const char *text, int x, int y, int fontSize, Color color);
-extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: Color) -> void
+extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: Color) void
 ```
 
-Kodae requires a return type: use **`-> void`** for C `void` functions, not “nothing” after the closing `)`.
+Kodae requires a return type: use **`void`** for C `void` functions, not “nothing” after the closing `)`.
 
 **Strings:** pass Kodae `str` where the signature is `ptr[byte]`; the C backend is set up to pass a pointer to the string’s bytes.
 
@@ -90,14 +90,14 @@ Kodae requires a return type: use **`-> void`** for C `void` functions, not “n
 # link "raylib"
 # linkpath "./raylib"
 
-extern fn InitWindow(w: int, h: int, title: ptr[byte]) -> void
-extern fn WindowShouldClose() -> bool
-extern fn BeginDrawing() -> void
-extern fn EndDrawing() -> void
-extern fn CloseWindow() -> void
+extern fn InitWindow(w: int, h: int, title: ptr[byte]) void
+extern fn WindowShouldClose() bool
+extern fn BeginDrawing() void
+extern fn EndDrawing() void
+extern fn CloseWindow() void
 pub struct Color { r: u8, g: u8, b: u8, a: u8 }
-extern fn ClearBackground(color: Color) -> void
-extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: Color) -> void
+extern fn ClearBackground(color: Color) void
+extern fn DrawText(text: ptr[byte], x: int, y: int, size: int, color: Color) void
 
 fn main() {
   InitWindow(800, 600, "My Game")
