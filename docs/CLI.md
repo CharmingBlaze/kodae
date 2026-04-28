@@ -1,64 +1,137 @@
-# Kodae Command Line Interface (CLI)
+# Kodae command-line reference (`kodae`)
 
-The Kodae CLI is your main tool for building and running your Kodae programs.
+The `kodae` program is the compiler driver: it loads `.kodae` sources, can dump tokens or the AST, type-checks, emits **C99**, and invokes a C toolchain to produce executables or libraries.
 
-## Overview of Commands
+Run `kodae` with no arguments (or an unknown command) to print built-in help.
 
-You can interact with Kodae through several main commands:
-
-- `kodae run <file>`: Compile and run a Kodae program immediately.
-- `kodae build <file>`: Compile a Kodae program into a standalone executable.
-- `kodae test <file_or_dir>`: Run tests in your Kodae files.
-- `kodae install <file>`: Install a Kodae library globally on your computer so you can include it anywhere.
-- `kodae c <file>`: Generate C code from your Kodae program (advanced).
+**Related:** [LANGUAGE.md](LANGUAGE.md) (language), [DISTRIBUTION.md](DISTRIBUTION.md) (bundled toolchain), [BINDGEN.md](BINDGEN.md) (`bind`), [SUPPORTED.md](../SUPPORTED.md) (feature status).
 
 ---
 
-## Command Details
+## Environment variables
 
-### 1. `run`
-**Usage:** `kodae run <filename.kodae>`
+| Variable | Meaning |
+|----------|---------|
+| `KODAE_CC` | Default C compiler (`clang`, `gcc`, full path, or `zig` / `zig cc`). Overridden by `kodae --cc ...`. |
+| `KODAE_HOME` | If set, user libraries live under `$KODAE_HOME/libs` (see [DIRECTIVES.md](DIRECTIVES.md)). |
 
-This is the command you'll use most often during development. It takes your Kodae source file, compiles it in the background, and immediately runs it. It's the fastest way to test your code.
+---
 
-**Example:**
-`kodae run main.kodae`
+## Shared flags (several commands)
 
-### 2. `build`
-**Usage:** `kodae build [options] <filename.kodae>`
+Many commands accept one or more `.kodae` files merged in order (same as `build`). Optional flags:
 
-When you are ready to share your application or game, use the `build` command. It compiles your code into a permanent executable file (like a `.exe` on Windows).
+- **`-o`** — output path (meaning depends on the command).
+- **`--cc`** — C compiler for compile/link steps.
+- **`--ldflags "..."`** — extra linker tokens (split on spaces), e.g. `--ldflags "-lraylib -lm"`.
 
-**Options:**
-- `-o <output_name>`: Specify the name of the final executable file. (Example: `kodae build -o game.exe main.kodae`)
-- `--cc <compiler>`: Specify a custom C compiler (like `clang` or `gcc`) instead of the default.
-- `--lib`: Build a C-compatible shared library (`.a` / `.h` / `.c`) instead of an executable. This is useful if you are writing a library in Kodae that you want C/C++ developers to use.
+---
 
-**Example:**
-`kodae build -o my_app main.kodae`
+## Commands
 
-### 3. `install`
-**Usage:** `kodae install <filename.kodae>`
+### `version` (aliases: `-v`, `-version`)
 
-If you write a helpful library of functions (like math tools or game logic) and want to use it in all of your projects, you can "install" it. This copies the `.kodae` file to a global library folder on your computer.
+Prints the `kodae` version string.
 
-Once installed, you can use `#include "filename"` in any project to access that library!
+---
 
-**Example:**
-`kodae install mathlib.kodae`
+### `lex` (aliases: `tokenize`, `lexdump`)
 
-### 4. `test`
-**Usage:** `kodae test [filename_or_directory]`
+**Usage:** `kodae lex <file.kodae>`
 
-This command searches for any function in your code that starts with the word `test` (like `fn test_math()`) and runs it automatically. It will report whether the tests passed or failed.
+Writes one line per token (debugging). Not needed for normal development.
 
-**Example:**
-`kodae test .` (Runs all tests in the current folder)
+---
 
-### 5. `c`
-**Usage:** `kodae c <filename.kodae>`
+### `parse` / `ast`
 
-This command transpiles your Kodae code into readable C code and stops without compiling it into an executable. This is very useful if you want to see exactly how Kodae translates your code, or if you want to manually compile the C code yourself.
+**Usage:** `kodae parse <a.kodae> [b.kodae] …`
 
-**Example:**
-`kodae c main.kodae`
+Parses and prints the merged AST (same file merge rules as `build`). Ignores useless `-o` / `--cc` / `--ldflags` for this command.
+
+---
+
+### `check` (alias: `typecheck`)
+
+**Usage:** `kodae check <a.kodae> [b.kodae] …`
+
+Type-checks the merged program. Prints `ok` on success.
+
+---
+
+### `cgen` / `emit` / `c`
+
+**Usage:** `kodae cgen <a.kodae> [b.kodae] …`
+
+Type-checks and prints generated C to **stdout**.
+
+---
+
+### `build`
+
+**Usage:** `kodae build [--lib] [--static] [--shared] <files.kodae> … [-o out] [--cc cc] [--ldflags "..."]`
+
+- Default: link an **executable**. Without `-o`, the output name is derived from the first input file (e.g. `hello.exe` on Windows).
+- **`--lib`**: emit C library artifacts (`.c`, `.h`, plus static/shared where applicable); see [LIBRARIES.md](LIBRARIES.md).
+- **`--static`** / **`--shared`**: control library outputs in library mode.
+
+---
+
+### `buildc`
+
+**Usage:** `kodae buildc <file.kodae> [-o out.c]`
+
+Writes generated C only (no link). Default output stem matches the source file.
+
+---
+
+### `run`
+
+**Usage:** `kodae run <file.kodae> [--cc cc] [--ldflags "..."]`
+
+Builds then runs the resulting binary with stdin/stdout/stderr connected.
+
+---
+
+### `install`
+
+**Usage:** `kodae install <path/to/file.kodae>` or `kodae install name` (looks for `name.kodae` in the current directory)
+
+Copies the file into the user library directory so `#include "name"` can resolve it from any project.
+
+---
+
+### `bind`
+
+**Usage:** `kodae bind [-o out.kodae] <shortName> <path/to/header.h>`
+
+Generates Kodae bindings from a C header (needs **Clang** on `PATH`). Default output: `include/<shortName>/<shortName>.kodae`. Put `-o` **before** the positional arguments.
+
+Same binding logic exists as the **`kodae-bind`** helper executable.
+
+See [BINDGEN.md](BINDGEN.md).
+
+---
+
+### `bundle`
+
+**Usage:** `kodae bundle [os] [arch]`
+
+Maintainer tool: builds `kodae` with Go, optionally bundles Zig from `PATH`, copies `include/` and `examples/` into `dist/`. Requires Go to run.
+
+---
+
+## Typical workflows
+
+- **Develop:** `kodae run src/main.kodae`
+- **Ship:** `kodae build -o game.exe src/main.kodae`
+- **CI:** `kodae check …`
+- **Inspect C:** `kodae cgen main.kodae > out.c`
+- **Headers → Kodae:** `kodae bind raylib path/to/raylib.h`
+
+---
+
+## See also
+
+- [README.md](../README.md) — download and quick start  
+- [examples/README.md](../examples/README.md) — runnable samples

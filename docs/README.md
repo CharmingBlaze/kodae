@@ -1,11 +1,23 @@
-# Kodae Documentation
+# Kodae documentation index
 
-Welcome to the documentation for the Kodae programming language.
+Read these in any order; the table shows what each document is for.
 
-Start reading here to learn Kodae:
-1. [LANGUAGE.md](LANGUAGE.md) - Learn the syntax and features of Kodae.
-2. [CLI.md](CLI.md) - Learn how to use the `kodae` command line tool.
-3. [DIRECTIVES.md](DIRECTIVES.md) - Learn how to use compiler directives.
-4. [C_LIBRARIES.md](C_LIBRARIES.md) - Learn how to interact with C libraries.
-5. [BINDGEN.md](BINDGEN.md) - Learn how to auto-generate C bindings.
-6. [LIBRARIES.md](LIBRARIES.md) - Learn how to compile your Kodae code into a C shared library.
+| Document | Read when you need… |
+|----------|---------------------|
+| **[LANGUAGE.md](LANGUAGE.md)** | **Syntax and semantics** — types, control flow, structs, `this`, `catch`, directives overview. |
+| **[CLI.md](CLI.md)** | **`kodae` commands** — `run`, `build`, `check`, `bind`, flags, env vars. |
+| **[DIRECTIVES.md](DIRECTIVES.md)** | **`#include`**, `#link`, `#library`, metadata, `kodae install`, search paths. |
+| **[C_LIBRARIES.md](C_LIBRARIES.md)** | **C interop** — `extern fn`, sized types, linking game libs (e.g. Raylib). |
+| **[BINDGEN.md](BINDGEN.md)** | **Auto bindings** from `.h` files (`kodae bind` / `kodae-bind`). |
+| **[LIBRARIES.md](LIBRARIES.md)** | **`kodae build --lib`** — shipping `.c` / `.h` / `.a` / `.dll` / `.so`. |
+| **[DISTRIBUTION.md](DISTRIBUTION.md)** | **Portable bundles** — shipping `kodae` + toolchain (e.g. Zig). |
+
+**Also in the repo**
+
+| Path | Purpose |
+|------|---------|
+| [README.md](../README.md) | Quick start, bundle download, doc links. |
+| [examples/README.md](../examples/README.md) | Runnable examples and suggested learning order. |
+| [SUPPORTED.md](../SUPPORTED.md) | **Implementation checklist** — what the compiler implements today. |
+
+Large machine-readable specs (e.g. `build-spec.js`) exist for tooling authors; **learn the language from [LANGUAGE.md](LANGUAGE.md), not from the build-spec.**

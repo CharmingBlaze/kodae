@@ -36,6 +36,8 @@ Open your terminal in that folder and run your first program:
 | [examples/README.md](examples/README.md) | **Examples** — a suggested path to learn by doing. |
 | [docs/DIRECTIVES.md](docs/DIRECTIVES.md) | **Modules** — how to use `#include` and libraries. |
 | [docs/C_LIBRARIES.md](docs/C_LIBRARIES.md) | **C Interop** — calling C functions (like Raylib) from Kodae. |
+| [SUPPORTED.md](SUPPORTED.md) | **Implementation status** — what the compiler supports today. |
+| [docs/README.md](docs/README.md) | **Documentation index** — all guides in one table. |
 
 ## Why Kodae?
 
