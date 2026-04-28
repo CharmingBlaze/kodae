@@ -92,3 +92,29 @@ func hexValue(c byte) int {
 		return 0
 	}
 }
+
+// readMultilineString reads a """...""" string. Literal is the unescaped value.
+func (l *Lexer) readMultilineString(line, col int) token.Token {
+	// Skip the three quotes
+	l.advance()
+	l.advance()
+	l.advance()
+
+	var b strings.Builder
+	for l.ch != 0 {
+		if l.ch == '"' && l.peek(1) == '"' && l.peek(2) == '"' {
+			// End of multiline string
+			l.advance()
+			l.advance()
+			l.advance()
+			return token.Token{Type: token.STRLIT, Literal: b.String(), Line: line, Col: col}
+		}
+		if l.ch == '\n' {
+			l.line++
+			l.col = 0
+		}
+		b.WriteByte(l.ch)
+		l.advance()
+	}
+	return token.Token{Type: token.ILLEGAL, Literal: "unclosed multiline string", Line: line, Col: col}
+}

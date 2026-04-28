@@ -1,0 +1,17 @@
+use net
+
+fn main() {
+    if (is_online()) {
+        print("We are online!")
+        
+        print("Fetching dummy JSON...")
+        let res = http_get("https://jsonplaceholder.typicode.com/todos/1") catch (err) {
+            print("Failed to fetch: " + err)
+            return
+        }
+        print("Response:")
+        print(res)
+    } else {
+        print("Offline!")
+    }
+}

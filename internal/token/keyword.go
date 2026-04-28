@@ -32,6 +32,7 @@ var keywords = map[string]Type{
 	"continue": CONTINUE,
 	"defer":    DEFER,
 	"repeat":   REPEAT,
+	"with":     WITH,
 }
 
 // Lookup returns a keyword type or IDENT.

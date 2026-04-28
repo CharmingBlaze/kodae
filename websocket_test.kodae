@@ -1,0 +1,22 @@
+#include "libs/net"
+
+fn main() {
+    print("Connecting to public echo WebSocket server...")
+    let ws = socket_connect("ws://localhost:8765")
+    
+    if (not ws.is_valid()) {
+        print("Failed to connect!")
+        return
+    }
+    
+    print("Connected! Sending message...")
+    ws.send("Hello from Kodae!")
+    
+    print("Waiting for response...")
+    let resp = ws.receive()
+    
+    print("Received: $resp")
+    
+    ws.close()
+    print("Closed connection.")
+}

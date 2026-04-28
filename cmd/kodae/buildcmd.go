@@ -320,7 +320,10 @@ func (l *programLoader) loadFile(path string) error {
 				return fmt.Errorf("%q: # include %q: %w", abs, t.Path, e2)
 			}
 		case *ast.UseDecl:
-			dep := filepath.Join(filepath.Dir(abs), t.Name+".kodae")
+			dep, e := loader.ResolveKodaeInclude(filepath.Dir(abs), t.Name)
+			if e != nil {
+				return fmt.Errorf("%q: use %q: %w", abs, t.Name, e)
+			}
 			if e2 := l.loadFile(dep); e2 != nil {
 				return fmt.Errorf("%q: use %q: %w", abs, t.Name, e2)
 			}

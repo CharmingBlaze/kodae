@@ -1,0 +1,24 @@
+const Keys {
+    Up = 265
+    Down = 264
+}
+
+fn greet(name: str, greeting: str = "Hello", punctuation: str = "!") -> str {
+    return greeting + " " + name + punctuation
+}
+
+fn main() {
+    print(Keys_Up)
+    print(Keys_Down)
+
+    let msg = """
+    Welcome to Kodae!
+    This is a multiline
+    string test.
+    """
+    print(msg)
+
+    print(greet("Ada"))
+    print(greet("Bob", "Hi"))
+    print(greet("Charlie", "Hey", "!!!"))
+}

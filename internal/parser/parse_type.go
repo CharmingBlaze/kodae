@@ -58,8 +58,19 @@ func (p *Parser) parseTypeWithRules(allowPtr bool) *ast.TypeExpr {
 		return nil
 	}
 	if p.tok.Type == token.RESULT || p.tok.Literal == "result" {
-		p.failf("type: result[...] is not part of Kodae v1; use catch")
-		return nil
+		p.next()
+		p.expect(token.LBRACK)
+		inner := p.parseTypeWithRules(allowPtr)
+		if inner == nil {
+			return nil
+		}
+		p.expect(token.RBRACK)
+		t := &ast.TypeExpr{ResultInner: inner}
+		if p.tok.Type == token.QUEST {
+			p.failf("type: T? is not part of Kodae v1; use plain none with implicit nullable values")
+			return nil
+		}
+		return t
 	}
 	if p.tok.Literal == "ptr" {
 		if !allowPtr {

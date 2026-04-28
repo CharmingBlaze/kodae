@@ -90,6 +90,9 @@ func (p *Parser) parsePrefix() ast.Expr {
 	case token.THIS:
 		p.next()
 		return p.parsePostfix(&ast.IdentExpr{Name: "this"})
+	case token.FN:
+		p.next()
+		return p.parseFuncLitExpr()
 	case token.OK, token.ERR:
 		if p.tok.Type == token.OK {
 			p.failf("ok(...) is not supported in Kodae v1; use catch")
@@ -98,7 +101,7 @@ func (p *Parser) parsePrefix() ast.Expr {
 		}
 		return nil
 	default:
-		p.failf("unexpected token in expr: %v", p.tok.Type)
+		p.failf("unexpected token in expr: %v (%q) at %d:%d", p.tok.Type.String(), p.tok.Literal, p.tok.Line, p.tok.Col)
 		return nil
 	}
 }
@@ -179,11 +182,38 @@ func (p *Parser) parsePostfix(lhs ast.Expr) ast.Expr {
 		case token.MINUSMINUS:
 			p.next()
 			lhs = &ast.PostfixExpr{X: lhs, Op: "--"}
+		case token.WITH:
+			p.next()
+			if p.tok.Type != token.LBRACE {
+				p.failf("`with`: expected { after `with`")
+				return lhs
+			}
+			p.next()
+			p.skipNewlines()
+			inits := p.parseStructFieldInits()
+			if p.tok.Type != token.RBRACE {
+				p.failf("`with`: expected }")
+				return lhs
+			}
+			p.next()
+			lhs = &ast.StructUpdateExpr{Base: lhs, Inits: inits}
 		default:
 			return lhs
 		}
 	}
 	return lhs
+}
+
+func (p *Parser) parseFuncLitExpr() ast.Expr {
+	p.expect(token.LPAREN)
+	params := p.parseParamList("", false, false)
+	var ret *ast.TypeExpr
+	if p.tok.Type == token.ARROW {
+		p.next()
+		ret = p.parseType()
+	}
+	body := p.parseBlock()
+	return &ast.FuncLit{Params: params, Return: ret, Body: body}
 }
 
 func (p *Parser) parseListLiteral() ast.Expr {

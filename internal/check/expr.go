@@ -210,10 +210,10 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		if t == nil || t.Kind == KVoid {
-			return nil, fmt.Errorf("catch: left side must produce a value, got %v", t)
+		if t == nil || t.Kind != KResult {
+			return nil, fmt.Errorf("catch: left side must produce a result, got %v", t)
 		}
-		inner := t
+		inner := t.Res
 		c.push()
 		if x.ErrName == "" {
 			return nil, fmt.Errorf("catch: need (name) for the error str")
@@ -241,6 +241,10 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		}
 		c.setType(e, t)
 		return t, nil
+	case *ast.StructUpdateExpr:
+		return c.typeStructUpdateExpr(x, e)
+	case *ast.FuncLit:
+		return c.typeFuncLit(x, e)
 	default:
 		return nil, fmt.Errorf("typeExpr: unhandled %T", e)
 	}
@@ -713,6 +717,15 @@ func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, er
 	if err := c.assignable(wantSelf, recvT); err != nil {
 		return nil, fmt.Errorf("self: %v", err)
 	}
+	if 1+len(x.Args) < len(f.Params) {
+		for i := 1 + len(x.Args); i < len(f.Params); i++ {
+			if f.Params[i].Init != nil {
+				x.Args = append(x.Args, f.Params[i].Init)
+			} else {
+				break
+			}
+		}
+	}
 	if 1+len(x.Args) != len(f.Params) {
 		return nil, fmt.Errorf("%s: need %d args, got %d (including self)", me.Field, len(f.Params), 1+len(x.Args))
 	}
@@ -835,6 +848,13 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 	name, ok := peelCallFunc(x.Fun)
 	if !ok {
 		return nil, fmt.Errorf("only direct calls f(...), (f)(...), or o.method(...)")
+	}
+	if lt := c.get(name); lt != nil && lt.Kind == KClosure {
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("closure call takes no arguments")
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
 	}
 
 	checkStrArg := func(name string) error {
@@ -1354,6 +1374,15 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		}
 		if f.Params == nil {
 			f.Params = []ast.Param{}
+		}
+		if len(x.Args) < len(f.Params) {
+			for i := len(x.Args); i < len(f.Params); i++ {
+				if f.Params[i].Init != nil {
+					x.Args = append(x.Args, f.Params[i].Init)
+				} else {
+					break
+				}
+			}
 		}
 		if len(f.Params) != len(x.Args) {
 			return nil, fmt.Errorf("%s: need %d args, got %d", name, len(f.Params), len(x.Args))

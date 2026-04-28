@@ -27,6 +27,8 @@ const (
 	KResult
 	KTuple
 	KAny // Dynamic/Any type (for JSON/Objects)
+	// KClosure: zero-arg void lambda value (`fn() { }`), callable only via bound name.
+	KClosure
 )
 
 // Type in checker
@@ -132,6 +134,10 @@ func (t *Type) String() string {
 			s += x.String()
 		}
 		return s + ")"
+	case KAny:
+		return "Any"
+	case KClosure:
+		return "fn()"
 	default:
 		return "?"
 	}
@@ -203,6 +209,8 @@ func (a *Type) equal(b *Type) bool {
 			}
 		}
 		return true
+	case KClosure:
+		return true
 	}
 	return true
 }
@@ -223,6 +231,7 @@ var TpRange = &Type{Kind: KRange}
 var TpByte  = &Type{Kind: KByte}
 var TpAny   = &Type{Kind: KAny}
 var TpListStr = &Type{Kind: KList, Elem: TpStr}
+var TpClosure = &Type{Kind: KClosure}
 
 func optionalOf(inner *Type) *Type { return &Type{Kind: KOptional, Opt: inner} }
 

@@ -180,6 +180,9 @@ func (l *Lexer) nextAfterSpace() token.Token {
 		l.advance()
 		return token.Token{Type: token.DOT, Line: line, Col: col}
 	case '"':
+		if l.peek(1) == '"' && l.peek(2) == '"' {
+			return l.readMultilineString(line, col)
+		}
 		return l.readString(line, col)
 	case '#':
 		l.advance()

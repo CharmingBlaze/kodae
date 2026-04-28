@@ -174,7 +174,14 @@ func (p *Parser) parseParamList(methodRecv string, allowVararg bool, allowPtr bo
 		} else {
 			ty = p.parseType()
 		}
-		ps = append(ps, ast.Param{Name: pn, T: ty})
+		
+		var init ast.Expr
+		if p.tok.Type == token.ASSIGN {
+			p.next()
+			init = p.parseExpr()
+		}
+		
+		ps = append(ps, ast.Param{Name: pn, T: ty, Init: init})
 		if p.tok.Type == token.RPAREN {
 			p.next()
 			return ps

@@ -1,0 +1,247 @@
+// Minimal Cross-Platform WebSocket Client for Kodae
+// Supports unencrypted ws:// only.
+
+#ifdef _WIN32
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #pragma comment(lib, "ws2_32.lib")
+  typedef SOCKET kodae_sock_t;
+#else
+  #include <sys/socket.h>
+  #include <netinet/in.h>
+  #include <arpa/inet.h>
+  #include <netdb.h>
+  #include <unistd.h>
+  #include <fcntl.h>
+  typedef int kodae_sock_t;
+  #define INVALID_SOCKET (-1)
+  #define SOCKET_ERROR (-1)
+  #define closesocket close
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int kodae_net_init_done = 0;
+
+static void kodae_net_init() {
+    if (kodae_net_init_done) return;
+#ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
+    kodae_net_init_done = 1;
+}
+
+// Base64 encoding for Sec-WebSocket-Key
+static const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static void b64encode(const unsigned char *in, int in_len, char *out) {
+    for (int i = 0, j = 0; i < in_len;) {
+        uint32_t octet_a = i < in_len ? in[i++] : 0;
+        uint32_t octet_b = i < in_len ? in[i++] : 0;
+        uint32_t octet_c = i < in_len ? in[i++] : 0;
+        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+        out[j++] = b64chars[(triple >> 3 * 6) & 0x3F];
+        out[j++] = b64chars[(triple >> 2 * 6) & 0x3F];
+        out[j++] = b64chars[(triple >> 1 * 6) & 0x3F];
+        out[j++] = b64chars[(triple >> 0 * 6) & 0x3F];
+    }
+    int pad = (3 - in_len % 3) % 3;
+    int len = ((in_len + 2) / 3) * 4;
+    for (int i = 0; i < pad; i++) out[len - 1 - i] = '=';
+    out[len] = '\0';
+}
+
+kodae_any kodae_socket_connect(kodae_str url) {
+    kodae_net_init();
+    if (!url.data || url.len == 0) return NULL;
+    
+    char* curl = (char*)kodae_str_to_cstr(url);
+    char host[256] = {0};
+    char path[1024] = "/";
+    int port = 80;
+    
+    // Parse ws://hostname:port/path
+    char* p = curl;
+    if (strncmp(p, "ws://", 5) == 0) p += 5;
+    
+    char* slash = strchr(p, '/');
+    if (slash) {
+        strncpy(path, slash, sizeof(path)-1);
+        *slash = '\0';
+    }
+    
+    char* colon = strchr(p, ':');
+    if (colon) {
+        port = atoi(colon + 1);
+        *colon = '\0';
+    }
+    strncpy(host, p, sizeof(host)-1);
+    free(curl);
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) return NULL;
+
+    kodae_sock_t s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) return NULL;
+
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr = *((struct in_addr *)he->h_addr_list[0]);
+
+    if (connect(s, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR) {
+        closesocket(s);
+        return NULL;
+    }
+
+    // Generate random Sec-WebSocket-Key
+    unsigned char key_raw[16];
+    for (int i=0; i<16; i++) key_raw[i] = (unsigned char)(rand() % 256);
+    char key_b64[32] = {0};
+    b64encode(key_raw, 16, key_b64);
+
+    char req[2048];
+    snprintf(req, sizeof(req),
+        "GET %s HTTP/1.1\r\n"
+        "Host: %s:%d\r\n"
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        "Sec-WebSocket-Key: %s\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "\r\n", path, host, port, key_b64);
+
+    send(s, req, (int)strlen(req), 0);
+
+    // Read response
+    char resp[4096];
+    int recvd = recv(s, resp, sizeof(resp)-1, 0);
+    if (recvd <= 0) {
+        closesocket(s);
+        return NULL;
+    }
+    resp[recvd] = '\0';
+    
+    if (!strstr(resp, "101 Switching Protocols")) {
+        closesocket(s);
+        return NULL;
+    }
+
+    kodae_sock_t* ptr = (kodae_sock_t*)malloc(sizeof(kodae_sock_t));
+    *ptr = s;
+    return (kodae_any)ptr;
+}
+
+bool kodae_socket_is_valid(kodae_any sock) {
+    return sock != NULL;
+}
+
+void kodae_socket_send(kodae_any sock, kodae_str msg) {
+    if (!sock || !msg.data) return;
+    kodae_sock_t s = *(kodae_sock_t*)sock;
+
+    size_t len = (size_t)msg.len;
+    size_t header_len = 2;
+    if (len >= 126 && len <= 65535) header_len = 4;
+    else if (len > 65535) header_len = 10;
+    
+    // Client MUST mask frames
+    header_len += 4; 
+    
+    unsigned char* frame = (unsigned char*)malloc(header_len + len);
+    if (!frame) return;
+
+    frame[0] = 0x81; // FIN + TEXT
+    int offset = 2;
+    
+    if (len < 126) {
+        frame[1] = 0x80 | (unsigned char)len; // MASK bit + length
+    } else if (len <= 65535) {
+        frame[1] = 0x80 | 126;
+        frame[2] = (len >> 8) & 0xFF;
+        frame[3] = len & 0xFF;
+        offset = 4;
+    } else {
+        frame[1] = 0x80 | 127;
+        for (int i=0; i<8; i++) {
+            frame[2+i] = (len >> (8*(7-i))) & 0xFF;
+        }
+        offset = 10;
+    }
+
+    // Mask key
+    unsigned char mask[4];
+    for (int i=0; i<4; i++) {
+        mask[i] = (unsigned char)(rand() % 256);
+        frame[offset + i] = mask[i];
+    }
+    offset += 4;
+
+    for (size_t i=0; i<len; i++) {
+        frame[offset + i] = msg.data[i] ^ mask[i % 4];
+    }
+
+    send(s, (const char*)frame, (int)(header_len + len), 0);
+    free(frame);
+}
+
+kodae_str kodae_socket_receive(kodae_any sock) {
+    if (!sock) return (kodae_str){NULL, 0};
+    kodae_sock_t s = *(kodae_sock_t*)sock;
+
+    unsigned char header[2];
+    int n = recv(s, (char*)header, 2, 0);
+    if (n <= 0) return (kodae_str){NULL, 0};
+
+    int opcode = header[0] & 0x0F;
+    if (opcode == 0x08) { // CLOSE
+        closesocket(s);
+        return (kodae_str){NULL, 0};
+    }
+
+    uint64_t len = header[1] & 0x7F;
+    if (len == 126) {
+        unsigned char ext[2];
+        recv(s, (char*)ext, 2, 0);
+        len = (ext[0] << 8) | ext[1];
+    } else if (len == 127) {
+        unsigned char ext[8];
+        recv(s, (char*)ext, 8, 0);
+        len = 0;
+        for (int i=0; i<8; i++) len = (len << 8) | ext[i];
+    }
+
+    // Servers don't typically mask, but check anyway
+    int masked = (header[1] & 0x80) != 0;
+    unsigned char mask[4] = {0};
+    if (masked) {
+        recv(s, (char*)mask, 4, 0);
+    }
+
+    if (len == 0) return (kodae_str){"", 0};
+
+    char* payload = (char*)malloc((size_t)len + 1);
+    if (!payload) return (kodae_str){NULL, 0};
+
+    size_t total = 0;
+    while (total < len) {
+        int r = recv(s, payload + total, (int)(len - total), 0);
+        if (r <= 0) break;
+        total += r;
+    }
+
+    if (masked) {
+        for (size_t i=0; i<len; i++) payload[i] ^= mask[i % 4];
+    }
+    payload[len] = '\0';
+
+    return (kodae_str){payload, (int64_t)len};
+}
+
+void kodae_socket_close(kodae_any sock) {
+    if (!sock) return;
+    kodae_sock_t s = *(kodae_sock_t*)sock;
+    closesocket(s);
+    free(sock);
+}

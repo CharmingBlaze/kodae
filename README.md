@@ -31,6 +31,7 @@ Open your terminal in that folder and run your first program:
 
 | Resource | What it is |
 |-----|------------|
+| [docs/CLI.md](docs/CLI.md) | **Command-line** — every `kodae` subcommand (`run`, `build`, `check`, `bind`, …), flags, and beginner workflows. |
 | [docs/LANGUAGE.md](docs/LANGUAGE.md) | **Full Reference** — the whole language on one page. |
 | [examples/README.md](examples/README.md) | **Examples** — a suggested path to learn by doing. |
 | [docs/DIRECTIVES.md](docs/DIRECTIVES.md) | **Modules** — how to use `#include` and libraries. |

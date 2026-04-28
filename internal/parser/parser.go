@@ -65,7 +65,7 @@ func (p *Parser) skipNewlines() {
 
 func (p *Parser) expect(t token.Type) {
 	if p.tok.Type != t {
-		p.failf("expected %s, have %s", t.String(), p.tok.Type.String())
+		p.failf("expected %s, have %s (%q)", t.String(), p.tok.Type.String(), p.tok.Literal)
 		return
 	}
 	p.next()

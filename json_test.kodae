@@ -1,0 +1,31 @@
+use json
+
+fn main() {
+    let s = """
+    {
+        "name": "Kodae",
+        "version": 1.0,
+        "is_awesome": true,
+        "features": ["fast", "simple"]
+    }
+    """
+    
+    let doc = json_parse(s)
+    
+    let name = json_as_str(json_get(doc, "name"))
+    let ver = json_as_float(json_get(doc, "version"))
+    let awesome = json_as_bool(json_get(doc, "is_awesome"))
+    
+    print("Name:", name)
+    print("Version:", ver)
+    print("Awesome:", awesome)
+    
+    let feats = json_get(doc, "features")
+    let l = json_len(feats)
+    print("Features count:", l)
+    
+    for i in 0..l {
+        let f = json_as_str(json_at(feats, i))
+        print("-", f)
+    }
+}

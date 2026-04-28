@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"kodae/internal/ast"
 	"kodae/internal/token"
 )
@@ -26,7 +27,13 @@ func (p *Parser) ParseProgram() *ast.Program {
 			p.skipNewlines()
 			continue
 		}
-		pr.Decls = append(pr.Decls, d)
+		if group, ok := d.(*ast.ConstGroupDecl); ok {
+			for _, c := range group.Decls {
+				pr.Decls = append(pr.Decls, c)
+			}
+		} else {
+			pr.Decls = append(pr.Decls, d)
+		}
 		p.skipNewlines()
 	}
 	return pr
@@ -97,8 +104,8 @@ func (p *Parser) parseTopLet() *ast.LetDecl {
 	return &ast.LetDecl{Name: name, T: t, Init: init}
 }
 
-func (p *Parser) parseTopConst() *ast.LetDecl {
-	// const NAME = value — treat like let without mutation (same AST; codegen later)
+func (p *Parser) parseTopConst() ast.Decl {
+	// const NAME = value — treat like let without mutation
 	if p.tok.Type != token.CONST {
 		return nil
 	}
@@ -109,6 +116,52 @@ func (p *Parser) parseTopConst() *ast.LetDecl {
 	}
 	name := p.tok.Literal
 	p.next()
+
+	if p.tok.Type == token.LBRACE {
+		p.next()
+		p.skipNewlines()
+		var decls []*ast.LetDecl
+		for p.tok.Type != token.RBRACE {
+			if p.tok.Type == token.EOF {
+				p.failf("const group: unclosed {")
+				return nil
+			}
+			if p.tok.Type == token.NEWLINE || p.tok.Type == token.COMMA {
+				p.next()
+				continue
+			}
+			if p.tok.Type != token.IDENT {
+				p.failf("const group: expected identifier")
+				return nil
+			}
+			fName := p.tok.Literal
+			p.next()
+			
+			// Optional type
+			_ = p.tryParseTypeWithColon()
+			
+			if p.tok.Type != token.ASSIGN {
+				p.failf("const group: expected =")
+				return nil
+			}
+			p.next()
+			v := p.parseExpr()
+			decls = append(decls, &ast.LetDecl{
+				Name: fmt.Sprintf("%s_%s", name, fName),
+				T:    nil,
+				Init: v,
+			})
+			
+			if p.tok.Type == token.COMMA {
+				p.next()
+				p.skipNewlines()
+				continue
+			}
+		}
+		p.expect(token.RBRACE)
+		return &ast.ConstGroupDecl{Decls: decls}
+	}
+
 	_ = p.tryParseTypeWithColon()
 	if p.tok.Type != token.ASSIGN {
 		p.failf("const: =")
@@ -116,7 +169,6 @@ func (p *Parser) parseTopConst() *ast.LetDecl {
 	}
 	p.next()
 	v := p.parseExpr()
-	// const flag could be a field; reuse LetDecl
 	return &ast.LetDecl{Name: name, T: nil, Init: v}
 }
 

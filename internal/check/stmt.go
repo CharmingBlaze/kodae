@@ -163,6 +163,10 @@ func (c *Checker) stmt(s ast.Stmt) {
 			_ = ty
 		}
 	case *ast.ExprStmt:
+		if _, ok := unwrapExpr(x.E).(*ast.FuncLit); ok {
+			c.setErr(fmt.Errorf("lambda expression must be assigned (use `let cb = fn() {{ ... }}`)"))
+			return
+		}
 		if containsResultCatch(x.E) {
 			if _, direct := unwrapExpr(x.E).(*ast.ResultCatchExpr); !direct {
 				c.setErr(fmt.Errorf("result catch: must be the full expression, not nested in a larger expression"))

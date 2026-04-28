@@ -56,6 +56,15 @@ type Info struct {
 	Module      string
 	Meta        map[string]string
 	Tuples      []*Type // collected tuple types
+	// Closures maps FuncLit AST pointers (ExprKey) to lowered symbol names for codegen.
+	Closures map[uintptr]*ClosureInfo
+}
+
+// ClosureInfo describes a lowered `fn() { }` literal for C codegen.
+type ClosureInfo struct {
+	Mangled      string
+	CapturesThis bool
+	RecvStruct   string // Kodae struct name when CapturesThis (receiver type name)
 }
 
 // Checker is the semantic/type checker
@@ -82,6 +91,8 @@ type Checker struct {
 	externTypeCtx int
 	// sizedTypeCtx > 0 while resolving struct field types (allows f32/i32/u32/u8 for C layout)
 	sizedTypeCtx int
+	curFn       *ast.FnDecl
+	closureSeq  int
 }
 
 // Check type-checks a program
@@ -293,6 +304,8 @@ func Check(pr *ast.Program) (*Info, error) {
 			continue
 		}
 		c.curFile = fn.File
+		c.curFn = fn
+		c.closureSeq = 0
 		c.scopes = nil
 		c.push()
 		c.loopDepth = 0
@@ -323,6 +336,7 @@ func Check(pr *ast.Program) (*Info, error) {
 		if fn.Body != nil {
 			c.stmts(fn.Body.Stmts)
 		}
+		c.curFn = nil
 		c.curFile = ""
 	}
 	if c.err != nil {
@@ -402,7 +416,9 @@ func (c *Checker) validatePubStructFieldType(t *Type) error {
 	case KOptional:
 		return fmt.Errorf("optional/none type is not exportable in pub API")
 	case KResult:
-		return fmt.Errorf("result[...] is not exportable in pub API")
+		return nil
+	case KAny:
+		return nil
 	default:
 		return fmt.Errorf("type %s is not exportable", t)
 	}
@@ -426,7 +442,9 @@ func (c *Checker) validateExportType(t *Type) error {
 	case KOptional:
 		return fmt.Errorf("optional/none type is not exportable in pub API")
 	case KResult:
-		return fmt.Errorf("result[...] is not exportable in pub API")
+		return nil
+	case KAny:
+		return nil
 	default:
 		return fmt.Errorf("type %s is not exportable", t)
 	}

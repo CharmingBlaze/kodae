@@ -1,0 +1,55 @@
+module net
+
+# link "ws2_32"
+
+extern fn kodae_http_get(url: str) -> result[str]
+extern fn kodae_http_post(url: str, body: str) -> result[str]
+extern fn kodae_is_online() -> bool
+extern fn kodae_download(url: str, dest: str) -> bool
+
+pub fn http_get(url: str) -> result[str] {
+    return kodae_http_get(url)
+}
+
+pub fn http_post(url: str, body: str) -> result[str] {
+    return kodae_http_post(url, body)
+}
+
+pub fn is_online() -> bool {
+    return kodae_is_online()
+}
+
+pub fn download(url: str, dest: str) -> bool {
+    return kodae_download(url, dest)
+}
+
+extern fn kodae_socket_connect(url: str) -> Any
+extern fn kodae_socket_is_valid(sock: Any) -> bool
+extern fn kodae_socket_send(sock: Any, msg: str) -> void
+extern fn kodae_socket_receive(sock: Any) -> str
+extern fn kodae_socket_close(sock: Any) -> void
+
+pub struct WebSocket {
+    ptr: Any
+}
+
+pub fn socket_connect(url: str) -> WebSocket {
+    let p = kodae_socket_connect(url)
+    return WebSocket { ptr: p }
+}
+
+pub fn WebSocket.is_valid() -> bool {
+    return kodae_socket_is_valid(this.ptr)
+}
+
+pub fn WebSocket.send(msg: str) {
+    kodae_socket_send(this.ptr, msg)
+}
+
+pub fn WebSocket.receive() -> str {
+    return kodae_socket_receive(this.ptr)
+}
+
+pub fn WebSocket.close() {
+    kodae_socket_close(this.ptr)
+}

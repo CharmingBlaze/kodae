@@ -28,6 +28,7 @@ For a beginner-friendly introduction, see `docs/LANGUAGE.md`. Deeper topics: `do
 | **Portable bundle (no global C install)** | Yes | If `toolchain/zig/zig(.exe)` exists next to `kodae`, compiler auto-uses bundled `zig cc`. |
 | **`list[T]`** | Yes (v1) | Type syntax `list[T]`, literals `[a, b]`, index read/write `xs[i]`, `len(xs)`, methods `push`, `pop`, `append`, `remove`, and `for (x in list)` iteration. |
 | **Standard Library** | Yes (v1) | ~50 built-in functions: Time (`time`, `wait`, `timer`), Random (`random`, `chance`, `random_pick`), Files (`read_file`, `write_file`, `file_exists`), Strings (`.upper`, `.lower`, `.trim`, `.contains`, `.replace`, `.split`), Math (`sqrt`, `abs`, `clamp`, `lerp`, `map`), IO (`print`, `input`, `clear_screen`), OS (`os_name`, `args`, `env`), and JSON placeholders. |
+| **`this` / `with` / `fn(){ }` lambdas** | Yes (partial) | **`this`** is lexical in methods (loops, nested blocks, inline **`fn() { }`**). **`base with { field: expr }`** copies a struct and overrides fields. Lambdas are **`fn()` void only**, **no parameters**, assigned with `let` then called by name — no general function-pointer / higher-order typing yet. |
 | **Match on enums** | Yes | **Exhaustiveness** is checked (all variants or error). |
 | **-- (decrement)** | Yes | Postfix, like `++`. |
 | **`kodae bind` (Generic)** | Yes | Uses LLVM/Clang (`-ast-dump=json`) to generate robust `pub struct`, `pub enum`, and `extern fn` bindings for any C library header. Handles nested types and complex C signatures. |

@@ -34,6 +34,12 @@ type LetDecl struct {
 
 func (d *LetDecl) decl() {}
 
+type ConstGroupDecl struct {
+	Decls []*LetDecl
+}
+
+func (d *ConstGroupDecl) decl() {}
+
 // StructField is a field in a struct { name: type }.
 type StructField struct {
 	Name string
@@ -57,6 +63,7 @@ type Param struct {
 	Name string
 	T    *TypeExpr
 	Dots bool
+	Init Expr
 }
 
 // ExternDecl is `extern fn name(...) -> T` with no body.

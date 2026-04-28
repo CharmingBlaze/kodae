@@ -10,8 +10,10 @@ The `kodae bind` command generates Kodae wrappers for C libraries by parsing the
 ## Usage
 
 ```bash
-kodae bind <name> <path/to/header.h> [-o output.kodae]
+kodae bind [-o output.kodae] <name> <path/to/header.h>
 ```
+
+Put `-o` **before** `<name>` if you use it (Go’s flag parser stops at the first non-flag argument).
 
 - `<name>`: The short name of the library (e.g., `raylib`, `sqlite3`). This will be used in the generated `# link` directive.
 - `<path/to/header.h>`: The path to the main C header file.

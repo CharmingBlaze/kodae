@@ -29,7 +29,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  buildc <file.kodae> [-o f.c]  write C only\n")
 		fmt.Fprintf(os.Stderr, "  run <file.kodae> [--cc c]  build and run the same binary (set KODAE_CC to pick the C compiler)\n")
 		fmt.Fprintf(os.Stderr, "  install <name.kodae|name>  copy a .kodae into the user lib dir (see $KODAE_HOME or ~/.kodae/libs) for #include\n")
-		fmt.Fprintf(os.Stderr, "  bind raylib <raylib.h> [-o include/raylib/raylib.kodae]  generate Kodae externs from raylib.h\n")
+		fmt.Fprintf(os.Stderr, "  bind <name> <header.h> [-o out.kodae]  generate Kodae bindings from a C header (needs Clang; see docs/BINDGEN.md)\n")
 		fmt.Fprintf(os.Stderr, "  bundle [os] [arch]  create a portable distribution in dist/ (bundles local zig if found)\n")
 		fmt.Fprintf(os.Stderr, "  version\n")
 		os.Exit(1)

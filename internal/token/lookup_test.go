@@ -12,6 +12,7 @@ func TestLookup_Keywords(t *testing.T) {
 		"match":  MATCH,
 		"none":   NONE,
 		"this":   THIS,
+		"with":   WITH,
 		"true":   TRUE,
 		"false":  FALSE,
 	}

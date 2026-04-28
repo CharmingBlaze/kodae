@@ -44,6 +44,8 @@ typedef struct {
   int64_t      len;
 } kodae_str;
 
+typedef void* kodae_any;
+
 /* result[T] (value, err, ok) */
 typedef struct { int64_t value; kodae_str err; bool ok; } kodae_res_i64;
 typedef struct { double value; kodae_str err; bool ok; } kodae_res_f64;
@@ -112,7 +114,14 @@ uint32_t kodae_color_rgb(int r, int g, int b);
 uint32_t kodae_color_rgba(int r, int g, int b, int a);
 uint32_t kodae_color_lerp(uint32_t a, uint32_t b, double t);
 uint32_t kodae_color_fade(uint32_t c, double alpha);
-
+kodae_res_str kodae_http_get(kodae_str url);
+kodae_res_str kodae_http_post(kodae_str url, kodae_str body);
+bool kodae_is_online(void);
+bool kodae_download(kodae_str url, kodae_str dest);
+kodae_any kodae_socket_connect(kodae_str url);
+void kodae_socket_send(kodae_any sock, kodae_str msg);
+kodae_str kodae_socket_receive(kodae_any sock);
+void kodae_socket_close(kodae_any sock);
 static inline kodae_str kodae_str_lit(const char *c) {
   if (!c) { return (kodae_str){NULL, 0}; }
   return (kodae_str){c, (int64_t)strlen(c)};
@@ -279,7 +288,8 @@ bool kodae_countdown_done(double t) {
 }
 
 #if defined(_WIN32)
-__attribute__((dllimport)) void __attribute__((__stdcall__)) Sleep(unsigned int dwMilliseconds);
+#include <winsock2.h>
+#include <windows.h>
 #endif
 
 void kodae_wait(double secs) {
@@ -834,3 +844,169 @@ uint32_t kodae_color_fade(uint32_t c, double alpha) {
 kodae_str kodae_json_read(kodae_str path) { return kodae_read_file(path); }
 void kodae_json_write(kodae_str path, kodae_str val) { kodae_write_file(path, val); }
 
+kodae_res_str kodae_http_get(kodae_str url) {
+  if (!url.data || url.len == 0) return (kodae_res_str){{NULL,0}, kodae_str_lit("empty url"), false};
+  char cmd[4096];
+  snprintf(cmd, sizeof cmd, "curl -sL \"%.*s\"", (int)url.len, url.data);
+#if defined(_WIN32)
+  FILE *f = _popen(cmd, "r");
+#else
+  FILE *f = popen(cmd, "r");
+#endif
+  if (!f) return (kodae_res_str){{NULL,0}, kodae_str_lit("failed to launch curl"), false};
+  
+  int cap = 4096;
+  int len = 0;
+  char *buf = (char *)malloc(cap);
+  while (!feof(f)) {
+    if (len + 1024 > cap) {
+      cap *= 2;
+      buf = (char *)realloc(buf, cap);
+    }
+    size_t r = fread(buf + len, 1, 1024, f);
+    if (r > 0) len += r;
+  }
+  buf[len] = 0;
+#if defined(_WIN32)
+  int status = _pclose(f);
+#else
+  int status = pclose(f);
+#endif
+  if (status != 0) {
+    free(buf);
+    return (kodae_res_str){{NULL,0}, kodae_str_lit("http error"), false};
+  }
+  return (kodae_res_str){{buf, len}, {NULL, 0}, true};
+}
+
+kodae_res_str kodae_http_post(kodae_str url, kodae_str body) {
+  if (!url.data || url.len == 0) return (kodae_res_str){{NULL,0}, kodae_str_lit("empty url"), false};
+  char cmd[8192];
+  // Note: escaping body for cmd line is tricky, we write it to a temp file and use --data-binary @temp
+  kodae_str temp_path = kodae_str_lit(".kodae_temp_post_body");
+  kodae_write_file(temp_path, body);
+  snprintf(cmd, sizeof cmd, "curl -sL -X POST --data-binary @.kodae_temp_post_body \"%.*s\"", (int)url.len, url.data);
+#if defined(_WIN32)
+  FILE *f = _popen(cmd, "r");
+#else
+  FILE *f = popen(cmd, "r");
+#endif
+  if (!f) return (kodae_res_str){{NULL,0}, kodae_str_lit("failed to launch curl"), false};
+  
+  int cap = 4096;
+  int len = 0;
+  char *buf = (char *)malloc(cap);
+  while (!feof(f)) {
+    if (len + 1024 > cap) {
+      cap *= 2;
+      buf = (char *)realloc(buf, cap);
+    }
+    size_t r = fread(buf + len, 1, 1024, f);
+    if (r > 0) len += r;
+  }
+  buf[len] = 0;
+#if defined(_WIN32)
+  int status = _pclose(f);
+#else
+  int status = pclose(f);
+#endif
+  kodae_delete_file(temp_path);
+  if (status != 0) {
+    free(buf);
+    return (kodae_res_str){{NULL,0}, kodae_str_lit("http error"), false};
+  }
+  return (kodae_res_str){{buf, len}, {NULL, 0}, true};
+}
+
+bool kodae_is_online(void) {
+#if defined(_WIN32)
+  int status = system("ping -n 1 8.8.8.8 > nul 2>&1");
+#else
+  int status = system("ping -c 1 8.8.8.8 > /dev/null 2>&1");
+#endif
+  return status == 0;
+}
+
+bool kodae_download(kodae_str url, kodae_str dest) {
+  if (!url.data || url.len == 0 || !dest.data || dest.len == 0) return false;
+  char cmd[4096];
+  snprintf(cmd, sizeof cmd, "curl -sL -o \"%.*s\" \"%.*s\"", (int)dest.len, dest.data, (int)url.len, url.data);
+  int status = system(cmd);
+  return status == 0;
+}
+
+// JSON APIs
+
+kodae_any kodae_json_parse(kodae_str s) {
+    if (!s.data || s.len == 0) return NULL;
+    char* cstr = (char*)kodae_str_to_cstr(s);
+    kodae_any a = json_parse_string(cstr);
+    free(cstr);
+    return a;
+}
+
+kodae_str kodae_str_new(const char* s) {
+    if (!s) return (kodae_str){NULL, 0};
+    int64_t n = (int64_t)strlen(s);
+    if (n == 0) return (kodae_str){"", 0};
+    char* p = (char*)malloc((size_t)n + 1);
+    if (!p) exit(1);
+    memcpy(p, s, (size_t)n);
+    p[n] = 0;
+    return (kodae_str){p, n};
+}
+
+kodae_str kodae_json_build(kodae_any a) {
+    if (!a) return (kodae_str){NULL, 0};
+    char* s = json_serialize_to_string(a);
+    if (!s) return (kodae_str){NULL, 0};
+    kodae_str res = kodae_str_new(s);
+    json_free_serialized_string(s);
+    return res;
+}
+
+kodae_any kodae_any_get(kodae_any a, kodae_str key) {
+    if (!a || json_value_get_type(a) != JSONObject) return NULL;
+    char* ckey = (char*)kodae_str_to_cstr(key);
+    kodae_any v = json_object_get_value(json_value_get_object(a), ckey);
+    free(ckey);
+    return v;
+}
+
+kodae_any kodae_any_at(kodae_any a, int64_t idx) {
+    if (!a || json_value_get_type(a) != JSONArray) return NULL;
+    return json_array_get_value(json_value_get_array(a), (size_t)idx);
+}
+
+int64_t kodae_any_len(kodae_any a) {
+    if (!a) return 0;
+    if (json_value_get_type(a) == JSONArray) {
+        return (int64_t)json_array_get_count(json_value_get_array(a));
+    }
+    if (json_value_get_type(a) == JSONObject) {
+        return (int64_t)json_object_get_count(json_value_get_object(a));
+    }
+    return 0;
+}
+
+int64_t kodae_any_int(kodae_any a) {
+    if (!a) return 0;
+    return (int64_t)json_value_get_number(a);
+}
+
+double kodae_any_float(kodae_any a) {
+    if (!a) return 0.0;
+    return json_value_get_number(a);
+}
+
+kodae_str kodae_any_str(kodae_any a) {
+    if (!a) return (kodae_str){NULL, 0};
+    const char* s = json_value_get_string(a);
+    if (!s) return (kodae_str){NULL, 0};
+    return kodae_str_new(s);
+}
+
+bool kodae_any_bool(kodae_any a) {
+    if (!a) return false;
+    return json_value_get_boolean(a) != 0;
+}

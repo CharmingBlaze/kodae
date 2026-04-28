@@ -82,6 +82,23 @@ type StructLit struct {
 
 func (e *StructLit) expr() {}
 
+// StructUpdateExpr: baseExpr with { field: value, ... } — functional update (copies base, overrides listed fields).
+type StructUpdateExpr struct {
+	Base  Expr
+	Inits []StructFieldInit
+}
+
+func (e *StructUpdateExpr) expr() {}
+
+// FuncLit: fn (params) -> T? { body } — expression-only closure (currently checked codegen supports fn() void only).
+type FuncLit struct {
+	Params []Param
+	Return *TypeExpr
+	Body   *BlockStmt
+}
+
+func (e *FuncLit) expr() {}
+
 // ListLit: [a, b, c]
 type ListLit struct {
 	Elems []Expr
@@ -176,6 +193,28 @@ func ExprString(e Expr) string {
 			s += fi.Name + ": " + ExprString(fi.Init)
 		}
 		return s + "}"
+	case *StructUpdateExpr:
+		s := "(" + ExprString(x.Base) + ") with {"
+		for i, fi := range x.Inits {
+			if i > 0 {
+				s += ", "
+			}
+			s += fi.Name + ": " + ExprString(fi.Init)
+		}
+		return s + "}"
+	case *FuncLit:
+		s := "fn("
+		for i, p := range x.Params {
+			if i > 0 {
+				s += ", "
+			}
+			s += p.Name + ": type"
+		}
+		s += ") "
+		if x.Return != nil {
+			s += "-> ... "
+		}
+		return s + "{ ... }"
 	case *ListLit:
 		s := "["
 		for i, el := range x.Elems {

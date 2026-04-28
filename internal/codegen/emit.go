@@ -101,6 +101,10 @@ func cT(t *check.Type) string {
 		return cResultCName(t.Res)
 	case check.KTuple:
 		return cTupleCName(t)
+	case check.KAny:
+		return "kodae_any"
+	case check.KClosure:
+		return "void"
 	default:
 		return "int64_t"
 	}
@@ -182,7 +186,8 @@ type emitter struct {
 	inMain        bool
 	params        map[string]struct{}
 	structPtrParam map[string]bool
-	locals        []map[string]struct{}
+	locals          []map[string]struct{}
+	closureLocals   []map[string]*check.ClosureInfo
 	retWant *check.Type
 	// fnDefers: C lines to run at return / end of function (LIFO; see defer).
 	fnDefers []string
@@ -198,6 +203,7 @@ type EmitOptions struct {
 
 func (em *emitter) pushScope() {
 	em.locals = append(em.locals, make(map[string]struct{}))
+	em.closureLocals = append(em.closureLocals, make(map[string]*check.ClosureInfo))
 }
 
 func (em *emitter) popScope() {
@@ -205,6 +211,25 @@ func (em *emitter) popScope() {
 		return
 	}
 	em.locals = em.locals[:len(em.locals)-1]
+	if len(em.closureLocals) > 0 {
+		em.closureLocals = em.closureLocals[:len(em.closureLocals)-1]
+	}
+}
+
+func (em *emitter) addClosureLocal(name string, ci *check.ClosureInfo) {
+	if len(em.closureLocals) == 0 {
+		em.pushScope()
+	}
+	em.closureLocals[len(em.closureLocals)-1][name] = ci
+}
+
+func (em *emitter) lookupClosure(name string) *check.ClosureInfo {
+	for i := len(em.closureLocals) - 1; i >= 0; i-- {
+		if ci, ok := em.closureLocals[i][name]; ok {
+			return ci
+		}
+	}
+	return nil
 }
 
 // emitFnDefers runs and clears the pending defer list (LIFO, C order).
@@ -336,6 +361,8 @@ func (em *emitter) resolveTypeExpr(tx *ast.TypeExpr) (*check.Type, error) {
 		return check.TpBool, nil
 	case "byte":
 		return check.TpByte, nil
+	case "Any":
+		return check.TpAny, nil
 	}
 	return nil, fmt.Errorf("unknown type %q", tx.Name)
 }
@@ -525,7 +552,16 @@ func EmitCWithOptions(p *ast.Program, inf *check.Info, opts EmitOptions) (string
 		}
 	}
 
+	out.WriteString(cruntime.ParsonH)
+	out.WriteString("\n")
 	out.WriteString(cruntime.BootstrapC)
+	out.WriteString("\n")
+	if !opts.LibraryMode {
+		out.WriteString(cruntime.ParsonC)
+		out.WriteString("\n")
+		out.WriteString(cruntime.WsClientC)
+		out.WriteString("\n")
+	}
 	out.WriteString("#include <math.h>\n\n")
 	out.WriteString(`typedef struct { bool has; int64_t v; } kodae_opt_i64;
 typedef struct { bool has; double v; } kodae_opt_f64;
@@ -893,7 +929,26 @@ func (em *emitter) emitFn(out *bytes.Buffer, f *ast.FnDecl) error {
 		em.retWant = rt
 	}
 
+	if f.Body == nil {
+		em.curFn = nil
+		em.params = nil
+		em.structPtrParam = nil
+		em.locals = nil
+		em.fnDefers = nil
+		return fmt.Errorf("fn %q: empty body", f.Name)
+	}
+	em.fnDefers = em.fnDefers[:0]
+	em.tryPre = em.tryPre[:0]
+	em.tryN = 0
+	em.rcN = 0
 	var ret = em.retWant
+	flat := flattenFuncLitsPostOrder(f.Body.Stmts)
+	for _, fl := range flat {
+		ci := em.inf.Closures[check.ExprKey(fl)]
+		if ci != nil {
+			out.WriteString(closureForwardDecl(ci))
+		}
+	}
 	out.WriteString("static ")
 	out.WriteString(cT(ret))
 	out.WriteString(" f_")
@@ -908,23 +963,12 @@ func (em *emitter) emitFn(out *bytes.Buffer, f *ast.FnDecl) error {
 			em.curFn = nil
 			em.params = nil
 			em.structPtrParam = nil
+			em.closureLocals = nil
 			return err
 		}
 		fmt.Fprintf(out, "%s %s", cParamT(pt), cid(p.Name))
 	}
 	out.WriteString(") ")
-	if f.Body == nil {
-		em.curFn = nil
-		em.params = nil
-		em.structPtrParam = nil
-		em.locals = nil
-		em.fnDefers = nil
-		return fmt.Errorf("fn %q: empty body", f.Name)
-	}
-	em.fnDefers = em.fnDefers[:0]
-	em.tryPre = em.tryPre[:0]
-	em.tryN = 0
-	em.rcN = 0
 	out.WriteString("{\n")
 	em.pushScope()
 	for _, s := range f.Body.Stmts {
@@ -933,6 +977,7 @@ func (em *emitter) emitFn(out *bytes.Buffer, f *ast.FnDecl) error {
 			em.params = nil
 			em.structPtrParam = nil
 			em.locals = nil
+			em.closureLocals = nil
 			em.fnDefers = nil
 			return err
 		}
@@ -940,11 +985,119 @@ func (em *emitter) emitFn(out *bytes.Buffer, f *ast.FnDecl) error {
 	em.emitFnDefers(out)
 	em.popScope()
 	out.WriteString("}\n")
+	for _, fl := range flat {
+		if err := em.emitOneClosureDef(out, fl); err != nil {
+			em.curFn = nil
+			em.params = nil
+			em.structPtrParam = nil
+			em.locals = nil
+			em.closureLocals = nil
+			em.fnDefers = nil
+			return err
+		}
+	}
 	em.curFn = nil
 	em.params = nil
 	em.structPtrParam = nil
 	em.locals = nil
+	em.closureLocals = nil
 	return nil
+}
+
+func closureForwardDecl(ci *check.ClosureInfo) string {
+	if ci.CapturesThis {
+		return fmt.Sprintf("static void %s(%s*);\n", ci.Mangled, cStructCName(ci.RecvStruct))
+	}
+	return fmt.Sprintf("static void %s(void);\n", ci.Mangled)
+}
+
+func (em *emitter) emitOneClosureDef(out *bytes.Buffer, fl *ast.FuncLit) error {
+	k := check.ExprKey(fl)
+	ci := em.inf.Closures[k]
+	if ci == nil {
+		return fmt.Errorf("closure: missing closure metadata")
+	}
+	savedFn := em.curFn
+	savedParams := em.params
+	savedStruct := em.structPtrParam
+	savedLocals := em.locals
+	savedClosureLocals := em.closureLocals
+	savedRet := em.retWant
+	savedDefers := em.fnDefers
+	savedTry := em.tryPre
+	defer func() {
+		em.curFn = savedFn
+		em.params = savedParams
+		em.structPtrParam = savedStruct
+		em.locals = savedLocals
+		em.closureLocals = savedClosureLocals
+		em.retWant = savedRet
+		em.fnDefers = savedDefers
+		em.tryPre = savedTry
+	}()
+
+	em.curFn = nil
+	em.params = make(map[string]struct{})
+	em.structPtrParam = make(map[string]bool)
+	if ci.CapturesThis {
+		em.params["self"] = struct{}{}
+		em.structPtrParam["self"] = true
+	}
+	em.locals = nil
+	em.closureLocals = nil
+	em.retWant = check.TpVoid
+	em.fnDefers = em.fnDefers[:0]
+	em.tryPre = em.tryPre[:0]
+
+	out.WriteString("static void ")
+	out.WriteString(ci.Mangled)
+	out.WriteByte('(')
+	if ci.CapturesThis {
+		fmt.Fprintf(out, "%s* %s", cStructCName(ci.RecvStruct), cid("self"))
+	} else {
+		out.WriteString("void")
+	}
+	out.WriteString(") {\n")
+	em.pushScope()
+	for _, s := range fl.Body.Stmts {
+		if err := em.emitStmt(out, s); err != nil {
+			return err
+		}
+	}
+	em.emitFnDefers(out)
+	em.popScope()
+	out.WriteString("}\n")
+	return nil
+}
+
+func (em *emitter) emitStructUpdateExpr(x *ast.StructUpdateExpr) (string, error) {
+	bt, err := em.typeOf(x.Base)
+	if err != nil {
+		return "", err
+	}
+	if bt == nil || bt.Kind != check.KStruct || bt.StructDef == nil {
+		return "", fmt.Errorf("`with`: internal struct type")
+	}
+	baseStr, err := em.emitExpr(x.Base)
+	if err != nil {
+		return "", err
+	}
+	tn := cStructCName(bt.StructName)
+	var b strings.Builder
+	b.WriteString("({ ")
+	b.WriteString(tn)
+	b.WriteString(" _uw = (")
+	b.WriteString(baseStr)
+	b.WriteString(");\n")
+	for _, in := range x.Inits {
+		val, err := em.emitExpr(in.Init)
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(&b, " _uw.u_%s = %s;\n", cid(in.Name), val)
+	}
+	b.WriteString(" _uw; })")
+	return b.String(), nil
 }
 
 func (em *emitter) emitMain(out *bytes.Buffer, f *ast.FnDecl) error {
@@ -1296,6 +1449,14 @@ func (em *emitter) emitStmt(out *bytes.Buffer, s ast.Stmt) error {
 		} else {
 			if rce := asResultCatchExpr(x.Init); rce != nil {
 				return em.emitLetResultCatch(out, x, rce, ty)
+			}
+			if fl, ok := stripExprToFuncLit(x.Init); ok {
+				ci := em.inf.Closures[check.ExprKey(fl)]
+				if ci == nil {
+					return fmt.Errorf("closure: missing closure metadata")
+				}
+				em.addClosureLocal(x.Name, ci)
+				return nil
 			}
 			init, err = em.emitExpr(x.Init)
 			if err != nil {
@@ -1705,6 +1866,9 @@ func (em *emitter) emitExpr(e ast.Expr) (string, error) {
 	}
 	switch x := e.(type) {
 	case *ast.IdentExpr:
+		if em.lookupClosure(x.Name) != nil {
+			return "", fmt.Errorf("%q is a lambda binding — call it with %s(), do not use it as a value", x.Name, x.Name)
+		}
 		t, err := em.typeOf(e)
 		if err != nil {
 			return "", err
@@ -1786,6 +1950,10 @@ func (em *emitter) emitExpr(e ast.Expr) (string, error) {
 			return "", err
 		}
 		return "(" + lv + ")" + x.Op, nil
+	case *ast.StructUpdateExpr:
+		return em.emitStructUpdateExpr(x)
+	case *ast.FuncLit:
+		return "", fmt.Errorf("lambda expression must be assigned (let cb = fn() {{ ... }})")
 	default:
 		return "", fmt.Errorf("unsupported expression %T", e)
 	}
@@ -2460,6 +2628,15 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 	name, ok := emitPeelCallFunc(c.Fun)
 	if !ok {
 		return "", fmt.Errorf("indirect call: use f(...) or (f)(...) or m.method(...)")
+	}
+	if ci := em.lookupClosure(name); ci != nil {
+		if len(c.Args) != 0 {
+			return "", fmt.Errorf("closure call takes no arguments")
+		}
+		if ci.CapturesThis {
+			return fmt.Sprintf("%s(%s)", ci.Mangled, cid("self")), nil
+		}
+		return fmt.Sprintf("%s()", ci.Mangled), nil
 	}
 	switch name {
 	case "print":

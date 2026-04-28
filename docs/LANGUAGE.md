@@ -5,7 +5,7 @@ Kodae is small on purpose. Line comments start with `'` (apostrophe) or `--`.
 **Quick Start:** The easiest way to use Kodae is to download the **Portable Bundle** for your platform from the [Releases](https://github.com/CharmingBlaze/kodae/releases) page. It includes a built-in C toolchain, so you can start coding immediately with no setup.
 
 
-**New to Kodae?** Start with the [README.md](../README.md) for setup and the [examples/README.md](../examples/README.md) for a hands-on learning path. This page serves as the complete language reference.
+**New to Kodae?** Start with the [README.md](../README.md) for setup, [CLI.md](CLI.md) for how every terminal command works, and the [examples/README.md](../examples/README.md) for a hands-on learning path. This page serves as the complete language reference.
 
 Below is a **real, self-contained program** (Kodae only allows *statements* like `print` and `let` *inside* a function, so the runnable one-pager uses `fn main() { ... }` after your types and functions are declared at file scope). You can also write `for (i in 0..10)` *or* the shorter `for i in 0..10` — both are supported.
 
@@ -22,14 +22,17 @@ struct Player {
 enum Direction { Up, Down, Left, Right }
 
 fn Player.heal(amount: int) {
+  ' `this` refers to the current struct instance inside a method
   this.health += amount
   if (this.health > 100) {
     this.health = 100
   }
 }
 
-fn add(a: int, b: int) -> int {
-  return a + b
+' Functions can have default parameters and return tuples!
+fn add_and_double(a: int, b: int = 0) -> (int, int) {
+  let sum = a + b
+  return sum, sum * 2
 }
 
 ' --- Program
@@ -39,6 +42,16 @@ fn main() {
   let score = 0
   let speed = 1.5
   let alive = true
+  
+  ' Grouped Constants
+  const Colors {
+      RED    = 0xFF0000FF
+      GREEN  = 0x00FF00FF
+      BLUE   = 0x0000FFFF
+      WHITE  = 0xFFFFFFFF
+      BLACK  = 0x000000FF
+      YELLOW = 0xFFFF00FF
+  }
   const MAX = 100
 
   ' Print
@@ -65,7 +78,7 @@ fn main() {
     }
   }
 
-  ' For (range) — with or without outer ( ): same meaning
+  ' For (range) — prefer the clean syntax without parens
   for i in 0..10 {
     print("$i")
   }
@@ -97,9 +110,17 @@ fn main() {
     Direction.Right => { print("going right") }
   }
 
-  ' Function
-  let result = add(10, 20)
-  print("$result")
+  ' Function calling with default params and tuple unpacking
+  let sum, double = add_and_double(10)
+  print("Sum: $sum, Double: $double")
+  
+  ' Multiline strings
+  let welcome = """
+    Welcome to Kodae!
+    Easy as BASIC.
+    Fast as C.
+  """
+  print(welcome)
 }
 ```
 
@@ -120,14 +141,16 @@ That is the full beginner surface. Everything else in the compiler and repo is *
 
 ## Beginner learning path
 
-1. **Day 1** — `print` and variables  
-2. **Day 1** — `if`, `while`, `for`  
-3. **Day 2** — functions  
-4. **Day 2** — `list`  
-5. **Day 3** — structs, methods, `this`  
-6. **Day 3** — enums and `match`  
-7. **Any time after functions (optional)** — **multi-file** programs: `#include` and `pub` in [examples/include/](../examples/include/); the older `use` style is [examples/multi/](../examples/multi/) (see [DIRECTIVES.md](DIRECTIVES.md)).  
-8. **Day 4** — games: link a C library and call it with `extern fn` (see [C_LIBRARIES.md](C_LIBRARIES.md) for the full Raylib-style flow: `# link`, `# linkpath`, and a small sample in [examples/raylib_minimal.kodae](../examples/raylib_minimal.kodae); [examples/extern_hello.kodae](../examples/extern_hello.kodae) is the minimal `printf` interop test)
+1. **Day 1** — `print`, variables, math operators
+2. **Day 1** — `if` / `else`, `while`, `for`
+3. **Day 2** — functions, tuples, default params
+4. **Day 2** — lists and list methods
+5. **Day 3** — structs, methods, `this` keyword
+6. **Day 3** — enums and `match`
+7. **Day 4** — files, JSON, save systems
+8. **Day 5** — networking, HTTP, online scores
+9. **Day 6** — games with Raylib
+10. **Day 7** — C libraries, `pub`, `#include`, `build --lib`
 
 Everything else — portable compiler bundles and `catch` — is **advanced** and can wait.
 
@@ -153,10 +176,64 @@ Everything else — portable compiler bundles and `catch` — is **advanced** an
 
    (Exact wording can vary slightly by release.)
 
+## `this` in struct methods (lexical `this`, not JavaScript surprises)
+
+Kodae uses **`this`** only inside **`fn TypeName.method(...)`** bodies. It always means **the receiver instance** — the same rules apply inside loops, nested blocks, and **inline lambdas** (`fn() { ... }`). Unlike JavaScript, **`this` never “breaks”** when you nest a function or pass a callback: the compiler keeps the receiver bound for you (similar to Kotlin, Swift, or C#).
+
+### Three rules
+
+1. **`this` is only valid** in a method declaration (`fn Player.heal(...)`, not in bare `fn foo()`).
+2. **`this` always refers to the struct instance** for that method — everywhere in that method’s body.
+3. **Nested `fn() { }` lambdas** may use `this` when they appear **inside** a method; they compile to static helpers that receive the same `self` pointer as C-level receiver.
+
+### Useful patterns
+
+- **`return this`** — return the current instance (by value).
+- **Method chaining** — return `this` (or a copy) from methods that mutate:
+
+  ```kodae
+  fn Player.set_name(name: str) -> Player {
+    this.name = name
+    return this
+  }
+  ```
+
+- **Functional update — `expr with { field: value, ... }`** — copy a struct value and override only the listed fields (the base expression is usually `this` or another struct variable):
+
+  ```kodae
+  fn Player.renamed(s: str) -> Player {
+    return this with { name: s }
+  }
+  ```
+
+- **Callbacks / lambdas** — assign a zero-argument void lambda, then call it (only **`fn() { }`** with **no parameters** is supported in v1):
+
+  ```kodae
+  fn Player.setup() {
+    let on_tick = fn() {
+      this.x += 1
+    }
+    on_tick()
+  }
+  ```
+
+Passing lambdas to **`extern fn`** parameters that expect C function pointers is not fully modeled yet; use normal Kodae calls for now.
+
+### Kodae vs JavaScript (`this`)
+
+| Feature | JavaScript | Kodae |
+|--------|------------|--------|
+| `this` in a method | Works | Works |
+| `this` in a nested non-arrow function | Often **wrong** (`this` is lost) | **Always** the receiver |
+| `this` in loops | Same confusion as nested scopes | **Always** the receiver |
+| Method chaining | Common pattern | Supported (`return this`) |
+| `this` outside any method | Refers to global / `undefined` / strict rules | **Compile error** |
+
 ## Optional later topics (not for page one)
 
 | Topic | Where to read |
 |--------|----------------|
+| `kodae run`, `build`, `check`, and all CLI flags | [CLI.md](CLI.md) |
 | Runnable examples in order | [examples/README.md](../examples/README.md) |
 | `catch` on calls you define or link | `examples/result_minimal.kodae`, [SUPPORTED.md](../SUPPORTED.md) |
 | C interop and linking a game lib (Raylib, etc.) | [C_LIBRARIES.md](C_LIBRARIES.md), [examples/extern_hello.kodae](../examples/extern_hello.kodae) |
@@ -166,11 +243,56 @@ Everything else — portable compiler bundles and `catch` — is **advanced** an
 
 ## Built-ins (quick reference)
 
-- `print(...)` — strings can use `"Hello $name"` and `"$i"`-style **simple** names inside the quotes where the compiler supports it  
-- `input(prompt)`, `random(lo, hi)`, `clear_screen()`  
-- `len(list)` — same as `list.len` on a list value  
-- Casts: `int(x)`, `float(x)`, `str(x)`, `bool(x)`  
-- Helpers: `min`, `max`, `abs`
+### Basics
+- `print(a, b, ...)` — prints values separated by spaces
+- `input(prompt)`, `input_int(prompt)`, `input_float(prompt)`
+- `random(lo, hi)`, `random_float(lo, hi)`, `random_bool()`
+- `clear_screen()`
+- `len(list_or_str)` — same as `.len`
+- **Casts:** `int(x)`, `float(x)`, `str(x)`, `bool(x)`
+
+### String Methods
+Strings have many built-in methods:
+- `s.upper()`, `s.lower()`, `s.trim()`, `s.reverse()`
+- `s.contains("sub")`, `s.starts("sub")`, `s.ends("sub")`
+- `s.replace("old", "new")`
+- `s.split(",")` (returns a `list[str]`)
+- `s.len`, `s.is_empty()`, `s.is_number()`
+
+### Math & Numbers
+- `min(a, b)`, `max(a, b)`, `abs(x)`
+- `sqrt(x)`, `pow(x, y)`, `log(x)`
+- `floor(x)`, `ceil(x)`, `round(x)`
+- `sin(x)`, `cos(x)`, `tan(x)`, `atan2(y, x)`
+- `format_float(val, decimals)`
+- **Game Math:** `distance(x1, y1, x2, y2)`, `angle_to(x1, y1, x2, y2)`
+- **Game Math:** `lerp(a, b, t)`, `map(x, in_min, in_max, out_min, out_max)`, `clamp(x, min, max)`
+
+### File Operations
+- `read_file("save.txt") -> str`
+- `write_file("save.txt", "data")`
+- `append_file("log.txt", "line\n")`
+- `file_exists("save.dat") -> bool`
+- `delete_file("old.txt")`
+- `copy_file("a.txt", "b.txt")`, `move_file("a.txt", "b.txt")`
+- `make_folder("saves")`, `delete_folder("saves")`, `folder_exists("saves")`
+- `list_files("./levels") -> list[str]`
+
+### Networking & Web (via `use net` and `use json`)
+Networking is natively built-in (wraps lightweight C libraries).
+- `http_get("https://api.example.com") -> result[str]`
+- `http_post("https://api.example.com", data) -> result[str]`
+- `download("https://example.com/file.dat", "local/file.dat") -> bool`
+- `is_online() -> bool`
+- `json_parse(text) -> Any`
+- `json_build(data) -> str`
+- **WebSockets** (Coming in Phase 3!)
+
+### Multi-file Programs
+You can split your project into multiple files using `#include`:
+- `#include "player"` (includes `player.kodae` in the same folder)
+- `#include "libs/mymath"` (includes `libs/mymath.kodae`)
+- `#include "raylib"` (includes installed library)
 
 ### C Interop Types
 For working with C libraries (like Raylib), Kodae provides sized types:
@@ -199,6 +321,14 @@ These types are mainly for data layout in structs and function calls. You can us
 - `list.sort()`, `list.reverse()`, `list.shuffle()`
 - `list.first()`, `list.last()`
 - `list.push(item)`, `list.pop()`, `list.remove(index)`
+
+#### Logical Operators
+- `and` (Logical AND), `or` (Logical OR), `not` (Logical NOT)
+```kodae
+if (alive and score > 0) { }
+if (dead or quit) { }
+if (not done) { }
+```
 
 #### Bitwise Operators & Binary Literals
 - `&` (AND), `|` (OR), `^` (XOR), `~` (NOT)

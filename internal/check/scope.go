@@ -145,7 +145,15 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		return lt, nil
 	}
 	if tx.ResultInner != nil {
-		return nil, fmt.Errorf("type: result[...] is not part of Kodae v1; use catch")
+		inner, err := c.resolveType(tx.ResultInner)
+		if err != nil {
+			return nil, err
+		}
+		rt := &Type{Kind: KResult, Res: inner}
+		if tx.Optional {
+			return optionalOf(rt), nil
+		}
+		return rt, nil
 	}
 	if tx.TupleInner != nil {
 		var elems []*Type
@@ -224,11 +232,13 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 		base = TpBool
 	case "byte":
 		base = TpByte
+	case "Any":
+		base = TpAny
 	default:
 		if sug, ok := suggestName(tx.Name, c.typeNameCandidates()); ok {
-			return nil, fmt.Errorf("unknown type %q — did you mean %q?", tx.Name, sug)
+			return nil, fmt.Errorf("SCOPE unknown type %q — did you mean %q?", tx.Name, sug)
 		}
-		return nil, fmt.Errorf("unknown type %q", tx.Name)
+		return nil, fmt.Errorf("SCOPE unknown type %q", tx.Name)
 	}
 	if tx.Optional {
 		return nil, fmt.Errorf("type: T? is not part of Kodae v1; use plain none with implicit nullable values")

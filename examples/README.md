@@ -1,4 +1,4 @@
-To run these examples, use the `kodae` command from your portable bundle:
+To run these examples, use the `kodae` command from your portable bundle. The full command reference (every subcommand and flag) is in **[docs/CLI.md](../docs/CLI.md)**.
 
 ```sh
 # Example:
@@ -8,19 +8,16 @@ To run these examples, use the `kodae` command from your portable bundle:
 
 ## Suggested order (learning)
 
-1. **hello.kodae** — one `print`, minimal `main`.  
-2. **onepage.kodae** — variables, `if` / `while` / `for`, `list`, structs, enums, `match` (same content as the big example in [LANGUAGE.md](../docs/LANGUAGE.md)).  
-3. **list_basic.kodae** — `list[T]`, `push` / `pop` / `append` / `remove`, `len`.  
-4. **features.kodae** — `defer`, `continue`, `and` / `or`, `++` / `--`, exhaustive `match` on an enum.  
-5. **strings.kodae** — `+` vs `$` interpolation in string literals.  
-6. **include/main.kodae** — `#include "helpers"` and **`pub`** for anything used across files.  
-7. **multi/app.kodae** (run from `examples/multi/`) — the legacy **`use name`** form loading `lib.kodae` in the same directory.  
-8. **extern_hello.kodae** — `extern fn` and a C `printf` call.  
-9. **raylib_minimal.kodae** — few hand-written `extern` lines; needs native Raylib.  
-10. **raylib_game.kodae** — `#include` the large generated binding in `include/raylib/raylib.kodae` (also under `examples/libs/raylib/` for the include path).  
-11. **result_minimal.kodae** — `catch` style.  
-12. **textrpg.kodae** — larger sample.  
-13. **stdlib_v2_test.kodae** — full test of the new standard library features (bitwise, repeat, sort, etc).
+1. **Day 1** — `print`, variables, math operators
+2. **Day 1** — `if` / `else`, `while`, `for`
+3. **Day 2** — functions, tuples, default params
+4. **Day 2** — lists and list methods
+5. **Day 3** — structs, methods, `this` keyword
+6. **Day 3** — enums and `match`
+7. **Day 4** — files, JSON, save systems
+8. **Day 5** — networking, HTTP, online scores
+9. **Day 6** — games with Raylib
+10. **Day 7** — C libraries, `pub`, `#include`, `build --lib`
 
 ## Full index
 
