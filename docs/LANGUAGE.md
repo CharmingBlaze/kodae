@@ -299,4 +299,21 @@ Kodae exposes many **built-in functions** (`print`, `input`, `random`, file help
 
 ---
 
+## 13. Debug helpers
+
+Kodae provides several built-in functions to help you debug your code:
+
+```kodae
+debug(player)               ' print any value nicely formatted
+assert(health >= 0, "health cant be negative")
+todo("finish this later")   ' crashes if reached
+log("player moved")         ' prints a log message
+
+log_info("game started")
+log_warn("low health: $health")
+log_error("file not found: $path")
+```
+
+---
+
 *End of language reference summary — for implementation detail and edge cases, combine this file with **SUPPORTED.md** and the docs linked in the table at the top.*

@@ -2908,7 +2908,7 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		}
 		b.WriteString("printf(\"\\n\");")
 		return b.String(), nil
-	case "todo":
+	case "todo", "log_info", "log_warn", "log_error":
 		a0, _ := em.emitExpr(c.Args[0])
 		return "kodae_" + name + "(" + a0 + ")", nil
 	case "benchmark_start":

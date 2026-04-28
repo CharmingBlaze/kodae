@@ -95,6 +95,9 @@ kodae_str kodae_read_file(kodae_str path);
 void kodae_write_file(kodae_str path, kodae_str content);
 kodae_str kodae_os_name(void);
 void kodae_log(kodae_str msg);
+void kodae_log_info(kodae_str msg);
+void kodae_log_warn(kodae_str msg);
+void kodae_log_error(kodae_str msg);
 kodae_list kodae_args(void);
 kodae_str kodae_env(kodae_str name);
 void kodae_list_shuffle(kodae_list* l);
@@ -452,6 +455,18 @@ void kodae_log(kodae_str msg) {
 
 void kodae_todo(kodae_str msg) {
   fprintf(stderr, "[TODO] %.*s\n", (int)msg.len, msg.data);
+}
+
+void kodae_log_info(kodae_str msg) {
+  fprintf(stdout, "[INFO] %.*s\n", (int)msg.len, msg.data);
+}
+
+void kodae_log_warn(kodae_str msg) {
+  fprintf(stderr, "[WARN] %.*s\n", (int)msg.len, msg.data);
+}
+
+void kodae_log_error(kodae_str msg) {
+  fprintf(stderr, "[ERROR] %.*s\n", (int)msg.len, msg.data);
 }
 
 kodae_list kodae_list_new(int64_t elem_size) {

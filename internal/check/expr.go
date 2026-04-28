@@ -1304,7 +1304,7 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		}
 		c.setType(x, TpVoid)
 		return TpVoid, nil
-	case "todo":
+	case "todo", "log_info", "log_warn", "log_error":
 		if err := checkStrArg(name); err != nil {
 			return nil, err
 		}
