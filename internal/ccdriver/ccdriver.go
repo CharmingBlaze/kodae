@@ -81,21 +81,57 @@ func zigCC() (CCmd, error) {
 }
 
 func bundledZigCC() (CCmd, bool) {
-	exe, err := os.Executable()
-	if err != nil {
-		return CCmd{}, false
-	}
-	base := filepath.Dir(exe)
-	candidates := []string{
-		filepath.Join(base, "toolchain", "zig", zigExeName()),
-		filepath.Join(base, "..", "toolchain", "zig", zigExeName()),
-	}
+	exe, _ := os.Executable()
+	cwd, _ := os.Getwd()
+	candidates := bundledZigCandidates(exe, cwd)
 	for _, c := range candidates {
 		if st, e := os.Stat(c); e == nil && !st.IsDir() {
 			return CCmd{Prog: c, Prefix: []string{"cc"}}, true
 		}
 	}
 	return CCmd{}, false
+}
+
+func bundledZigCandidates(exePath, cwd string) []string {
+	zigName := zigExeName()
+	var roots []string
+	if exePath != "" {
+		roots = append(roots, filepath.Dir(exePath))
+	}
+	if cwd != "" {
+		roots = append(roots, cwd)
+	}
+
+	seenRoots := map[string]struct{}{}
+	var uniqRoots []string
+	for _, r := range roots {
+		clean := filepath.Clean(r)
+		if _, ok := seenRoots[clean]; ok {
+			continue
+		}
+		seenRoots[clean] = struct{}{}
+		uniqRoots = append(uniqRoots, clean)
+	}
+
+	seenPaths := map[string]struct{}{}
+	var out []string
+	for _, root := range uniqRoots {
+		cur := root
+		for i := 0; i < 4; i++ {
+			p := filepath.Join(cur, "toolchain", "zig", zigName)
+			p = filepath.Clean(p)
+			if _, ok := seenPaths[p]; !ok {
+				seenPaths[p] = struct{}{}
+				out = append(out, p)
+			}
+			parent := filepath.Dir(cur)
+			if parent == cur {
+				break
+			}
+			cur = parent
+		}
+	}
+	return out
 }
 
 func zigExeName() string {
