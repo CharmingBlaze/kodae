@@ -99,6 +99,8 @@ func cT(t *check.Type) string {
 		return "kodae_list"
 	case check.KResult:
 		return cResultCName(t.Res)
+	case check.KTuple:
+		return cTupleCName(t)
 	default:
 		return "int64_t"
 	}
@@ -127,6 +129,20 @@ func cResultCName(res *check.Type) string {
 func cStructCName(n string) string { return "S_" + cid(n) }
 
 func cStructTagName(n string) string { return "s_" + cid(n) + "_" }
+
+var tupleNames = make(map[string]string)
+var tupleTypes []*check.Type
+
+func cTupleCName(t *check.Type) string {
+	sig := t.String()
+	if n, ok := tupleNames[sig]; ok {
+		return n
+	}
+	n := fmt.Sprintf("kodae_tuple_%d", len(tupleNames))
+	tupleNames[sig] = n
+	tupleTypes = append(tupleTypes, t)
+	return n
+}
 
 // cParamT is the C type for a function parameter (struct types are by pointer).
 func cParamT(t *check.Type) string {
@@ -263,6 +279,17 @@ func (em *emitter) resolveTypeExpr(tx *ast.TypeExpr) (*check.Type, error) {
 			return &check.Type{Kind: check.KOptional, Opt: rt}, nil
 		}
 		return rt, nil
+	}
+	if tx.TupleInner != nil {
+		var elems []*check.Type
+		for _, x := range tx.TupleInner {
+			inner, err := em.resolveTypeExpr(x)
+			if err != nil {
+				return nil, err
+			}
+			elems = append(elems, inner)
+		}
+		return &check.Type{Kind: check.KTuple, TupleElems: elems}, nil
 	}
 	if tx.Optional {
 		inner, err := em.resolveTypeExpr(&ast.TypeExpr{Name: tx.Name, Optional: false, PtrInner: nil})
@@ -486,6 +513,18 @@ func EmitCWithOptions(p *ast.Program, inf *check.Info, opts EmitOptions) (string
 	}
 
 	var out bytes.Buffer
+
+	// Reset global tuple tracker for each emit (important for tests)
+	tupleNames = make(map[string]string)
+	tupleTypes = nil
+
+	// Pre-scan to discover all tuple types
+	for _, t := range inf.Types {
+		if t != nil && t.Kind == check.KTuple {
+			cTupleCName(t)
+		}
+	}
+
 	out.WriteString(cruntime.BootstrapC)
 	out.WriteString("#include <math.h>\n\n")
 	out.WriteString(`typedef struct { bool has; int64_t v; } kodae_opt_i64;
@@ -494,6 +533,15 @@ typedef struct { bool has; kodae_str v; } kodae_opt_str;
 typedef struct { bool has; bool v; } kodae_opt_bool;
 
 `)
+
+	for _, t := range tupleTypes {
+		name := cTupleCName(t)
+		out.WriteString("typedef struct {\n")
+		for i, el := range t.TupleElems {
+			fmt.Fprintf(&out, "  %s f%d;\n", cT(el), i)
+		}
+		fmt.Fprintf(&out, "} %s;\n\n", name)
+	}
 
 	for _, d := range p.Decls {
 		ed, ok := d.(*ast.EnumDecl)
@@ -765,6 +813,8 @@ func (em *emitter) cZeroValue(t *check.Type) string {
 		return fmt.Sprintf("kodae_list_new((int64_t)sizeof(%s))", cT(t.Elem))
 	case check.KResult:
 		return fmt.Sprintf("((%s){0})", cResultCName(t.Res))
+	case check.KTuple:
+		return fmt.Sprintf("((%s){0})", cTupleCName(t))
 	case check.KVoid:
 		return "0"
 	default:
@@ -1216,6 +1266,25 @@ func (em *emitter) emitStmt(out *bytes.Buffer, s ast.Stmt) error {
 		if err != nil {
 			return err
 		}
+		if len(x.Destruct) > 1 {
+			init, err := em.emitExpr(x.Init)
+			if err != nil {
+				return err
+			}
+			em.flushTryPre(out)
+			em.rcN++
+			tmp := fmt.Sprintf("c_tup_%d", em.rcN)
+			fmt.Fprintf(out, "%s %s = %s;\n", cT(ty), tmp, init)
+			for i, n := range x.Destruct {
+				em.addLocal(n)
+				if x.Const {
+					fmt.Fprintf(out, "const %s %s = %s.f%d;\n", cT(ty.TupleElems[i]), cid(n), tmp, i)
+				} else {
+					fmt.Fprintf(out, "%s %s = %s.f%d;\n", cT(ty.TupleElems[i]), cid(n), tmp, i)
+				}
+			}
+			return nil
+		}
 		var init string
 		if x.Init == nil {
 			init = em.cZeroValue(ty)
@@ -1501,6 +1570,28 @@ func (em *emitter) emitAssignResultCatch(out *bytes.Buffer, a *ast.AssignStmt, r
 }
 
 func (em *emitter) emitAssign(out *bytes.Buffer, x *ast.AssignStmt) error {
+	if tup, ok := x.Left.(*ast.TupleExpr); ok {
+		rv, err := em.emitExpr(x.Right)
+		if err != nil {
+			return err
+		}
+		rt, err := em.typeOf(x.Right)
+		if err != nil {
+			return err
+		}
+		em.flushTryPre(out)
+		em.rcN++
+		tmp := fmt.Sprintf("c_tup_%d", em.rcN)
+		fmt.Fprintf(out, "%s %s = %s;\n", cT(rt), tmp, rv)
+		for i, lexpr := range tup.Exprs {
+			lhs, err := em.emitLvalue(lexpr)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(out, "%s = %s.f%d;\n", lhs, tmp, i)
+		}
+		return nil
+	}
 	if rce := asResultCatchExpr(x.Right); rce != nil {
 		return em.emitAssignResultCatch(out, x, rce)
 	}
@@ -1678,6 +1769,8 @@ func (em *emitter) emitExpr(e ast.Expr) (string, error) {
 		return em.emitListLit(x)
 	case *ast.IndexExpr:
 		return em.emitIndexExpr(x)
+	case *ast.TupleExpr:
+		return em.emitTupleExpr(x)
 	case *ast.MemberExpr:
 		return em.emitMember(x)
 	case *ast.TryUnwrapExpr:
@@ -1720,17 +1813,45 @@ func (em *emitter) emitStructLit(slit *ast.StructLit) (string, error) {
 			}
 		}
 		if in == nil {
-			return "", fmt.Errorf("struct literal: missing %q (checker should catch)", fn)
+			return "", fmt.Errorf("struct %s init: missing %s", slit.TypeName, fn)
 		}
-		v, err := em.emitExpr(in)
+		val, err := em.emitExpr(in)
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprintf(&b, ".u_%s = %s", cid(fn), v)
+		b.WriteString(val)
 	}
 	b.WriteString("}")
 	return b.String(), nil
 }
+
+func (em *emitter) emitTupleExpr(x *ast.TupleExpr) (string, error) {
+	t, err := em.typeOf(x)
+	if err != nil {
+		return "", err
+	}
+	if t.Kind != check.KTuple {
+		return "", fmt.Errorf("tuple expr expected tuple type, got %v", t)
+	}
+	name := cTupleCName(t)
+	var b strings.Builder
+	b.WriteString("(")
+	b.WriteString(name)
+	b.WriteString("){")
+	for i, ex := range x.Exprs {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		val, err := em.emitExpr(ex)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(val)
+	}
+	b.WriteString("}")
+	return b.String(), nil
+}
+
 
 func (em *emitter) emitIdentLoad(name string, _ *check.Type) string {
 	name = em.maybeThisAlias(name)

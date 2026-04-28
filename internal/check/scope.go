@@ -147,6 +147,17 @@ func (c *Checker) resolveType(tx *ast.TypeExpr) (*Type, error) {
 	if tx.ResultInner != nil {
 		return nil, fmt.Errorf("type: result[...] is not part of Kodae v1; use catch")
 	}
+	if tx.TupleInner != nil {
+		var elems []*Type
+		for _, x := range tx.TupleInner {
+			inner, err := c.resolveType(x)
+			if err != nil {
+				return nil, err
+			}
+			elems = append(elems, inner)
+		}
+		return &Type{Kind: KTuple, TupleElems: elems}, nil
+	}
 	if tx.Name == "void" {
 		if tx.Optional {
 			return nil, fmt.Errorf("void? is invalid")

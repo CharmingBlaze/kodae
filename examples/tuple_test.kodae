@@ -1,0 +1,22 @@
+fn get_position() -> (int, int) {
+    return 10, 20
+}
+
+fn get_player_info() -> (str, int, int) {
+    return "Ada", 100, 42
+}
+
+fn main() {
+    let x, y = get_position()
+    let name, health, score = get_player_info()
+    
+    print("$x, $y")
+    print("$name has $health hp and $score points")
+    
+    let pos: (int, int) = 10, 20
+    let info: (str, int, int) = "Ada", 100, 42
+    
+    let a, b = pos
+    let c, d, e = info
+    print("$a $b $c $d $e")
+}

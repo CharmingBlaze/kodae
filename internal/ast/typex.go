@@ -10,6 +10,7 @@ type TypeExpr struct {
 	PtrInner     *TypeExpr
 	ResultInner  *TypeExpr
 	ListInner    *TypeExpr
+	TupleInner   []*TypeExpr
 }
 
 func (t *TypeExpr) String() string {
@@ -21,6 +22,16 @@ func (t *TypeExpr) String() string {
 	}
 	if t.ListInner != nil {
 		return "list[" + t.ListInner.String() + "]"
+	}
+	if t.TupleInner != nil {
+		s := "("
+		for i, x := range t.TupleInner {
+			if i > 0 {
+				s += ", "
+			}
+			s += x.String()
+		}
+		return s + ")"
 	}
 	if t.Optional {
 		return t.Name + "?"

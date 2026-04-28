@@ -97,6 +97,13 @@ type IndexExpr struct {
 
 func (e *IndexExpr) expr() {}
 
+// TupleExpr: (a, b) or return a, b
+type TupleExpr struct {
+	Exprs []Expr
+}
+
+func (e *TupleExpr) expr() {}
+
 // TryUnwrap: expr? — propagate error if result is not ok, otherwise unwrap to T.
 type TryUnwrapExpr struct{ X Expr }
 
@@ -178,6 +185,15 @@ func ExprString(e Expr) string {
 			s += ExprString(el)
 		}
 		return s + "]"
+	case *TupleExpr:
+		s := "("
+		for i, el := range x.Exprs {
+			if i > 0 {
+				s += ", "
+			}
+			s += ExprString(el)
+		}
+		return s + ")"
 	case *IndexExpr:
 		return ExprString(x.Left) + "[" + ExprString(x.Index) + "]"
 	default:

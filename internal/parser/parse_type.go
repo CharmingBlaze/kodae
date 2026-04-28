@@ -28,6 +28,31 @@ func (p *Parser) parseTypeWithRules(allowPtr bool) *ast.TypeExpr {
 			return &ast.TypeExpr{Name: n}
 		}
 	}
+	if p.tok.Type == token.LPAREN {
+		p.next()
+		var elems []*ast.TypeExpr
+		for p.tok.Type != token.RPAREN {
+			if p.err != nil {
+				return nil
+			}
+			if p.tok.Type == token.EOF {
+				p.failf("tuple type: unclosed (")
+				return nil
+			}
+			elems = append(elems, p.parseTypeWithRules(allowPtr))
+			if p.tok.Type == token.RPAREN {
+				break
+			}
+			if p.tok.Type == token.COMMA {
+				p.next()
+				continue
+			}
+			p.failf("tuple type: expected , or )")
+			return nil
+		}
+		p.expect(token.RPAREN)
+		return &ast.TypeExpr{TupleInner: elems}
+	}
 	if p.tok.Type != token.IDENT && p.tok.Type != token.RESULT {
 		p.failf("type: need identifier, got %v", p.tok.Type)
 		return nil

@@ -45,7 +45,13 @@ type DeferStmt struct{ E Expr }
 func (s *DeferStmt) stmt() {}
 
 // LetStmt / const inside blocks
-type LetStmt struct{ Const bool; Name string; T *TypeExpr; Init Expr }
+type LetStmt struct {
+	Const    bool
+	Name     string   // used for single let
+	Destruct []string // used for multiple let `let a, b = ...`
+	T        *TypeExpr
+	Init     Expr
+}
 
 func (s *LetStmt) stmt() {}
 

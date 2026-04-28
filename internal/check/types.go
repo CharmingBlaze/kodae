@@ -25,6 +25,7 @@ const (
 	KList   // .Elem is the list element type (list[Elem] in Kodae)
 	// KResult: .Res is the success value type (result[Res] in Kodae)
 	KResult
+	KTuple
 	KAny // Dynamic/Any type (for JSON/Objects)
 )
 
@@ -38,10 +39,11 @@ type Type struct {
 	Opt        *Type // for KOptional
 	// Pointee is the referent for KPtr; Elem for KList; Res for KResult.
 	// These fields are used only for kinds that need them.
-	Pointee   *Type
-	Elem      *Type
-	Res       *Type
-	Variants  map[string]int // unused on Type; in Enum
+	Pointee    *Type
+	Elem       *Type
+	Res        *Type
+	TupleElems []*Type
+	Variants   map[string]int // unused on Type; in Enum
 }
 
 // Struct is a file-scope user struct (fields resolved after parse).
@@ -121,6 +123,15 @@ func (t *Type) String() string {
 			return "result[" + t.Res.String() + "]"
 		}
 		return "result[?]"
+	case KTuple:
+		s := "("
+		for i, x := range t.TupleElems {
+			if i > 0 {
+				s += ", "
+			}
+			s += x.String()
+		}
+		return s + ")"
 	default:
 		return "?"
 	}
@@ -182,6 +193,16 @@ func (a *Type) equal(b *Type) bool {
 			return false
 		}
 		return a.Res.equal(b.Res)
+	case KTuple:
+		if len(a.TupleElems) != len(b.TupleElems) {
+			return false
+		}
+		for i, v := range a.TupleElems {
+			if !v.equal(b.TupleElems[i]) {
+				return false
+			}
+		}
+		return true
 	}
 	return true
 }

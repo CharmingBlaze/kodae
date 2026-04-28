@@ -265,6 +265,7 @@ func containsResultCatch(e ast.Expr) bool {
 }
 
 func (c *Checker) inferLocal(x *ast.LetStmt) (*Type, error) {
+	isMulti := len(x.Destruct) > 1
 	if x.Init == nil {
 		if x.T == nil {
 			return nil, fmt.Errorf("let: need a type and initializer, or = value")
@@ -273,7 +274,16 @@ func (c *Checker) inferLocal(x *ast.LetStmt) (*Type, error) {
 		if e != nil {
 			return nil, e
 		}
-		c.set(x.Name, want)
+		if isMulti {
+			if want.Kind != KTuple || len(want.TupleElems) != len(x.Destruct) {
+				return nil, fmt.Errorf("let: multiple names require a tuple type with same length")
+			}
+			for i, n := range x.Destruct {
+				c.set(n, want.TupleElems[i])
+			}
+		} else {
+			c.set(x.Name, want)
+		}
 		return want, nil
 	}
 	if containsResultCatch(x.Init) {
@@ -297,7 +307,13 @@ func (c *Checker) inferLocal(x *ast.LetStmt) (*Type, error) {
 			return nil, fmt.Errorf("list literal [] requires list[...] annotation")
 		}
 		c.setType(x.Init, want)
-		c.set(x.Name, want)
+		if isMulti {
+			for i, n := range x.Destruct {
+				c.set(n, want.TupleElems[i])
+			}
+		} else {
+			c.set(x.Name, want)
+		}
 		return want, nil
 	}
 	tt, err := c.typeExpr(x.Init)
@@ -316,14 +332,60 @@ func (c *Checker) inferLocal(x *ast.LetStmt) (*Type, error) {
 		if e := c.assignable(want, tt); e != nil {
 			return want, e
 		}
-		c.set(x.Name, want)
+		if isMulti {
+			for i, n := range x.Destruct {
+				c.set(n, want.TupleElems[i])
+			}
+		} else {
+			c.set(x.Name, want)
+		}
 		return want, nil
 	}
-	c.set(x.Name, tt)
+	
+	if isMulti {
+		if tt.Kind != KTuple || len(tt.TupleElems) != len(x.Destruct) {
+			return nil, fmt.Errorf("let: multiple names require a tuple initializer with same length")
+		}
+		for i, n := range x.Destruct {
+			c.set(n, tt.TupleElems[i])
+		}
+	} else {
+		c.set(x.Name, tt)
+	}
 	return tt, nil
 }
 
 func (c *Checker) checkAssign(x *ast.AssignStmt) {
+	if tup, ok := x.Left.(*ast.TupleExpr); ok {
+		// Multi-assignment
+		if x.Op != "=" {
+			c.setErr(fmt.Errorf("multi-assignment only supports ="))
+			return
+		}
+		c.tryOK = true
+		rt, err := c.typeExpr(x.Right)
+		c.tryOK = false
+		if err != nil {
+			c.setErr(err)
+			return
+		}
+		if rt.Kind != KTuple || len(rt.TupleElems) != len(tup.Exprs) {
+			c.setErr(fmt.Errorf("multi-assignment requires a tuple of length %d, got %v", len(tup.Exprs), rt))
+			return
+		}
+		for i, lexpr := range tup.Exprs {
+			lt, err := c.typeExpr(lexpr)
+			if err != nil {
+				c.setErr(err)
+				continue
+			}
+			if e := c.assignable(lt, rt.TupleElems[i]); e != nil {
+				c.setErr(e)
+			}
+		}
+		return
+	}
+
 	lt, err := c.typeExpr(x.Left)
 	if err != nil {
 		c.setErr(err)

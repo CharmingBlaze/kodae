@@ -132,6 +132,18 @@ func (c *Checker) typeExpr(e ast.Expr) (*Type, error) {
 		out := &Type{Kind: KList, Elem: elemT}
 		c.setType(e, out)
 		return out, nil
+	case *ast.TupleExpr:
+		var elems []*Type
+		for _, ex := range x.Exprs {
+			t, err := c.typeExpr(ex)
+			if err != nil {
+				return nil, err
+			}
+			elems = append(elems, t)
+		}
+		out := &Type{Kind: KTuple, TupleElems: elems}
+		c.setType(e, out)
+		return out, nil
 	case *ast.IndexExpr:
 		lt, err := c.typeExpr(x.Left)
 		if err != nil {

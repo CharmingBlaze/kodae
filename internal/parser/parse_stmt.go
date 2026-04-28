@@ -71,9 +71,23 @@ func (p *Parser) parseStmt() ast.Stmt {
 	return p.parseExprOrAssignStmt()
 }
 
+func (p *Parser) parseExprListAsOne() ast.Expr {
+	e := p.parseExpr()
+	if p.err != nil || p.tok.Type != token.COMMA {
+		return e
+	}
+	exprs := []ast.Expr{e}
+	for p.tok.Type == token.COMMA {
+		p.next()
+		p.skipNewlines()
+		exprs = append(exprs, p.parseExpr())
+	}
+	return &ast.TupleExpr{Exprs: exprs}
+}
+
 // parseExprOrAssignStmt: expression statement or assignment
 func (p *Parser) parseExprOrAssignStmt() ast.Stmt {
-	e := p.parseExpr()
+	e := p.parseExprListAsOne()
 	if p.err != nil {
 		return nil
 	}
@@ -82,6 +96,14 @@ func (p *Parser) parseExprOrAssignStmt() ast.Stmt {
 		case "=", "+=", "-=", "*=", "/=", "%=":
 			return &ast.AssignStmt{Left: b.L, Op: b.Op, Right: b.R}
 		}
+	}
+	// For multiple assignments like a, b = 1, 2
+	// e is a TupleExpr. We need to check if the next token is an assignment operator.
+	if p.tok.Type == token.ASSIGN || p.tok.Type == token.PLUSEQ || p.tok.Type == token.MINUSEQ || p.tok.Type == token.MULEQ || p.tok.Type == token.DIVEQ || p.tok.Type == token.MODEQ {
+		op := p.tok
+		p.next()
+		right := p.parseExprListAsOne()
+		return &ast.AssignStmt{Left: e, Op: tokToOp(op.Type), Right: right}
 	}
 	return &ast.ExprStmt{E: e}
 }
@@ -93,20 +115,38 @@ func (p *Parser) parseLocalLet() ast.Stmt {
 		p.failf("let/const: name")
 		return nil
 	}
-	name := p.tok.Literal
+	
+	var names []string
+	names = append(names, p.tok.Literal)
 	p.next()
+
+	for p.tok.Type == token.COMMA {
+		p.next()
+		if p.tok.Type != token.IDENT {
+			p.failf("let/const: expected name after comma")
+			return nil
+		}
+		names = append(names, p.tok.Literal)
+		p.next()
+	}
+
 	ty := p.tryParseTypeWithColon()
 	if p.tok.Type != token.ASSIGN {
 		if ty == nil {
 			p.failf("let: need a type and = value, or = expr")
 			return nil
 		}
-		// `let v: S` without initializer — zero-initialized
-		return &ast.LetStmt{Const: cons, Name: name, T: ty, Init: nil}
+		if len(names) > 1 {
+			return &ast.LetStmt{Const: cons, Destruct: names, T: ty, Init: nil}
+		}
+		return &ast.LetStmt{Const: cons, Name: names[0], T: ty, Init: nil}
 	}
 	p.next()
-	init := p.parseExpr()
-	return &ast.LetStmt{Const: cons, Name: name, T: ty, Init: init}
+	init := p.parseExprListAsOne()
+	if len(names) > 1 {
+		return &ast.LetStmt{Const: cons, Destruct: names, T: ty, Init: init}
+	}
+	return &ast.LetStmt{Const: cons, Name: names[0], T: ty, Init: init}
 }
 
 func (p *Parser) parseIf() *ast.IfStmt {
@@ -196,7 +236,7 @@ func (p *Parser) parseReturn() *ast.ReturnStmt {
 		}
 		return &ast.ReturnStmt{V: nil}
 	}
-	v := p.parseExpr()
+	v := p.parseExprListAsOne()
 	return &ast.ReturnStmt{V: v}
 }
 

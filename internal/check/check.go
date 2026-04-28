@@ -55,6 +55,7 @@ type Info struct {
 	UsesConsole bool
 	Module      string
 	Meta        map[string]string
+	Tuples      []*Type // collected tuple types
 }
 
 // Checker is the semantic/type checker
