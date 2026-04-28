@@ -628,17 +628,33 @@ func (c *Checker) typeMethodCall(x *ast.CallExpr, me *ast.MemberExpr) (*Type, er
 	}
 	if recvT != nil && recvT.Kind == KList {
 		switch me.Field {
-		case "push", "pop", "append", "remove", "first", "last", "reverse", "sort", "shuffle":
-			if me.Field == "pop" || me.Field == "first" || me.Field == "last" || me.Field == "reverse" || me.Field == "sort" || me.Field == "shuffle" {
+		case "push", "pop", "append", "remove", "first", "last", "reverse", "sort", "shuffle", "clear", "contains", "is_empty":
+			if me.Field == "pop" || me.Field == "first" || me.Field == "last" || me.Field == "reverse" || me.Field == "sort" || me.Field == "shuffle" || me.Field == "clear" || me.Field == "is_empty" {
 				if len(x.Args) != 0 {
 					return nil, fmt.Errorf("list.%s: no arguments", me.Field)
 				}
 				res := TpVoid
 				if me.Field == "pop" || me.Field == "first" || me.Field == "last" {
 					res = recvT.Elem
+				} else if me.Field == "is_empty" {
+					res = TpBool
 				}
 				c.setType(x, res)
 				return res, nil
+			}
+			if me.Field == "contains" {
+				if len(x.Args) != 1 {
+					return nil, fmt.Errorf("list.contains: need one argument")
+				}
+				at, err := c.typeExpr(x.Args[0])
+				if err != nil {
+					return nil, err
+				}
+				if err := c.assignable(recvT.Elem, at); err != nil {
+					return nil, fmt.Errorf("list.contains: %v", err)
+				}
+				c.setType(x, TpBool)
+				return TpBool, nil
 			}
 			if me.Field == "remove" {
 				if len(x.Args) != 1 {
@@ -990,7 +1006,7 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 		}
 		c.setType(x, at.Elem)
 		return at.Elem, nil
-	case "time", "timer_start":
+	case "time", "timer_start", "delta_time":
 		if len(x.Args) != 0 {
 			return nil, fmt.Errorf("%s: no arguments", name)
 		}
@@ -1307,6 +1323,180 @@ func (c *Checker) typeCall(x *ast.CallExpr) (*Type, error) {
 	case "todo", "log_info", "log_warn", "log_error":
 		if err := checkStrArg(name); err != nil {
 			return nil, err
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "is_online":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("is_online: no arguments")
+		}
+		c.setType(x, TpBool)
+		return TpBool, nil
+	case "ping":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpInt)
+		return TpInt, nil
+	case "download":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("download: need url and destination path")
+		}
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if at == nil || at.Kind != KStr {
+				return nil, fmt.Errorf("download: strings expected")
+			}
+		}
+		c.setType(x, TpBool)
+		return TpBool, nil
+	case "http_get":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		rt := &Type{Kind: KResult, Res: TpStr}
+		c.setType(x, rt)
+		return rt, nil
+	case "http_post":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("http_post: need url and body")
+		}
+		for _, a := range x.Args {
+			at, err := c.typeExpr(a)
+			if err != nil {
+				return nil, err
+			}
+			if at == nil || at.Kind != KStr {
+				return nil, fmt.Errorf("http_post: strings expected")
+			}
+		}
+		rt := &Type{Kind: KResult, Res: TpStr}
+		c.setType(x, rt)
+		return rt, nil
+	case "json_parse":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpAny)
+		return TpAny, nil
+	case "json_build":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("json_build: need one value")
+		}
+		if _, err := c.typeExpr(x.Args[0]); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpStr)
+		return TpStr, nil
+	case "json_get":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("json_get: need (obj, key)")
+		}
+		a0, e0 := c.typeExpr(x.Args[0])
+		a1, e1 := c.typeExpr(x.Args[1])
+		if e0 != nil || e1 != nil {
+			return nil, firstErr(e0, e1)
+		}
+		if a0 == nil || a0.Kind != KAny || a1 == nil || a1.Kind != KStr {
+			return nil, fmt.Errorf("json_get: need (Any, str)")
+		}
+		c.setType(x, TpAny)
+		return TpAny, nil
+	case "json_at":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("json_at: need (arr, idx)")
+		}
+		a0, e0 := c.typeExpr(x.Args[0])
+		a1, e1 := c.typeExpr(x.Args[1])
+		if e0 != nil || e1 != nil {
+			return nil, firstErr(e0, e1)
+		}
+		if a0 == nil || a0.Kind != KAny || a1 == nil || a1.Kind != KInt {
+			return nil, fmt.Errorf("json_at: need (Any, int)")
+		}
+		c.setType(x, TpAny)
+		return TpAny, nil
+	case "json_len":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("json_len: need one argument")
+		}
+		a0, e0 := c.typeExpr(x.Args[0])
+		if e0 != nil {
+			return nil, e0
+		}
+		if a0 == nil || a0.Kind != KAny {
+			return nil, fmt.Errorf("json_len: Any expected")
+		}
+		c.setType(x, TpInt)
+		return TpInt, nil
+	case "json_as_int", "json_as_float", "json_as_str", "json_as_bool":
+		if len(x.Args) != 1 {
+			return nil, fmt.Errorf("%s: need one argument", name)
+		}
+		a0, e0 := c.typeExpr(x.Args[0])
+		if e0 != nil {
+			return nil, e0
+		}
+		if a0 == nil || a0.Kind != KAny {
+			return nil, fmt.Errorf("%s: Any expected", name)
+		}
+		rt := TpInt
+		switch name {
+		case "json_as_float":
+			rt = TpFloat
+		case "json_as_str":
+			rt = TpStr
+		case "json_as_bool":
+			rt = TpBool
+		}
+		c.setType(x, rt)
+		return rt, nil
+	case "save_set":
+		if len(x.Args) != 2 {
+			return nil, fmt.Errorf("save_set: need (key, value)")
+		}
+		k, e0 := c.typeExpr(x.Args[0])
+		if e0 != nil {
+			return nil, e0
+		}
+		if k == nil || k.Kind != KStr {
+			return nil, fmt.Errorf("save_set: key must be str")
+		}
+		if _, e1 := c.typeExpr(x.Args[1]); e1 != nil {
+			return nil, e1
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "save_get_int":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpInt)
+		return TpInt, nil
+	case "save_get_str":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpStr)
+		return TpStr, nil
+	case "save_exists":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpBool)
+		return TpBool, nil
+	case "save_delete":
+		if err := checkStrArg(name); err != nil {
+			return nil, err
+		}
+		c.setType(x, TpVoid)
+		return TpVoid, nil
+	case "save_clear":
+		if len(x.Args) != 0 {
+			return nil, fmt.Errorf("save_clear: no arguments")
 		}
 		c.setType(x, TpVoid)
 		return TpVoid, nil

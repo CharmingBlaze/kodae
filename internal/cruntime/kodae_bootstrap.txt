@@ -86,7 +86,11 @@ bool kodae_chance(int64_t pct);
 kodae_list kodae_list_new(int64_t elem_size);
 void kodae_list_push(kodae_list* l, const void* elem);
 void* kodae_list_at_ptr(kodae_list* l, int64_t idx);
+void kodae_list_clear(kodae_list* l);
+bool kodae_list_is_empty(kodae_list* l);
+bool kodae_list_contains(kodae_list* l, const void* elem);
 double kodae_time(void);
+double kodae_delta_time(void);
 int64_t kodae_time_ms(void);
 void kodae_wait(double secs);
 void kodae_wait_ms(int64_t ms);
@@ -120,11 +124,27 @@ uint32_t kodae_color_fade(uint32_t c, double alpha);
 kodae_res_str kodae_http_get(kodae_str url);
 kodae_res_str kodae_http_post(kodae_str url, kodae_str body);
 bool kodae_is_online(void);
+int64_t kodae_ping(kodae_str host);
 bool kodae_download(kodae_str url, kodae_str dest);
 kodae_any kodae_socket_connect(kodae_str url);
 void kodae_socket_send(kodae_any sock, kodae_str msg);
 kodae_str kodae_socket_receive(kodae_any sock);
 void kodae_socket_close(kodae_any sock);
+kodae_any kodae_json_parse(kodae_str s);
+kodae_str kodae_json_build(kodae_any a);
+kodae_any kodae_any_get(kodae_any a, kodae_str key);
+kodae_any kodae_any_at(kodae_any a, int64_t idx);
+int64_t kodae_any_len(kodae_any a);
+int64_t kodae_any_int(kodae_any a);
+double kodae_any_float(kodae_any a);
+kodae_str kodae_any_str(kodae_any a);
+bool kodae_any_bool(kodae_any a);
+void kodae_save_set_str(kodae_str key, kodae_str val);
+int64_t kodae_save_get_int(kodae_str key);
+kodae_str kodae_save_get_str(kodae_str key);
+bool kodae_save_exists(kodae_str key);
+void kodae_save_delete(kodae_str key);
+void kodae_save_clear(void);
 static inline kodae_str kodae_str_lit(const char *c) {
   if (!c) { return (kodae_str){NULL, 0}; }
   return (kodae_str){c, (int64_t)strlen(c)};
@@ -268,6 +288,18 @@ void* kodae_random_pick(kodae_list* l) {
 
 double kodae_time(void) {
   return (double)time(NULL);
+}
+
+double kodae_delta_time(void) {
+  static double last = 0.0;
+  double now = kodae_time();
+  if (last <= 0.0) {
+    last = now;
+    return 0.0;
+  }
+  double dt = now - last;
+  last = now;
+  return dt;
 }
 
 int64_t kodae_time_ms(void) {
@@ -542,6 +574,24 @@ void* kodae_list_at_ptr(kodae_list* l, int64_t idx) {
     exit(1);
   }
   return l->data + (size_t)(idx * l->elem_size);
+}
+
+void kodae_list_clear(kodae_list* l) {
+  if (!l) return;
+  l->len = 0;
+}
+
+bool kodae_list_is_empty(kodae_list* l) {
+  return (!l || l->len == 0);
+}
+
+bool kodae_list_contains(kodae_list* l, const void* elem) {
+  if (!l || !elem || l->len <= 0) return false;
+  for (int64_t i = 0; i < l->len; i++) {
+    uint8_t* p = l->data + (size_t)(i * l->elem_size);
+    if (memcmp(p, elem, (size_t)l->elem_size) == 0) return true;
+  }
+  return false;
 }
 
 kodae_str kodae_str_upper(kodae_str s) {
@@ -942,6 +992,23 @@ bool kodae_is_online(void) {
   return status == 0;
 }
 
+int64_t kodae_ping(kodae_str host) {
+  if (!host.data || host.len == 0) return -1;
+  const char* h = kodae_str_to_cstr(host);
+  char cmd[4096];
+  clock_t t0 = clock();
+#if defined(_WIN32)
+  snprintf(cmd, sizeof cmd, "ping -n 1 \"%s\" > nul 2>&1", h);
+#else
+  snprintf(cmd, sizeof cmd, "ping -c 1 \"%s\" > /dev/null 2>&1", h);
+#endif
+  int status = system(cmd);
+  clock_t t1 = clock();
+  free((void*)h);
+  if (status != 0) return -1;
+  return (int64_t)(((double)(t1 - t0) / (double)CLOCKS_PER_SEC) * 1000.0);
+}
+
 bool kodae_download(kodae_str url, kodae_str dest) {
   if (!url.data || url.len == 0 || !dest.data || dest.len == 0) return false;
   char cmd[4096];
@@ -1024,4 +1091,127 @@ kodae_str kodae_any_str(kodae_any a) {
 bool kodae_any_bool(kodae_any a) {
     if (!a) return false;
     return json_value_get_boolean(a) != 0;
+}
+
+/* Tiny key-value save store (persisted to kodae_save.db). */
+#define KODAE_SAVE_MAX 256
+typedef struct { char* key; char* val; bool used; } kodae_save_entry;
+static kodae_save_entry kodae_save_entries[KODAE_SAVE_MAX];
+static bool kodae_save_loaded = false;
+
+static void kodae_save_load(void) {
+  if (kodae_save_loaded) return;
+  kodae_save_loaded = true;
+  FILE* f = fopen("kodae_save.db", "rb");
+  if (!f) return;
+  char line[8192];
+  while (fgets(line, sizeof line, f)) {
+    char* tab = strchr(line, '\t');
+    if (!tab) continue;
+    *tab = 0;
+    char* key = line;
+    char* val = tab + 1;
+    size_t n = strlen(val);
+    if (n > 0 && (val[n-1] == '\n' || val[n-1] == '\r')) val[n-1] = 0;
+    for (int i = 0; i < KODAE_SAVE_MAX; i++) {
+      if (!kodae_save_entries[i].used) {
+        kodae_save_entries[i].used = true;
+        kodae_save_entries[i].key = strdup(key);
+        kodae_save_entries[i].val = strdup(val);
+        break;
+      }
+    }
+  }
+  fclose(f);
+}
+
+static void kodae_save_flush(void) {
+  FILE* f = fopen("kodae_save.db", "wb");
+  if (!f) return;
+  for (int i = 0; i < KODAE_SAVE_MAX; i++) {
+    if (!kodae_save_entries[i].used) continue;
+    fprintf(f, "%s\t%s\n", kodae_save_entries[i].key, kodae_save_entries[i].val);
+  }
+  fclose(f);
+}
+
+static int kodae_save_find(const char* key) {
+  for (int i = 0; i < KODAE_SAVE_MAX; i++) {
+    if (kodae_save_entries[i].used && strcmp(kodae_save_entries[i].key, key) == 0) return i;
+  }
+  return -1;
+}
+
+void kodae_save_set_str(kodae_str key, kodae_str val) {
+  kodae_save_load();
+  const char* k = kodae_str_to_cstr(key);
+  const char* v = kodae_str_to_cstr(val);
+  int idx = kodae_save_find(k);
+  if (idx < 0) {
+    for (int i = 0; i < KODAE_SAVE_MAX; i++) {
+      if (!kodae_save_entries[i].used) {
+        idx = i;
+        kodae_save_entries[i].used = true;
+        kodae_save_entries[i].key = strdup(k);
+        break;
+      }
+    }
+  }
+  if (idx >= 0) {
+    if (kodae_save_entries[idx].val) free(kodae_save_entries[idx].val);
+    kodae_save_entries[idx].val = strdup(v);
+  }
+  free((void*)k);
+  free((void*)v);
+  kodae_save_flush();
+}
+
+kodae_str kodae_save_get_str(kodae_str key) {
+  kodae_save_load();
+  const char* k = kodae_str_to_cstr(key);
+  int idx = kodae_save_find(k);
+  free((void*)k);
+  if (idx < 0) return kodae_str_lit("");
+  return kodae_str_new(kodae_save_entries[idx].val);
+}
+
+int64_t kodae_save_get_int(kodae_str key) {
+  kodae_str s = kodae_save_get_str(key);
+  if (!s.data || s.len == 0) return 0;
+  const char* c = kodae_str_to_cstr(s);
+  int64_t out = (int64_t)strtoll(c, NULL, 10);
+  free((void*)c);
+  return out;
+}
+
+bool kodae_save_exists(kodae_str key) {
+  kodae_save_load();
+  const char* k = kodae_str_to_cstr(key);
+  int idx = kodae_save_find(k);
+  free((void*)k);
+  return idx >= 0;
+}
+
+void kodae_save_delete(kodae_str key) {
+  kodae_save_load();
+  const char* k = kodae_str_to_cstr(key);
+  int idx = kodae_save_find(k);
+  if (idx >= 0) {
+    free(kodae_save_entries[idx].key);
+    free(kodae_save_entries[idx].val);
+    memset(&kodae_save_entries[idx], 0, sizeof(kodae_save_entries[idx]));
+    kodae_save_flush();
+  }
+  free((void*)k);
+}
+
+void kodae_save_clear(void) {
+  kodae_save_load();
+  for (int i = 0; i < KODAE_SAVE_MAX; i++) {
+    if (!kodae_save_entries[i].used) continue;
+    free(kodae_save_entries[i].key);
+    free(kodae_save_entries[i].val);
+    memset(&kodae_save_entries[i], 0, sizeof(kodae_save_entries[i]));
+  }
+  kodae_save_flush();
 }

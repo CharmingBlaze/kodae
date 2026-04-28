@@ -2566,6 +2566,19 @@ func (em *emitter) emitListMethodCall(c *ast.CallExpr, me *ast.MemberExpr, lt *c
 		return tmp, nil
 	case "shuffle":
 		return fmt.Sprintf("kodae_list_shuffle(&(%s))", base), nil
+	case "clear":
+		return fmt.Sprintf("kodae_list_clear(&(%s))", base), nil
+	case "is_empty":
+		return fmt.Sprintf("kodae_list_is_empty(&(%s))", base), nil
+	case "contains":
+		if len(c.Args) != 1 {
+			return "", fmt.Errorf("contains: need 1 argument")
+		}
+		v, err := em.emitExpr(c.Args[0])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("kodae_list_contains(&(%s), %s)", base, em.emitListElemAddr(lt.Elem, v)), nil
 	case "first":
 		return fmt.Sprintf("(*((%s*)kodae_list_at_ptr(&(%s), 0)))", cT(lt.Elem), base), nil
 	case "last":
@@ -2822,6 +2835,8 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 		return fmt.Sprintf("kodae_angle_to(%s, %s, %s, %s)", args[0], args[1], args[2], args[3]), nil
 	case "time", "time_ms", "timer_start":
 		return "kodae_" + name + "()", nil
+	case "delta_time":
+		return "kodae_delta_time()", nil
 	case "timer_elapsed", "countdown", "wait", "wait_ms":
 		a0, err := em.emitExpr(c.Args[0])
 		if err != nil {
@@ -2860,6 +2875,51 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 			args[i], _ = em.emitExpr(c.Args[i])
 		}
 		return "kodae_" + name + "(" + strings.Join(args, ", ") + ")", nil
+	case "is_online":
+		return "kodae_is_online()", nil
+	case "ping":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_ping(" + a0 + ")", nil
+	case "download":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return "kodae_download(" + a0 + ", " + a1 + ")", nil
+	case "http_get":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_http_get(" + a0 + ")", nil
+	case "http_post":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return "kodae_http_post(" + a0 + ", " + a1 + ")", nil
+	case "json_parse":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_json_parse(" + a0 + ")", nil
+	case "json_build":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_json_build(" + a0 + ")", nil
+	case "json_get":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return "kodae_any_get(" + a0 + ", " + a1 + ")", nil
+	case "json_at":
+		a0, _ := em.emitExpr(c.Args[0])
+		a1, _ := em.emitExpr(c.Args[1])
+		return "kodae_any_at(" + a0 + ", " + a1 + ")", nil
+	case "json_len":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_any_len(" + a0 + ")", nil
+	case "json_as_int":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_any_int(" + a0 + ")", nil
+	case "json_as_float":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_any_float(" + a0 + ")", nil
+	case "json_as_str":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_any_str(" + a0 + ")", nil
+	case "json_as_bool":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_any_bool(" + a0 + ")", nil
 	case "list_files":
 		a0, _ := em.emitExpr(c.Args[0])
 		return fmt.Sprintf("kodae_list_files(%s)", a0), nil
@@ -2911,6 +2971,27 @@ func (em *emitter) emitCall(c *ast.CallExpr) (string, error) {
 	case "todo", "log_info", "log_warn", "log_error":
 		a0, _ := em.emitExpr(c.Args[0])
 		return "kodae_" + name + "(" + a0 + ")", nil
+	case "save_set":
+		key, _ := em.emitExpr(c.Args[0])
+		vexpr, err := em.emitToStr(c.Args[1])
+		if err != nil {
+			return "", err
+		}
+		return "kodae_save_set_str(" + key + ", " + vexpr + ")", nil
+	case "save_get_int":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_save_get_int(" + a0 + ")", nil
+	case "save_get_str":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_save_get_str(" + a0 + ")", nil
+	case "save_exists":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_save_exists(" + a0 + ")", nil
+	case "save_delete":
+		a0, _ := em.emitExpr(c.Args[0])
+		return "kodae_save_delete(" + a0 + ")", nil
+	case "save_clear":
+		return "kodae_save_clear()", nil
 	case "benchmark_start":
 		return "kodae_time()", nil
 	case "benchmark_end":
