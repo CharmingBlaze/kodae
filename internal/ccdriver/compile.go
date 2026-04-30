@@ -10,6 +10,15 @@ import (
 	"runtime"
 )
 
+func cStdAndFeatureFlags() []string {
+	flags := []string{"-std=gnu99"}
+	if runtime.GOOS != "windows" {
+		// Ensure POSIX libc prototypes (e.g. usleep/strdup/popen) are visible.
+		flags = append(flags, "-D_GNU_SOURCE", "-D_DEFAULT_SOURCE")
+	}
+	return flags
+}
+
 // Compile builds cSrcPath to outPath. outPath is typically an absolute or cwd-relative
 // file name (e.g. "a.out" or "app" or "app.exe" on Windows). extra is appended after -lm
 // (e.g. -lraylib, -L/path) from # link in source or the CLI.
@@ -28,12 +37,15 @@ func Compile(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool) error
 	argv := make([]string, 0, len(ccc.Prefix)+10+len(extra))
 	argv = append(argv, ccc.Prog)
 	argv = append(argv, ccc.Prefix...)
-	argv = append(argv, "-std=c99", "-O2", "-o", outAbs, cAbs, "-lm")
+	argv = append(argv, cStdAndFeatureFlags()...)
+	argv = append(argv, "-O2", "-o", outAbs, cAbs)
 	if runtime.GOOS == "windows" {
 		if gui {
 			argv = append(argv, "-mwindows")
 		}
 		argv = append(argv, "-lws2_32")
+	} else {
+		argv = append(argv, "-lm")
 	}
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)
@@ -55,7 +67,7 @@ func compileTCC(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool) er
 		return err
 	}
 	// TCC accepts a GCC-like subset; avoid -O2 (not always meaningful for TCC).
-	argv := []string{ccc.Prog, "-std=c99", "-o", outAbs, cAbs}
+	argv := []string{ccc.Prog, "-std=gnu99", "-o", outAbs, cAbs}
 	if runtime.GOOS == "windows" {
 		if gui {
 			argv = append(argv, "-mwindows")
@@ -89,7 +101,8 @@ func CompileObject(ccc CCmd, cSrcPath, objPath string, extra []string) error {
 	argv := make([]string, 0, len(ccc.Prefix)+10+len(extra))
 	argv = append(argv, ccc.Prog)
 	argv = append(argv, ccc.Prefix...)
-	argv = append(argv, "-std=c99", "-O2", "-c", "-o", objAbs, cAbs)
+	argv = append(argv, cStdAndFeatureFlags()...)
+	argv = append(argv, "-O2", "-c", "-o", objAbs, cAbs)
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdout = os.Stdout
@@ -109,7 +122,7 @@ func compileTCCObject(ccc CCmd, cSrcPath, objPath string, extra []string) error 
 	if err != nil {
 		return err
 	}
-	argv := []string{ccc.Prog, "-std=c99", "-c", "-o", objAbs, cAbs}
+	argv := []string{ccc.Prog, "-std=gnu99", "-c", "-o", objAbs, cAbs}
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdout = os.Stdout
@@ -167,18 +180,21 @@ func LinkShared(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool) er
 	argv := make([]string, 0, len(ccc.Prefix)+12+len(extra))
 	argv = append(argv, ccc.Prog)
 	argv = append(argv, ccc.Prefix...)
-	argv = append(argv, "-std=c99", "-O2")
+	argv = append(argv, cStdAndFeatureFlags()...)
+	argv = append(argv, "-O2")
 	if runtime.GOOS == "windows" {
 		argv = append(argv, "-shared")
 	} else {
 		argv = append(argv, "-shared", "-fPIC")
 	}
-	argv = append(argv, "-o", outAbs, cAbs, "-lm")
+	argv = append(argv, "-o", outAbs, cAbs)
 	if runtime.GOOS == "windows" {
 		if gui {
 			argv = append(argv, "-mwindows")
 		}
 		argv = append(argv, "-lws2_32")
+	} else {
+		argv = append(argv, "-lm")
 	}
 	argv = append(argv, extra...)
 	cmd := exec.Command(argv[0], argv[1:]...)
@@ -199,7 +215,7 @@ func linkSharedTCC(ccc CCmd, cSrcPath, outPath string, extra []string, gui bool)
 	if err != nil {
 		return err
 	}
-	argv := []string{ccc.Prog, "-std=c99", "-shared", "-o", outAbs, cAbs}
+	argv := []string{ccc.Prog, "-std=gnu99", "-shared", "-o", outAbs, cAbs}
 	if runtime.GOOS != "windows" {
 		argv = append(argv, "-fPIC", "-lm")
 	} else {

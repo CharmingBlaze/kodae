@@ -58,7 +58,11 @@ func compileIRWithBridge(ir, outExe string) error {
 	if err != nil {
 		return err
 	}
-	c1 := exec.Command(clang, "-std=c99", "-O2", "-c", "-o", bridgeO, bridgeC)
+	cArgs := []string{"-std=gnu99", "-O2", "-c", "-o", bridgeO, bridgeC}
+	if runtime.GOOS != "windows" {
+		cArgs = append([]string{"-D_GNU_SOURCE", "-D_DEFAULT_SOURCE"}, cArgs...)
+	}
+	c1 := exec.Command(clang, cArgs...)
 	c1.Stderr, c1.Stdout = os.Stderr, os.Stdout
 	if err := c1.Run(); err != nil {
 		return fmt.Errorf("llir: clang bridge.c: %w", err)

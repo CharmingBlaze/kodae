@@ -48,9 +48,11 @@ int main(void){ printf("%lld\n", (long long)add(2,3)); return 0; }`
 		out += ".exe"
 	}
 	args := append([]string{}, cc.Prefix...)
-	args = append(args, "-std=c99", "-O2", "-o", out, csrc, filepath.Join(dir, "mymath.a"), "-lm")
+	args = append(args, "-std=gnu99", "-O2", "-o", out, csrc, filepath.Join(dir, "mymath.a"))
 	if runtime.GOOS == "windows" {
 		args = append(args, "-lws2_32")
+	} else {
+		args = append(args, "-lm")
 	}
 	cmd := exec.Command(cc.Prog, args...)
 	cmd.Dir = dir

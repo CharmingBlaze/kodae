@@ -49,7 +49,6 @@ func TestRunBuild_LLVMRejectsLibMode(t *testing.T) {
 }
 
 func TestRunBuild_LibModeDefaultsToCBackend(t *testing.T) {
-	t.Parallel()
 	dir := t.TempDir()
 	src := filepath.Join(dir, "mylib.kodae")
 	code := `#mode "library"
@@ -76,7 +75,10 @@ fn add(a: int, b: int) -> int { return a + b }`
 func TestRunBuild_COnlyDefaultsToCBackend(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	src := filepath.Join("..", "..", "examples", "hello.kodae")
+	src, err := filepath.Abs(filepath.Join("..", "..", "examples", "hello.kodae"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	out := filepath.Join(dir, "hello.c")
 	if err := runBuild([]string{src}, out, true, "", nil, buildOptions{}); err != nil {
 		t.Fatalf("buildc default backend failed: %v", err)

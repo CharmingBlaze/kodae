@@ -106,7 +106,7 @@ func TestGoWrapper_BuildC_CompilesCurated(t *testing.T) {
 			t.Fatalf("buildc failed for %s: %v", s, err)
 		}
 		obj := filepath.Join(t.TempDir(), base+".o")
-		cmd := exec.Command(clang, "-std=c99", "-Wno-override-module", "-c", "-o", obj, cOut)
+		cmd := exec.Command(clang, "-std=gnu99", "-D_GNU_SOURCE", "-D_DEFAULT_SOURCE", "-Wno-override-module", "-c", "-o", obj, cOut)
 		b, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("clang compile failed for %s: %v\n%s", s, err, string(b))
