@@ -1,0 +1,7 @@
+struct Node {
+    items: list[int]
+}
+fn main() {
+    let items: list[int] = []
+    let n = Node { items: items }
+}

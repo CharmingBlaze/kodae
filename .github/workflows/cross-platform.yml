@@ -1,0 +1,86 @@
+name: Cross Platform
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  matrix:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install clang (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang
+
+      - name: Install clang (macOS)
+        if: runner.os == 'macOS'
+        run: brew install llvm
+
+      - name: Add llvm to PATH (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if [ -d "/opt/homebrew/opt/llvm/bin" ]; then
+            echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+          elif [ -d "/usr/local/opt/llvm/bin" ]; then
+            echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
+          fi
+
+      - name: Install LLVM (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install llvm --no-progress -y
+          "$env:ProgramFiles\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Run full tests
+        run: go test ./...
+
+      - name: Smoke (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          go run ./cmd/kodae check examples/hello.kodae
+          go run ./cmd/kodae build -o out-default examples/hello.kodae
+          go run ./cmd/kodae build --backend=c -o out-c examples/hello.kodae
+          go run ./cmd/kodae build --backend=llvm -o out-llvm examples/hello.kodae
+          go run ./cmd/kodae buildc examples/hello.kodae -o out-buildc.c
+          cat > mylib.kodae <<'EOF'
+          #mode "library"
+          #library "mylib"
+          fn add(a: int, b: int) -> int { return a + b }
+          EOF
+          go run ./cmd/kodae build --lib mylib.kodae
+          go run ./cmd/kodae run examples/hello.kodae
+          go run ./cmd/kodae cgen examples/features.kodae > /dev/null
+
+      - name: Smoke (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          go run ./cmd/kodae check examples/hello.kodae
+          go run ./cmd/kodae build -o out-default.exe examples/hello.kodae
+          go run ./cmd/kodae build --backend=c -o out-c.exe examples/hello.kodae
+          go run ./cmd/kodae build --backend=llvm -o out-llvm.exe examples/hello.kodae
+          go run ./cmd/kodae buildc examples/hello.kodae -o out-buildc.c
+          @'
+          #mode "library"
+          #library "mylib"
+          fn add(a: int, b: int) -> int { return a + b }
+          '@ | Set-Content -Path mylib.kodae -Encoding ascii
+          go run ./cmd/kodae build --lib mylib.kodae
+          go run ./cmd/kodae run examples/hello.kodae
+          go run ./cmd/kodae cgen examples/features.kodae | Out-Null

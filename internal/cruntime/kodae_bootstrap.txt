@@ -63,6 +63,8 @@ typedef struct {
 static inline kodae_str kodae_str_lit(const char *c);
 const char* kodae_str_to_cstr(kodae_str s);
 kodae_str kodae_str_concat(kodae_str a, kodae_str b);
+/* Single byte as kodae_str (len 1; may be NUL). Used by lexer / string building. */
+kodae_str kodae_str_from_byte(int64_t b);
 kodae_str kodae_int_to_str(int64_t v);
 kodae_str kodae_float_to_str(double v);
 kodae_str kodae_bool_to_str(bool v);
@@ -171,6 +173,18 @@ kodae_str kodae_str_concat(kodae_str a, kodae_str b) {
   if (b.len > 0) { memcpy(p + a.len, b.data, (size_t)b.len); }
   p[n] = 0;
   return (kodae_str){p, n};
+}
+
+kodae_str kodae_str_from_byte(int64_t b) {
+  unsigned char x = (unsigned char)(b & 0xFF);
+  char *p = (char *)malloc(2);
+  if (!p) {
+    fprintf(stderr, "kodae: oom in str from byte\n");
+    exit(1);
+  }
+  p[0] = (char)x;
+  p[1] = 0;
+  return (kodae_str){p, 1};
 }
 
 kodae_str kodae_int_to_str(int64_t v) {

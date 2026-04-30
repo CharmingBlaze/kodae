@@ -1,0 +1,29 @@
+' LLVM-C bindings for the bootstrapping compiler (hand-maintained; `kodae bind` only
+' picked up init helpers). Requires LLVM installed and linkable as "LLVM-C".
+' On MSYS2: pacman -S mingw-w64-x86_64-llvm and use # linkpath to the lib directory.
+# link "LLVM-C"
+
+extern fn LLVMInitializeNativeTarget() -> void
+extern fn LLVMInitializeNativeAsmPrinter() -> void
+
+extern fn LLVMContextCreate() -> ptr[byte]
+extern fn LLVMContextDispose(ctx: ptr[byte]) -> void
+
+extern fn LLVMModuleCreateWithNameInContext(name: ptr[byte], ctx: ptr[byte]) -> ptr[byte]
+extern fn LLVMDisposeModule(mod: ptr[byte]) -> void
+
+extern fn LLVMInt64TypeInContext(ctx: ptr[byte]) -> ptr[byte]
+extern fn LLVMConstInt(ty: ptr[byte], n: int, sign_ext: i32) -> ptr[byte]
+
+extern fn LLVMFunctionType(ret: ptr[byte], param_types: ptr[byte], param_count: u32, is_var_arg: i32) -> ptr[byte]
+extern fn LLVMAddFunction(mod: ptr[byte], name: ptr[byte], fn_ty: ptr[byte]) -> ptr[byte]
+
+extern fn LLVMCreateBuilderInContext(ctx: ptr[byte]) -> ptr[byte]
+extern fn LLVMDisposeBuilder(b: ptr[byte]) -> void
+
+extern fn LLVMAppendBasicBlockInContext(ctx: ptr[byte], fn_val: ptr[byte], name: ptr[byte]) -> ptr[byte]
+extern fn LLVMPositionBuilderAtEnd(b: ptr[byte], bb: ptr[byte]) -> void
+
+extern fn LLVMGetParam(fn_val: ptr[byte], idx: u32) -> ptr[byte]
+extern fn LLVMBuildAdd(b: ptr[byte], lhs: ptr[byte], rhs: ptr[byte], name: ptr[byte]) -> ptr[byte]
+extern fn LLVMBuildRet(b: ptr[byte], val: ptr[byte]) -> ptr[byte]

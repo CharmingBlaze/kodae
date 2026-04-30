@@ -1,0 +1,396 @@
+fn Parser.expect(t: TokenType) -> bool {
+    if (this.cur_token_is(t)) {
+        this.next_token()
+        return true
+    }
+    this.errors.push("expected token " + token_type_to_string(t) + " but got " + token_type_to_string(this.cur_token.kind))
+    return false
+}
+
+fn Parser.skip_newlines() {
+    loop {
+        if (this.cur_token_is(TokenType.Newline)) {
+            this.next_token()
+            continue
+        }
+        break
+    }
+}
+
+fn Parser.parse_block() -> int {
+    let t = this.cur_token
+    if (not this.expect(TokenType.LBrace)) { return -1 }
+    this.skip_newlines()
+    
+    let stmts: list[int] = []
+    
+    loop {
+        if (this.cur_token_is(TokenType.RBrace)) { break }
+        if (this.cur_token_is(TokenType.Eof)) {
+            this.errors.push("block: unclosed {")
+            break
+        }
+        if (this.cur_token_is(TokenType.Newline)) {
+            this.next_token()
+            continue
+        }
+        
+        let s = this.parse_stmt()
+        if (s != -1) {
+            stmts.push(s)
+        }
+        
+        if (len(this.errors) > 0) { break }
+    }
+    
+    if (not this.expect(TokenType.RBrace)) { return -1 }
+    
+    let node = new_ast_node(NodeKind.BlockStmt, t)
+    node.items = stmts
+    return this.add_node(node)
+}
+
+fn Parser.parse_stmt() -> int {
+    if (len(this.errors) > 0) { return -1 }
+    this.skip_newlines()
+    
+    let t = this.cur_token.kind
+    
+    if ((t == TokenType.Let) or (t == TokenType.Const)) {
+        return this.parse_local_let()
+    }
+    if (t == TokenType.If) {
+        return this.parse_if()
+    }
+    if (t == TokenType.While) {
+        return this.parse_while()
+    }
+    if (t == TokenType.For) {
+        return this.parse_for()
+    }
+    if (t == TokenType.Loop) {
+        return this.parse_loop()
+    }
+    if (t == TokenType.Return) {
+        return this.parse_return()
+    }
+    if (t == TokenType.Break) {
+        let node = new_ast_node(NodeKind.BreakStmt, this.cur_token)
+        this.next_token()
+        return this.add_node(node)
+    }
+    if (t == TokenType.Continue) {
+        let node = new_ast_node(NodeKind.ContinueStmt, this.cur_token)
+        this.next_token()
+        return this.add_node(node)
+    }
+    if (t == TokenType.Defer) {
+        let tok = this.cur_token
+        this.next_token()
+        let e = this.parse_expr()
+        if (e == -1) { return -1 }
+        let node = new_ast_node(NodeKind.DeferStmt, tok)
+        node.left = e
+        return this.add_node(node)
+    }
+    if (t == TokenType.Match) {
+        return this.parse_match()
+    }
+    if (t == TokenType.Repeat) {
+        return this.parse_repeat()
+    }
+    if (t == TokenType.LBrace) {
+        return this.parse_block()
+    }
+    
+    return this.parse_expr_or_assign_stmt()
+}
+
+fn Parser.parse_expr_list_as_one() -> int {
+    let e = this.parse_expr()
+    if ((len(this.errors) > 0) or (not this.cur_token_is(TokenType.Comma))) {
+        return e
+    }
+    let exprs: list[int] = []
+    exprs.push(e)
+    loop {
+        if (not this.cur_token_is(TokenType.Comma)) { break }
+        this.next_token()
+        this.skip_newlines()
+        exprs.push(this.parse_expr())
+    }
+    let node = new_ast_node(NodeKind.TupleExpr, this.cur_token)
+    node.items = exprs
+    return this.add_node(node)
+}
+
+fn Parser.parse_expr_or_assign_stmt() -> int {
+    let e = this.parse_expr_list_as_one()
+    if (len(this.errors) > 0) { return -1 }
+    
+    let t = this.cur_token.kind
+    if ((t == TokenType.Assign) or (t == TokenType.PlusEq) or (t == TokenType.MinusEq) or (t == TokenType.MulEq) or (t == TokenType.DivEq) or (t == TokenType.ModEq)) {
+        let op_tok = this.cur_token
+        this.next_token()
+        let right = this.parse_expr_list_as_one()
+        let node = new_ast_node(NodeKind.AssignStmt, op_tok)
+        node.op = tok_to_op(op_tok.kind)
+        node.left = e
+        node.right = right
+        return this.add_node(node)
+    }
+    
+    ' Check if e was a BinaryExpr with assignment op
+    if (e != -1) {
+        let e_node = this.nodes[e]
+        if (e_node.kind == NodeKind.BinaryExpr) {
+            if ((e_node.op == "=") or (e_node.op == "+=") or (e_node.op == "-=") or (e_node.op == "*=") or (e_node.op == "/=") or (e_node.op == "%=")) {
+                let node = new_ast_node(NodeKind.AssignStmt, e_node.token)
+                node.op = e_node.op
+                node.left = e_node.left
+                node.right = e_node.right
+                return this.add_node(node)
+            }
+        }
+    }
+    
+    let node = new_ast_node(NodeKind.ExprStmt, this.cur_token)
+    node.left = e
+    return this.add_node(node)
+}
+
+fn Parser.parse_local_let() -> int {
+    let tok = this.cur_token
+    let is_const = (tok.kind == TokenType.Const)
+    this.next_token()
+    
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("let/const: expected name")
+        return -1
+    }
+    
+    let names: list[str] = []
+    names.push(this.cur_token.literal)
+    this.next_token()
+    
+    while (this.cur_token_is(TokenType.Comma)) {
+        this.next_token()
+        if (not this.cur_token_is(TokenType.Ident)) {
+            this.errors.push("let/const: expected name after comma")
+            return -1
+        }
+        names.push(this.cur_token.literal)
+        this.next_token()
+    }
+    
+    let node = new_ast_node(NodeKind.LetStmt, tok)
+    node.bool_val = is_const
+    if (len(names) == 1) {
+        node.name = names[0]
+    } else {
+        node.name = names[0]
+        node.let_names = names
+    }
+    
+    let type_ref = -1
+    if (this.cur_token_is(TokenType.Colon)) {
+        this.next_token()
+        type_ref = this.parse_type_expr(false)
+    }
+    node.type_ref = type_ref
+    
+    if (this.cur_token_is(TokenType.Assign)) {
+        this.next_token()
+        node.left = this.parse_expr_list_as_one()
+    }
+    
+    return this.add_node(node)
+}
+
+fn Parser.parse_if() -> int {
+    let tok = this.cur_token
+    this.next_token()
+    
+    if (not this.expect(TokenType.LParen)) { return -1 }
+    let cond = this.parse_expr()
+    if (not this.expect(TokenType.RParen)) { return -1 }
+    
+    let thn = this.parse_block()
+    let els = -1
+    
+    if (this.cur_token_is(TokenType.Else)) {
+        this.next_token()
+        if (this.cur_token_is(TokenType.If)) {
+            els = this.parse_if()
+        } else {
+            els = this.parse_block()
+        }
+    }
+    
+    let node = new_ast_node(NodeKind.IfStmt, tok)
+    node.cond = cond
+    node.thn = thn
+    node.els = els
+    return this.add_node(node)
+}
+
+fn Parser.parse_while() -> int {
+    let tok = this.cur_token
+    this.next_token()
+    
+    if (not this.expect(TokenType.LParen)) { return -1 }
+    let cond = this.parse_expr()
+    if (not this.expect(TokenType.RParen)) { return -1 }
+    
+    let body = this.parse_block()
+    
+    let node = new_ast_node(NodeKind.WhileStmt, tok)
+    node.cond = cond
+    node.body = body
+    return this.add_node(node)
+}
+
+fn Parser.parse_loop() -> int {
+    let tok = this.cur_token
+    this.next_token()
+    
+    let body = this.parse_block()
+    
+    let node = new_ast_node(NodeKind.LoopStmt, tok)
+    node.body = body
+    return this.add_node(node)
+}
+
+fn Parser.parse_for() -> int {
+    let tok = this.cur_token
+    this.next_token()
+    
+    if (this.cur_token_is(TokenType.LParen)) {
+        this.next_token()
+        if (not this.cur_token_is(TokenType.Ident)) {
+            this.errors.push("for: expected var name")
+            return -1
+        }
+        let v = this.cur_token.literal
+        this.next_token()
+        
+        if (not this.expect(TokenType.In)) { return -1 }
+        
+        let in_expr = this.parse_expr()
+        if (not this.expect(TokenType.RParen)) { return -1 }
+        
+        this.skip_newlines()
+        let body = this.parse_block()
+        
+        let node = new_ast_node(NodeKind.ForInStmt, tok)
+        node.name = v
+        node.cond = in_expr
+        node.body = body
+        return this.add_node(node)
+    }
+    
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("for: need var name")
+        return -1
+    }
+    
+    let v = this.cur_token.literal
+    this.next_token()
+    
+    if (not this.expect(TokenType.In)) { return -1 }
+    let in_expr = this.parse_expr()
+    
+    this.skip_newlines()
+    let body = this.parse_block()
+    
+    let node = new_ast_node(NodeKind.ForInStmt, tok)
+    node.name = v
+    node.cond = in_expr
+    node.body = body
+    return this.add_node(node)
+}
+
+fn Parser.parse_return() -> int {
+    let tok = this.cur_token
+    this.next_token()
+    
+    if ((this.cur_token_is(TokenType.RBrace)) or (this.cur_token_is(TokenType.Newline))) {
+        if (this.cur_token_is(TokenType.Newline)) {
+            this.next_token()
+        }
+        let node = new_ast_node(NodeKind.ReturnStmt, tok)
+        node.left = -1
+        return this.add_node(node)
+    }
+    
+    let v = this.parse_expr_list_as_one()
+    let node = new_ast_node(NodeKind.ReturnStmt, tok)
+    node.left = v
+    return this.add_node(node)
+}
+
+fn Parser.parse_match() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Match)) {
+        return -1
+    }
+    if (not this.expect(TokenType.LParen)) {
+        return -1
+    }
+    let scrut = this.parse_expr()
+    if (not this.expect(TokenType.RParen)) {
+        return -1
+    }
+    if (not this.expect(TokenType.LBrace)) {
+        return -1
+    }
+    this.skip_newlines()
+    let arms: list[int] = []
+    while (not this.cur_token_is(TokenType.RBrace)) {
+        if (this.cur_token_is(TokenType.Eof)) {
+            this.errors.push("match: unclosed {")
+            break
+        }
+        if ((this.cur_token_is(TokenType.Newline)) or (this.cur_token_is(TokenType.Comma))) {
+            this.next_token()
+            continue
+        }
+        let pat = this.parse_expr()
+        if (not this.expect(TokenType.FatArrow)) {
+            this.errors.push("match arm: =>")
+            break
+        }
+        this.skip_newlines()
+        let body = this.parse_block()
+        let arm = new_ast_node(NodeKind.MatchArm, this.cur_token)
+        arm.left = pat
+        arm.body = body
+        arms.push(this.add_node(arm))
+    }
+    if (not this.expect(TokenType.RBrace)) {
+        return -1
+    }
+    let node = new_ast_node(NodeKind.MatchStmt, tok)
+    node.cond = scrut
+    node.items = arms
+    return this.add_node(node)
+}
+
+fn Parser.parse_repeat() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Repeat)) {
+        return -1
+    }
+    if (not this.expect(TokenType.LParen)) {
+        return -1
+    }
+    let cnt = this.parse_expr()
+    if (not this.expect(TokenType.RParen)) {
+        return -1
+    }
+    let body = this.parse_block()
+    let node = new_ast_node(NodeKind.RepeatStmt, tok)
+    node.cond = cnt
+    node.body = body
+    return this.add_node(node)
+}

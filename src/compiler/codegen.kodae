@@ -1,0 +1,954 @@
+#include "ast"
+#include "check"
+
+struct Codegen {
+    nodes: list[AstNode]
+    chk: Checker
+    tmp: int
+    globals: list[str]
+    fn_defers: list[str]
+}
+
+fn new_codegen(nodes: list[AstNode], chk: Checker) -> Codegen {
+    let gs: list[str] = []
+    let ds: list[str] = []
+    return Codegen { nodes: nodes, chk: chk, tmp: 0, globals: gs, fn_defers: ds }
+}
+
+fn Codegen.fresh_tmp() -> str {
+    let n = this.tmp
+    this.tmp = this.tmp + 1
+    return "_k" + str(n)
+}
+
+fn Codegen.reset_fn_defers() {
+    let ds: list[str] = []
+    this.fn_defers = ds
+}
+
+fn Codegen.push_fn_defer(expr_c: str) {
+    this.fn_defers.push(expr_c)
+}
+
+fn Codegen.emit_fn_defers_reverse() -> str {
+    let s = ""
+    let i = len(this.fn_defers) - 1
+    while (i >= 0) {
+        s = s + this.fn_defers[i] + ";\n"
+        i = i - 1
+    }
+    return s
+}
+
+fn cident(s: str) -> str {
+    if (s == "if") { return "u_if" }
+    if (s == "else") { return "u_else" }
+    if (s == "for") { return "u_for" }
+    if (s == "while") { return "u_while" }
+    if (s == "return") { return "u_return" }
+    if (s == "int") { return "u_int" }
+    if (s == "void") { return "u_void" }
+    if (s == "static") { return "u_static" }
+    if (s == "const") { return "u_const" }
+    if (s == "char") { return "u_char" }
+    if (s == "long") { return "u_long" }
+    if (s == "break") { return "u_break" }
+    if (s == "case") { return "u_case" }
+    if (s == "default") { return "u_default" }
+    if (s == "do") { return "u_do" }
+    if (s == "struct") { return "u_struct" }
+    if (s == "switch") { return "u_switch" }
+    if (s == "double") { return "u_double" }
+    if (s == "float") { return "u_float" }
+    if (s == "short") { return "u_short" }
+    if (s == "sizeof") { return "u_sizeof" }
+    if (s == "goto") { return "u_goto" }
+    if (s == "continue") { return "u_continue" }
+    if (s == "enum") { return "u_enum" }
+    if (s == "union") { return "u_union" }
+    if (s == "extern") { return "u_extern" }
+    if (s == "inline") { return "u_inline" }
+    if (s == "restrict") { return "u_restrict" }
+    if (s == "typeof") { return "u_typeof" }
+    if (s == "and") { return "u_and" }
+    if (s == "or") { return "u_or" }
+    if (s == "not") { return "u_not" }
+    if (s == "print") { return "u_print" }
+    if (s == "str") { return "u_str" }
+    if (s == "bool") { return "u_bool" }
+    if (s == "min") { return "u_min" }
+    if (s == "max") { return "u_max" }
+    if (s == "abs") { return "u_abs" }
+    if (s == "input") { return "u_input" }
+    if (s == "random") { return "u_random" }
+    if (s == "clear_screen") { return "u_clear_screen" }
+    if (s == "main") { return "u_main" }
+    if (s == "printf") { return "u_printf" }
+    if (s == "malloc") { return "u_malloc" }
+    if (s == "free") { return "u_free" }
+    if (s == "memcpy") { return "u_memcpy" }
+    if (s == "memset") { return "u_memset" }
+    if (s == "strlen") { return "u_strlen" }
+    if (s == "true") { return "u_true" }
+    if (s == "false") { return "u_false" }
+    return s
+}
+
+fn c_type(k: str) -> str {
+    if (k == "int") { return "int64_t" }
+    if (k == "float") { return "double" }
+    if (k == "bool") { return "bool" }
+    if (k == "str") { return "kodae_str" }
+    if (k == "void") { return "void" }
+    if (k == "none") { return "int64_t" }
+    if ((k.len() >= 5) and (k.slice(0, 5) == "list[")) {
+        return "kodae_list"
+    }
+    if (k.len() > 0) {
+        return k
+    }
+    return "int64_t"
+}
+
+fn c_escape(s: str) -> str {
+    let o = ""
+    let i = 0
+    while (i < s.len()) {
+        let c = s.slice(i, i + 1)
+        if (c == "\\") {
+            o = o + "\\\\"
+        } else {
+            if (c == "\"") {
+                o = o + "\\\""
+            } else {
+                if (c == "\n") {
+                    o = o + "\\n"
+                } else {
+                    if (c == "\r") {
+                        o = o + "\\r"
+                    } else {
+                        if (c == "\t") {
+                            o = o + "\\t"
+                        } else {
+                            o = o + c
+                        }
+                    }
+                }
+            }
+        }
+        i = i + 1
+    }
+    return o
+}
+
+fn Codegen.emit_string_lit(val: str) -> str {
+    return "kodae_str_from(\"" + c_escape(val) + "\")"
+}
+
+fn Codegen.list_elem_size(inner: str) -> str {
+    if (inner == "int") {
+        return "sizeof(int64_t)"
+    }
+    if (inner == "str") {
+        return "sizeof(kodae_str)"
+    }
+    if (inner == "bool") {
+        return "sizeof(bool)"
+    }
+    if (inner == "float") {
+        return "sizeof(double)"
+    }
+    let ct = c_type(inner)
+    return "sizeof(" + ct + ")"
+}
+
+fn Codegen.list_inner_type(list_ty: str) -> str {
+    if ((list_ty.len() > 6) and (list_ty.slice(0, 5) == "list[")) {
+        if (list_ty.slice(list_ty.len() - 1, list_ty.len()) == "]") {
+            return list_ty.slice(5, list_ty.len() - 1)
+        }
+    }
+    return "int"
+}
+
+fn Codegen.list_inner_c_type(list_ty: str) -> str {
+    let inner = this.list_inner_type(list_ty)
+    if (inner == "int") {
+        return "int64_t"
+    }
+    if (inner == "float") {
+        return "double"
+    }
+    if (inner == "bool") {
+        return "bool"
+    }
+    if (inner == "str") {
+        return "kodae_str"
+    }
+    return c_type(inner)
+}
+
+fn Codegen.emit_type_node(idx: int) -> str {
+    if ((idx < 0) or (idx >= len(this.nodes))) {
+        return "void"
+    }
+    let tn = this.chk.type_name_from_type_node(idx)
+    if (this.chk.declares_enum(tn)) {
+        return "E_" + tn
+    }
+    return c_type(tn)
+}
+
+fn Codegen.has_global(name: str) -> bool {
+    let i = 0
+    while (i < len(this.globals)) {
+        if (this.globals[i] == name) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+fn Codegen.declared_name_type(name: str) -> str {
+    let i = 0
+    while (i < len(this.nodes)) {
+        let n = this.nodes[i]
+        if ((n.kind == NodeKind.LetStmt) or (n.kind == NodeKind.LetDecl)) {
+            if ((n.name == name) and (n.type_ref >= 0)) {
+                return this.chk.type_name_from_type_node(n.type_ref)
+            }
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+fn Codegen.emit_expr(idx: int) -> str {
+    if ((idx < 0) or (idx >= len(this.nodes))) {
+        return "0"
+    }
+    let n = this.nodes[idx]
+    if (n.kind == NodeKind.IntLit) {
+        return "(" + n.str_val + ")"
+    }
+    if (n.kind == NodeKind.FloatLit) {
+        return "(" + n.str_val + ")"
+    }
+    if (n.kind == NodeKind.BoolLit) {
+        if (n.bool_val) {
+            return "true"
+        }
+        return "false"
+    }
+    if (n.kind == NodeKind.StringLit) {
+        return this.emit_string_lit(n.str_val)
+    }
+    if (n.kind == NodeKind.NoneExpr) {
+        return "0"
+    }
+    if (n.kind == NodeKind.IdentExpr) {
+        if (n.name == "this") {
+            return "self"
+        }
+        if (this.has_global(n.name)) {
+            return "g_" + cident(n.name)
+        }
+        return cident(n.name)
+    }
+    if (n.kind == NodeKind.ParenExpr) {
+        return "(" + this.emit_expr(n.left) + ")"
+    }
+    if (n.kind == NodeKind.UnaryExpr) {
+        let inner = this.emit_expr(n.left)
+        if (n.op == "!") {
+            return "(!(" + inner + "))"
+        }
+        if (n.op == "-") {
+            return "(-(" + inner + "))"
+        }
+        if (n.op == "+") {
+            return "(+(" + inner + "))"
+        }
+        if (n.op == "~") {
+            return "(~(" + inner + "))"
+        }
+        return inner
+    }
+    if (n.kind == NodeKind.BinaryExpr) {
+        let a = this.emit_expr(n.left)
+        let b = this.emit_expr(n.right)
+        let lt = this.chk.check_expr(n.left)
+        let rt = this.chk.check_expr(n.right)
+        if (n.op == "+") {
+            if ((lt == "str") and (rt == "str")) {
+                return "kodae_str_concat(" + a + ", " + b + ")"
+            }
+        }
+        return "(" + a + " " + n.op + " " + b + ")"
+    }
+    if (n.kind == NodeKind.MemberExpr) {
+        let l = this.nodes[n.left]
+        if (l.kind == NodeKind.IdentExpr) {
+            if (this.chk.declares_enum(l.name)) {
+                return "E_" + l.name + "__" + n.name
+            }
+        }
+        if ((l.kind == NodeKind.IdentExpr) and (l.name == "this")) {
+            return "(self->u_" + cident(n.name) + ")"
+        }
+        let base = this.emit_expr(n.left)
+        let bt = this.chk.check_expr(n.left)
+        if ((bt == "str") and (n.name == "len")) {
+            return "((" + base + ").len)"
+        }
+        if ((bt.len() >= 5) and (bt.slice(0, 5) == "list[") and (n.name == "len")) {
+            return "kodae_list_len(&(" + base + "))"
+        }
+        if (this.chk.declares_struct(bt)) {
+            return "((" + base + ").u_" + cident(n.name) + ")"
+        }
+        return "((" + base + ")." + n.name + ")"
+    }
+    if (n.kind == NodeKind.IndexExpr) {
+        let arr = this.emit_expr(n.left)
+        let ix = this.emit_expr(n.right)
+        let bt = this.chk.check_expr(n.left)
+        if (bt == "unknown") {
+            let ln = this.nodes[n.left]
+            if (ln.kind == NodeKind.IdentExpr) {
+                bt = this.declared_name_type(ln.name)
+            }
+        }
+        let inner = this.list_inner_type(bt)
+        if (inner == "int") {
+            return "(*(int64_t*)kodae_list_at_ptr(&(" + arr + "), " + ix + "))"
+        }
+        if (inner == "str") {
+            return "(*(kodae_str*)kodae_list_at_ptr(&(" + arr + "), " + ix + "))"
+        }
+        if (inner == "bool") {
+            return "(*(bool*)kodae_list_at_ptr(&(" + arr + "), " + ix + "))"
+        }
+        if (inner == "float") {
+            return "(*(double*)kodae_list_at_ptr(&(" + arr + "), " + ix + "))"
+        }
+        let ct = c_type(inner)
+        return "(*(" + ct + "*)kodae_list_at_ptr(&(" + arr + "), " + ix + "))"
+    }
+    if (n.kind == NodeKind.ListLit) {
+        let inner = "int"
+        if (len(n.items) > 0) {
+            inner = this.chk.check_expr(n.items[0])
+        }
+        let esz = this.list_elem_size(inner)
+        let acc = "({ kodae_list _lit = kodae_list_new(" + esz + "); "
+        let i = 0
+        while (i < len(n.items)) {
+            let tmp = "tmp_lit_" + str(i)
+            if (inner == "int") {
+                acc = acc + "int64_t " + tmp + " = " + this.emit_expr(n.items[i]) + "; "
+            } else {
+                if (inner == "str") {
+                    acc = acc + "kodae_str " + tmp + " = " + this.emit_expr(n.items[i]) + "; "
+                } else {
+                    if (inner == "bool") {
+                        acc = acc + "bool " + tmp + " = " + this.emit_expr(n.items[i]) + "; "
+                    } else {
+                        if (inner == "float") {
+                            acc = acc + "double " + tmp + " = " + this.emit_expr(n.items[i]) + "; "
+                        } else {
+                            acc = acc + "int64_t " + tmp + " = " + this.emit_expr(n.items[i]) + "; "
+                        }
+                    }
+                }
+            }
+            acc = acc + "kodae_list_push(&_lit, &" + tmp + "); "
+            i = i + 1
+        }
+        acc = acc + "_lit; })"
+        return acc
+    }
+    if (n.kind == NodeKind.StructLit) {
+        let leftn = this.nodes[n.left]
+        let tname = "unknown"
+        if (leftn.kind == NodeKind.IdentExpr) {
+            tname = leftn.name
+        }
+        let acc = "((" + tname + "){ "
+        let i = 0
+        while (i < len(n.items)) {
+            let fi = n.items[i]
+            if ((fi >= 0) and (fi < len(this.nodes))) {
+                let f = this.nodes[fi]
+                if (f.kind == NodeKind.StructFieldInit) {
+                    if (i > 0) {
+                        acc = acc + ", "
+                    }
+                    if (this.chk.declares_struct(tname)) {
+                        acc = acc + ".u_" + cident(f.name) + " = " + this.emit_expr(f.left)
+                    } else {
+                        acc = acc + "." + f.name + " = " + this.emit_expr(f.left)
+                    }
+                }
+            }
+            i = i + 1
+        }
+        acc = acc + " })"
+        return acc
+    }
+    if (n.kind == NodeKind.CallExpr) {
+        return this.emit_call(idx)
+    }
+    if (n.kind == NodeKind.PostfixExpr) {
+        let inner = this.emit_expr(n.left)
+        if (n.op == "++") {
+            return "(" + inner + "++)"
+        }
+        if (n.op == "--") {
+            return "(" + inner + "--)"
+        }
+        return inner
+    }
+    return "0"
+}
+
+fn Codegen.emit_call(idx: int) -> str {
+    let n = this.nodes[idx]
+    let callee = this.nodes[n.left]
+    if (callee.kind == NodeKind.IdentExpr) {
+        if (callee.name == "print") {
+            if (len(n.items) == 1) {
+                let e = this.emit_expr(n.items[0])
+                let t = this.chk.check_expr(n.items[0])
+                if (t == "int") {
+                    return "(kodae_print_int(" + e + "), (void)0)"
+                }
+                if (t == "float") {
+                    return "(kodae_print_float(" + e + "), (void)0)"
+                }
+                if (t == "bool") {
+                    return "(kodae_print_bool(" + e + "), (void)0)"
+                }
+                if (t == "str") {
+                    return "(kodae_print_str(" + e + "), (void)0)"
+                }
+                return "(kodae_print_str(" + e + "), (void)0)"
+            }
+        }
+        if (callee.name == "str") {
+            if (len(n.items) == 1) {
+                let t = this.chk.check_expr(n.items[0])
+                let e = this.emit_expr(n.items[0])
+                if (t == "int") {
+                    return "kodae_int_to_str(" + e + ")"
+                }
+                if (t == "float") {
+                    return "kodae_float_to_str(" + e + ")"
+                }
+                if (t == "bool") {
+                    return "kodae_bool_to_str(" + e + ")"
+                }
+                if (t == "str") {
+                    return e
+                }
+                return "kodae_int_to_str((int64_t)(" + e + "))"
+            }
+        }
+        if (callee.name == "int") {
+            if (len(n.items) == 1) {
+                return "(int64_t)(" + this.emit_expr(n.items[0]) + ")"
+            }
+        }
+        if (callee.name == "float") {
+            if (len(n.items) == 1) {
+                return "(double)(" + this.emit_expr(n.items[0]) + ")"
+            }
+        }
+        if (callee.name == "bool") {
+            if (len(n.items) == 1) {
+                return "(bool)(" + this.emit_expr(n.items[0]) + ")"
+            }
+        }
+        if (callee.name == "len") {
+            if (len(n.items) == 1) {
+                let e = this.emit_expr(n.items[0])
+                let t = this.chk.check_expr(n.items[0])
+                if (t == "str") {
+                    return "(" + e + ").len"
+                }
+                if ((t.len() >= 5) and (t.slice(0, 5) == "list[")) {
+                    return "kodae_list_len(&(" + e + "))"
+                }
+                return "kodae_list_len(&(" + e + "))"
+            }
+        }
+        let args = ""
+        let i = 0
+        while (i < len(n.items)) {
+            if (i > 0) {
+                args = args + ", "
+            }
+            args = args + this.emit_expr(n.items[i])
+            i = i + 1
+        }
+        return cident(callee.name) + "(" + args + ")"
+    }
+    if (callee.kind == NodeKind.MemberExpr) {
+        if (callee.name == "push") {
+            let base_ty = this.chk.check_expr(callee.left)
+            if (base_ty == "unknown") {
+                let ln = this.nodes[callee.left]
+                if (ln.kind == NodeKind.IdentExpr) {
+                    base_ty = this.declared_name_type(ln.name)
+                }
+            }
+            let inner = this.list_inner_type(base_ty)
+            let inner_ct = c_type(inner)
+            let arr = this.emit_expr(callee.left)
+            if (len(n.items) == 1) {
+                let v = this.emit_expr(n.items[0])
+                if (inner == "int") {
+                    return "({ int64_t _pv = " + v + "; kodae_list_push(&(" + arr + "), &_pv); (void)0; })"
+                }
+                if (inner == "str") {
+                    return "({ kodae_str _pv = " + v + "; kodae_list_push(&(" + arr + "), &_pv); (void)0; })"
+                }
+                if (inner == "bool") {
+                    return "({ bool _pv = " + v + "; kodae_list_push(&(" + arr + "), &_pv); (void)0; })"
+                }
+                if (inner == "float") {
+                    return "({ double _pv = " + v + "; kodae_list_push(&(" + arr + "), &_pv); (void)0; })"
+                }
+                return "({ " + inner_ct + " _pv = " + v + "; kodae_list_push(&(" + arr + "), &_pv); (void)0; })"
+            }
+        }
+        if (callee.name == "pop") {
+            let arr = this.emit_expr(callee.left)
+            return "kodae_list_pop(&(" + arr + "))"
+        }
+        if (callee.name == "append") {
+            let arr = this.emit_expr(callee.left)
+            if (len(n.items) == 1) {
+                return "kodae_list_append(&(" + arr + "), &(" + this.emit_expr(n.items[0]) + "))"
+            }
+        }
+        if (callee.name == "remove") {
+            let arr = this.emit_expr(callee.left)
+            if (len(n.items) == 1) {
+                return "kodae_list_remove(&(" + arr + "), " + this.emit_expr(n.items[0]) + ")"
+            }
+        }
+        let rt = this.chk.check_expr(callee.left)
+        if ((rt != "") and (rt != "unknown")) {
+            let mangled = rt + "_" + callee.name
+            let args = this.emit_expr(callee.left)
+            let i = 0
+            while (i < len(n.items)) {
+                args = args + ", " + this.emit_expr(n.items[i])
+                i = i + 1
+            }
+            return mangled + "(" + args + ")"
+        }
+        return "(void)0"
+    }
+    return "0"
+}
+
+fn Codegen.emit_lvalue(idx: int) -> str {
+    if ((idx < 0) or (idx >= len(this.nodes))) {
+        return "_bad_lv"
+    }
+    let n = this.nodes[idx]
+    if (n.kind == NodeKind.IdentExpr) {
+        if (n.name == "this") {
+            return "self"
+        }
+        return cident(n.name)
+    }
+    if (n.kind == NodeKind.MemberExpr) {
+        return this.emit_expr(idx)
+    }
+    if (n.kind == NodeKind.IndexExpr) {
+        return this.emit_expr(idx)
+    }
+    return this.emit_expr(idx)
+}
+
+fn Codegen.let_decl_type(stmt_idx: int) -> str {
+    let n = this.nodes[stmt_idx]
+    let ty = ""
+    if (n.type_ref >= 0) {
+        ty = this.chk.type_name_from_type_node(n.type_ref)
+    } else {
+        if (n.left >= 0) {
+            ty = this.chk.check_expr(n.left)
+            if ((ty == "unknown") and (n.left >= 0)) {
+                let e = this.nodes[n.left]
+                if (e.kind == NodeKind.CallExpr) {
+                    let cal = this.nodes[e.left]
+                    if (cal.kind == NodeKind.MemberExpr) {
+                        if ((cal.name == "pop") or (cal.name == "remove")) {
+                            let bt = this.chk.check_expr(cal.left)
+                            ty = this.list_inner_type(bt)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (this.chk.declares_enum(ty)) {
+        return "E_" + ty
+    }
+    return c_type(ty)
+}
+
+fn Codegen.emit_stmt(idx: int) -> str {
+    if ((idx < 0) or (idx >= len(this.nodes))) {
+        return ""
+    }
+    let n = this.nodes[idx]
+    if (n.kind == NodeKind.BlockStmt) {
+        let s = "{\n"
+        let i = 0
+        while (i < len(n.items)) {
+            s = s + this.emit_stmt(n.items[i])
+            i = i + 1
+        }
+        s = s + "}\n"
+        return s
+    }
+    if (n.kind == NodeKind.LetStmt) {
+        let ct = this.let_decl_type(idx)
+        if (len(n.let_names) > 1) {
+            return "/* multi-let skipped */\n"
+        }
+        let rhs = ""
+        if (n.left >= 0) {
+            let e = this.nodes[n.left]
+            if ((e.kind == NodeKind.ListLit) and (len(e.items) == 0) and (n.type_ref >= 0)) {
+                let dty = this.chk.type_name_from_type_node(n.type_ref)
+                let inner = this.list_inner_type(dty)
+                rhs = "kodae_list_new(" + this.list_elem_size(inner) + ")"
+            } else {
+                rhs = this.emit_expr(n.left)
+            }
+        }
+        return ct + " " + cident(n.name) + " = " + rhs + ";\n"
+    }
+    if (n.kind == NodeKind.ExprStmt) {
+        return this.emit_expr(n.left) + ";\n"
+    }
+    if (n.kind == NodeKind.AssignStmt) {
+        return this.emit_lvalue(n.left) + " " + n.op + " " + this.emit_expr(n.right) + ";\n"
+    }
+    if (n.kind == NodeKind.ReturnStmt) {
+        let ds = this.emit_fn_defers_reverse()
+        if (n.left < 0) {
+            return ds + "return;\n"
+        }
+        return ds + "return " + this.emit_expr(n.left) + ";\n"
+    }
+    if (n.kind == NodeKind.IfStmt) {
+        let s = "if (" + this.emit_expr(n.cond) + ") " + this.emit_stmt(n.thn)
+        if (n.els >= 0) {
+            s = s + " else " + this.emit_stmt(n.els)
+        }
+        return s
+    }
+    if (n.kind == NodeKind.WhileStmt) {
+        return "while (" + this.emit_expr(n.cond) + ") " + this.emit_stmt(n.body)
+    }
+    if (n.kind == NodeKind.LoopStmt) {
+        return "while (1) " + this.emit_stmt(n.body)
+    }
+    if (n.kind == NodeKind.RepeatStmt) {
+        let t = this.fresh_tmp()
+        return "for (int64_t " + t + " = 0; " + t + " < (" + this.emit_expr(n.cond) + "); " + t + "++) " + this.emit_stmt(n.body)
+    }
+    if (n.kind == NodeKind.BreakStmt) {
+        return "break;\n"
+    }
+    if (n.kind == NodeKind.ContinueStmt) {
+        return "continue;\n"
+    }
+    if (n.kind == NodeKind.DeferStmt) {
+        if (n.left >= 0) {
+            this.push_fn_defer(this.emit_expr(n.left))
+        }
+        return ""
+    }
+    if (n.kind == NodeKind.ForInStmt) {
+        let it = cident(n.name)
+        let src = this.nodes[n.cond]
+        if ((src.kind == NodeKind.BinaryExpr) and (src.op == "..")) {
+            let lo = this.emit_expr(src.left)
+            let hi = this.emit_expr(src.right)
+            return "for (int64_t " + it + " = (" + lo + "); " + it + " < (" + hi + "); " + it + "++) " + this.emit_stmt(n.body)
+        }
+        let arr = this.emit_expr(n.cond)
+        let lty = this.chk.check_expr(n.cond)
+        let elem_ct = this.list_inner_c_type(lty)
+        let ii = this.fresh_tmp()
+        let s = "for (int64_t " + ii + " = 0; " + ii + " < kodae_list_len(&(" + arr + ")); " + ii + "++) {\n"
+        s = s + elem_ct + " " + it + " = *(" + elem_ct + "*)kodae_list_at_ptr(&(" + arr + "), " + ii + ");\n"
+        s = s + this.emit_stmt(n.body)
+        s = s + "}\n"
+        return s
+    }
+    if (n.kind == NodeKind.MatchStmt) {
+        let scr = this.emit_expr(n.cond)
+        let s = "switch ((int64_t)(" + scr + ")) {\n"
+        let ai = 0
+        while (ai < len(n.items)) {
+            let arm = this.nodes[n.items[ai]]
+            if (arm.kind == NodeKind.MatchArm) {
+                s = s + "case " + this.emit_expr(arm.left) + ":\n"
+                if (arm.body >= 0) {
+                    s = s + this.emit_stmt(arm.body)
+                }
+                s = s + "break;\n"
+            }
+            ai = ai + 1
+        }
+        s = s + "default: break;\n}\n"
+        return s
+    }
+    return "/* stmt */\n"
+}
+
+fn Codegen.emit_enum(didx: int) -> str {
+    let d = this.nodes[didx]
+    let s = ""
+    let i = 0
+    while (i < len(d.items)) {
+        let v = this.nodes[d.items[i]]
+        s = s + "#define E_" + d.name + "__" + v.name + " " + str(i) + "\n"
+        i = i + 1
+    }
+    s = s + "typedef int64_t E_" + d.name + ";\n\n"
+    return s
+}
+
+fn Codegen.emit_struct(didx: int) -> str {
+    let d = this.nodes[didx]
+    let s = "typedef struct " + d.name + " {\n"
+    let i = 0
+    while (i < len(d.items)) {
+        let f = this.nodes[d.items[i]]
+        if (f.kind == NodeKind.StructField) {
+            s = s + "  " + this.emit_type_node(f.type_ref) + " u_" + cident(f.name) + ";\n"
+        }
+        i = i + 1
+    }
+    s = s + "} " + d.name + ";\n\n"
+    return s
+}
+
+fn Codegen.emit_extern(didx: int) -> str {
+    let d = this.nodes[didx]
+    let rt = "void"
+    if (d.type_ref >= 0) {
+        rt = this.emit_type_node(d.type_ref)
+    }
+    let s = rt + " " + d.name + "("
+    let i = 0
+    while (i < len(d.items)) {
+        if (i > 0) {
+            s = s + ", "
+        }
+        let p = this.nodes[d.items[i]]
+        if (p.kind == NodeKind.Param) {
+            if (p.bool_val) {
+                s = s + "..."
+            } else {
+                s = s + this.emit_type_node(p.type_ref) + " " + cident(p.name)
+            }
+        }
+        i = i + 1
+    }
+    s = s + ");\n"
+    return s
+}
+
+fn Codegen.emit_param(pidx: int) -> str {
+    let p = this.nodes[pidx]
+    if (p.kind != NodeKind.Param) {
+        return ""
+    }
+    let ty = this.emit_type_node(p.type_ref)
+    if (p.name == "self") {
+        return ty + "* " + cident(p.name)
+    }
+    return ty + " " + cident(p.name)
+}
+
+fn Codegen.emit_fn(didx: int) -> str {
+    let d = this.nodes[didx]
+    this.reset_fn_defers()
+    let rt = "void"
+    if (d.type_ref >= 0) {
+        rt = this.emit_type_node(d.type_ref)
+    }
+    let s = rt + " " + cident(d.name) + "("
+    let i = 0
+    while (i < len(d.items)) {
+        if (i > 0) {
+            s = s + ", "
+        }
+        let p = this.nodes[d.items[i]]
+        if (p.kind == NodeKind.Param) {
+            s = s + this.emit_param(d.items[i])
+        }
+        i = i + 1
+    }
+    s = s + ") "
+    if (d.body >= 0) {
+        let b = this.nodes[d.body]
+        if (b.kind == NodeKind.BlockStmt) {
+            s = s + "{\n"
+            let i = 0
+            while (i < len(b.items)) {
+                s = s + this.emit_stmt(b.items[i])
+                i = i + 1
+            }
+            s = s + this.emit_fn_defers_reverse()
+            if (rt == "void") {
+                s = s + "return;\n"
+            }
+            s = s + "}\n"
+        } else {
+            s = s + this.emit_stmt(d.body)
+        }
+    } else {
+        s = s + "{}\n"
+    }
+    return s
+}
+
+fn Codegen.emit_top_let(didx: int) -> str {
+    let d = this.nodes[didx]
+    let ty_name = ""
+    if (d.type_ref >= 0) {
+        ty_name = this.chk.type_name_from_type_node(d.type_ref)
+    } else {
+        ty_name = this.chk.check_expr(d.left)
+    }
+    let ct = c_type(ty_name)
+    let rhs = this.emit_expr(d.left)
+    return "static " + ct + " g_" + cident(d.name) + " = " + rhs + ";\n"
+}
+
+fn Codegen.emit_program(prog_idx: int) -> str {
+    let out = "/* kodae-compiler (in-tree) — C fragment; compile with the same runtime as `kodae build` (single TU). */\n\n"
+    out = out + "#include <stdbool.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <string.h>\n\n"
+    if ((prog_idx < 0) or (prog_idx >= len(this.nodes))) {
+        return out
+    }
+    let root = this.nodes[prog_idx]
+    let gi = 0
+    while (gi < len(root.items)) {
+        let di = root.items[gi]
+        if ((di >= 0) and (di < len(this.nodes))) {
+            let d = this.nodes[di]
+            if (d.kind == NodeKind.LetDecl) {
+                this.globals.push(d.name)
+            }
+        }
+        gi = gi + 1
+    }
+    let i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di >= 0) and (di < len(this.nodes))) {
+            let d = this.nodes[di]
+            if (d.kind == NodeKind.EnumDecl) {
+                out = out + this.emit_enum(di)
+            }
+        }
+        i = i + 1
+    }
+    i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di >= 0) and (di < len(this.nodes))) {
+            let d = this.nodes[di]
+            if (d.kind == NodeKind.StructDecl) {
+                out = out + this.emit_struct(di)
+            }
+        }
+        i = i + 1
+    }
+    i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di >= 0) and (di < len(this.nodes))) {
+            let d = this.nodes[di]
+            if (d.kind == NodeKind.ExternDecl) {
+                out = out + this.emit_extern(di)
+            }
+        }
+        i = i + 1
+    }
+    out = out + "\n"
+    i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di >= 0) and (di < len(this.nodes))) {
+            let d = this.nodes[di]
+            if (d.kind == NodeKind.LetDecl) {
+                out = out + this.emit_top_let(di)
+            }
+        }
+        i = i + 1
+    }
+    out = out + "\n"
+    i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di >= 0) and (di < len(this.nodes))) {
+            let d = this.nodes[di]
+            if (d.kind == NodeKind.FnDecl) {
+                if (d.name != "main") {
+                    out = out + this.emit_fn(di)
+                }
+            }
+        }
+        i = i + 1
+    }
+    i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di >= 0) and (di < len(this.nodes))) {
+            let d = this.nodes[di]
+            if (d.kind == NodeKind.FnDecl) {
+                if (d.name == "main") {
+                    this.reset_fn_defers()
+                    out = out + "int main(int argc, char** argv) {\n"
+                    out = out + "kodae_console_utf8_init();\n"
+                    out = out + "kodae_argc = argc;\n"
+                    out = out + "kodae_argv = argv;\n"
+                    if (d.body >= 0) {
+                        let body = this.nodes[d.body]
+                        if (body.kind == NodeKind.BlockStmt) {
+                            let j = 0
+                            while (j < len(body.items)) {
+                                out = out + this.emit_stmt(body.items[j])
+                                j = j + 1
+                            }
+                        }
+                    }
+                    out = out + this.emit_fn_defers_reverse()
+                    out = out + "return 0;\n}\n"
+                }
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+' Backwards-compatible helper used by early smoke tests.
+fn codegen_int_literal_bits(str_digits: str) -> str {
+    return "i64 " + str_digits
+}

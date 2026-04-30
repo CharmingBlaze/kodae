@@ -25,7 +25,7 @@ Open your terminal in that folder and run your first program:
 ./bin/kodae run examples/hello.kodae
 ```
 
-**Note:** You do **not** need to install any C toolchain or other dependencies. Everything required is included in the bundle.
+**Note:** Release bundles can include **`toolchain/tcc`** so the compatibility **C backend** (`--backend=c`) works with no system compiler. The default backend is **LLVM** for `kodae build` / `kodae run`, which requires **clang** on `PATH`. Use **`kodae build --backend=c`** to force the C path; library mode (`--lib` or `#mode \"library\"`) auto-selects C backend when `--backend` is omitted. Use **`kodae build --release`** to skip sidecar TCC and prefer system toolchains. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
 
 ## Learning Kodae
 
@@ -37,11 +37,12 @@ Open your terminal in that folder and run your first program:
 | [docs/DIRECTIVES.md](docs/DIRECTIVES.md) | **Modules** — how to use `#include` and libraries. |
 | [docs/C_LIBRARIES.md](docs/C_LIBRARIES.md) | **C Interop** — calling C functions (like Raylib) from Kodae. |
 | [SUPPORTED.md](SUPPORTED.md) | **Implementation status** — what the compiler supports today. |
+| [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) | **Cross-platform reliability** — matrix and CI checks for Windows/Linux/macOS. |
 | [docs/README.md](docs/README.md) | **Documentation index** — all guides in one table. |
 
 ## Why Kodae?
 
-- **Zero Setup**: Download, extract, and start coding immediately.
+- **Small footprint**: Download and extract; add a system C compiler (or use the experimental LLVM IR path).
 - **Lightning Fast**: Compiles directly to optimized C code.
 - **Simple Syntax**: A modern, readable syntax that stays out of your way.
 - **Truly Portable**: Works exactly the same on Windows, Linux, and Mac.

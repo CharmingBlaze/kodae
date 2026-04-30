@@ -1,4 +1,4 @@
-// Package ccdriver picks a C driver (clang/llvm, gcc, or zig cc) for linking generated C.
+// Package ccdriver picks a C driver (clang/llvm, gcc, cc, sidecar TCC, or zig) for linking generated C.
 package ccdriver
 
 import (
@@ -8,30 +8,42 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"kodae/internal/tccbundle"
 )
 
 // CCmd is a concrete compiler invocation: Prog and optional args before our flags.
-// Example: (clang, nil), (zig, ["cc"]).
+// Example: (clang, nil), (zig, ["cc"]), (path/to/tcc.exe, nil) with TCC true.
 type CCmd struct {
 	Prog   string
 	Prefix []string
+	// TCC is true when Prog is TinyCC (different CLI from GNU clang/gcc).
+	TCC bool
+}
+
+// FindConfig configures Find.
+type FindConfig struct {
+	Override string
+	// Release skips the sidecar TCC and prefers a full optimizing toolchain on PATH
+	// (clang, gcc, …) for `kodae build --release`.
+	Release bool
 }
 
 // Find resolves a C compiler, with optional user override (flag) and $KODAE_CC.
-// override and env take precedence: override > $KODAE_CC > PATH search.
-func Find(override string) (CCmd, error) {
-	if s := strings.TrimSpace(override); s != "" {
+// override and env take precedence: override > $KODAE_CC > (optional sidecar TCC) > PATH search.
+func Find(cfg FindConfig) (CCmd, error) {
+	if s := strings.TrimSpace(cfg.Override); s != "" {
 		return parseOne(s)
 	}
 	if s := strings.TrimSpace(os.Getenv("KODAE_CC")); s != "" {
 		return parseOne(s)
 	}
-	if b, ok := bundledZigCC(); ok {
-		return b, nil
+	if os.Getenv("KODAE_NO_SIDECAR_TCC") == "" && !cfg.Release {
+		if p, ok := tccbundle.SidecarPath(); ok {
+			return CCmd{Prog: p, TCC: true}, nil
+		}
 	}
-	// Order: prefer LLVM/Clang, then common GCC, then "cc", then Zig (bundles libc + lld for easy distribution).
-	//
-	// Users who install the official LLVM/Clang build get `clang` on PATH — that is the usual "use LLVM" setup.
+	// Order: prefer LLVM/Clang, then common GCC, then "cc", then PATH zig (no bundled toolchain).
 	chain := []struct{ name string; prefix []string }{
 		{"clang", nil},
 		{"gcc", nil},
@@ -60,7 +72,11 @@ func parseOne(s string) (CCmd, error) {
 		return CCmd{}, fmt.Errorf("KODAE_CC: use a path without spaces, a PATH name (clang, zig), or a symlink")
 	}
 	if st, e := os.Stat(s); e == nil && !st.IsDir() {
-		return CCmd{Prog: s, Prefix: nil}, nil
+		cc := CCmd{Prog: s, Prefix: nil}
+		if isTCCPath(s) {
+			cc.TCC = true
+		}
+		return cc, nil
 	}
 	p, err := exec.LookPath(s)
 	if err != nil {
@@ -69,7 +85,16 @@ func parseOne(s string) (CCmd, error) {
 	if strings.EqualFold(filepath.Base(p), "zig") {
 		return CCmd{Prog: p, Prefix: []string{"cc"}}, nil
 	}
-	return CCmd{Prog: p, Prefix: nil}, nil
+	cc := CCmd{Prog: p, Prefix: nil}
+	if isTCCPath(p) {
+		cc.TCC = true
+	}
+	return cc, nil
+}
+
+func isTCCPath(p string) bool {
+	b := strings.ToLower(filepath.Base(p))
+	return b == "tcc" || b == "tcc.exe"
 }
 
 func zigCC() (CCmd, error) {
@@ -80,78 +105,18 @@ func zigCC() (CCmd, error) {
 	return CCmd{Prog: p, Prefix: []string{"cc"}}, nil
 }
 
-func bundledZigCC() (CCmd, bool) {
-	exe, _ := os.Executable()
-	cwd, _ := os.Getwd()
-	candidates := bundledZigCandidates(exe, cwd)
-	for _, c := range candidates {
-		if st, e := os.Stat(c); e == nil && !st.IsDir() {
-			return CCmd{Prog: c, Prefix: []string{"cc"}}, true
-		}
-	}
-	return CCmd{}, false
-}
-
-func bundledZigCandidates(exePath, cwd string) []string {
-	zigName := zigExeName()
-	var roots []string
-	if exePath != "" {
-		roots = append(roots, filepath.Dir(exePath))
-	}
-	if cwd != "" {
-		roots = append(roots, cwd)
-	}
-
-	seenRoots := map[string]struct{}{}
-	var uniqRoots []string
-	for _, r := range roots {
-		clean := filepath.Clean(r)
-		if _, ok := seenRoots[clean]; ok {
-			continue
-		}
-		seenRoots[clean] = struct{}{}
-		uniqRoots = append(uniqRoots, clean)
-	}
-
-	seenPaths := map[string]struct{}{}
-	var out []string
-	for _, root := range uniqRoots {
-		cur := root
-		for i := 0; i < 4; i++ {
-			p := filepath.Join(cur, "toolchain", "zig", zigName)
-			p = filepath.Clean(p)
-			if _, ok := seenPaths[p]; !ok {
-				seenPaths[p] = struct{}{}
-				out = append(out, p)
-			}
-			parent := filepath.Dir(cur)
-			if parent == cur {
-				break
-			}
-			cur = parent
-		}
-	}
-	return out
-}
-
-func zigExeName() string {
-	if runtime.GOOS == "windows" {
-		return "zig.exe"
-	}
-	return "zig"
-}
-
 func hintText() string {
 	if runtime.GOOS == "windows" {
-		return "no C compiler (clang, gcc, cc, or zig) on PATH.\n" +
-			"  LLVM/Clang (recommended for Windows): https://github.com/llvm/llvm-project/releases\n" +
-			"  or:  winget install LLVM.LLVM\n" +
-			"  Zig (portable, includes a C driver):  https://ziglang.org/download/\n" +
-			"  Or set KODAE_CC to the full path to clang.exe or to \"zig\" to use `zig cc`."
+		return "no C compiler (clang, gcc, or cc) on PATH and no sidecar TCC.\n" +
+			"  Portable zip: place tcc.exe under toolchain/ next to bin/kodae.exe (see docs/DISTRIBUTION.md).\n" +
+			"  LLVM/Clang: https://github.com/llvm/llvm-project/releases or winget install LLVM.LLVM\n" +
+			"  Or set KODAE_CC to the full path to clang.exe.\n" +
+			"  Experimental: `kodae build --backend=llvm` uses clang on LLVM IR and does not need a C compiler for that path."
 	}
-	return "no C compiler (clang, gcc, cc, or zig) on PATH.\n" +
-		"  macOS: xcode-select --install   (gives Apple clang, LLVM-based)\n" +
+	return "no C compiler (clang, gcc, or cc) on PATH and no sidecar TCC.\n" +
+		"  Portable tarball: ship tcc under toolchain/ next to bin/kodae (see docs/DISTRIBUTION.md).\n" +
+		"  macOS: xcode-select --install   (Apple clang)\n" +
 		"  Linux: sudo apt install clang  (or gcc)\n" +
-		"  Or install Zig: https://ziglang.org/download/\n" +
-		"  Or set KODAE_CC, e.g.  export KODAE_CC=clang  or  export KODAE_CC=/opt/llvm/bin/clang"
+		"  Or set KODAE_CC. To ignore a broken sidecar TCC: KODAE_NO_SIDECAR_TCC=1\n" +
+		"  Experimental: `kodae build --backend=llvm` compiles LLVM IR with clang."
 }

@@ -24,8 +24,8 @@ For a beginner-friendly introduction, see `docs/LANGUAGE.md`. Deeper topics: `do
 | **`T?` optional syntax** | No (removed) | V1 uses implicit nullable behavior with `none`; explicit `T?` is rejected. |
 | **`ptr[T]`** | Restricted | Only allowed in `extern fn` signatures. |
 | **`pub` exports** | Yes (v1) | `pub fn` / `pub struct` define exported C library API surface for `build --lib`. |
-| **`build --lib`** | Yes (v1) | Emits `.c`, `.h`, static (`.a`) and shared (`.so`/`.dll`/`.dylib`) artifacts. |
-| **Portable bundle (no global C install)** | Yes | If `toolchain/zig/zig(.exe)` exists next to `kodae`, compiler auto-uses bundled `zig cc`. |
+| **`build --lib`** | Yes (v1) | Emits `.c`, `.h`, static (`.a`) and shared (`.so`/`.dll`/`.dylib`) artifacts. Driver auto-selects C backend for library mode when `--backend` is omitted. |
+| **Portable bundle** | Yes | Archives ship `bin/kodae` plus `include/` / `examples/` (see [DISTRIBUTION.md](docs/DISTRIBUTION.md)). Default backend is **LLVM** (needs `clang` on `PATH`). Use **`kodae build --backend=c`** for C backend compatibility mode. |
 | **`list[T]`** | Yes (v1) | Type syntax `list[T]`, literals `[a, b]`, index read/write `xs[i]`, `len(xs)`, methods `push`, `pop`, `append`, `remove`, and `for (x in list)` iteration. |
 | **Standard Library** | Yes (v1) | ~50 built-in functions: Time (`time`, `wait`, `timer`), Random (`random`, `chance`, `random_pick`), Files (`read_file`, `write_file`, `file_exists`), Strings (`.upper`, `.lower`, `.trim`, `.contains`, `.replace`, `.split`), Math (`sqrt`, `abs`, `clamp`, `lerp`, `map`), IO (`print`, `input`, `clear_screen`), OS (`os_name`, `args`, `env`), and JSON placeholders. |
 | **`this` / `with` / `fn(){ }` lambdas** | Yes (partial) | **`this`** is lexical in methods (loops, nested blocks, inline **`fn() { }`**). **`base with { field: expr }`** copies a struct and overrides fields. Lambdas are **`fn()` void only**, **no parameters**, assigned with `let` then called by name — no general function-pointer / higher-order typing yet. |

@@ -1,0 +1,48 @@
+/* Appended after kodae_bootstrap.txt in one translation unit. LLVM IR calls these. */
+
+static kodae_str ll_sb_cur;
+static int ll_sb_has;
+
+void rt_init(void) {
+	kodae_console_utf8_init();
+}
+
+void rt_sb_reset(void) {
+	ll_sb_cur = (kodae_str){NULL, 0};
+	ll_sb_has = 0;
+}
+
+void rt_sb_begin_print(void) {
+	rt_sb_reset();
+}
+
+void rt_sb_append_lit(const char *p) {
+	kodae_str piece = kodae_str_lit(p);
+	if (!ll_sb_has) {
+		ll_sb_cur = piece;
+		ll_sb_has = 1;
+	} else {
+		ll_sb_cur = kodae_str_concat(ll_sb_cur, piece);
+	}
+}
+
+void rt_sb_append_int(int64_t v) {
+	kodae_str piece = kodae_int_to_str(v);
+	if (!ll_sb_has) {
+		ll_sb_cur = piece;
+		ll_sb_has = 1;
+	} else {
+		ll_sb_cur = kodae_str_concat(ll_sb_cur, piece);
+	}
+}
+
+void rt_sb_finish_print(void) {
+	if (ll_sb_has) {
+		kodae_print_str(ll_sb_cur);
+	} else {
+		kodae_print_str(kodae_str_lit(""));
+	}
+	rt_sb_reset();
+}
+
+void rt_print_int64(int64_t v) { kodae_print_int(v); }

@@ -24,7 +24,7 @@ fn add(a: int, b: int) -> int { return a + b }`
 		t.Fatal(err)
 	}
 	defer func() { _ = os.Chdir(old) }()
-	if err := runBuild([]string{src}, "", false, "", nil, buildOptions{LibMode: true, Static: true}); err != nil {
+	if err := runBuild([]string{src}, "", false, "", nil, buildOptions{LibMode: true, Static: true, Backend: "c"}); err != nil {
 		t.Fatalf("runBuild --lib: %v", err)
 	}
 	for _, f := range []string{"mymath.c", "mymath.h", "mymath.a"} {
@@ -39,7 +39,7 @@ int main(void){ printf("%lld\n", (long long)add(2,3)); return 0; }`
 	if err := os.WriteFile(csrc, []byte(cprog), 0644); err != nil {
 		t.Fatal(err)
 	}
-	cc, err := ccdriver.Find("")
+	cc, err := ccdriver.Find(ccdriver.FindConfig{})
 	if err != nil {
 		t.Skipf("no C compiler found for smoke test: %v", err)
 	}

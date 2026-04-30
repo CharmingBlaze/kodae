@@ -1,0 +1,222 @@
+#include "token"
+#include "lexer"
+#include "ast"
+#include "parser"
+
+
+
+fn test_parse_prefix() {
+    let source = "-15"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    
+    let expr_idx = p.parse_expr()
+    if (len(p.errors) > 0) {
+        print(p.errors[0])
+    }
+    assert(len(p.errors) == 0, "Parser has errors")
+    assert(expr_idx >= 0, "Expected valid expr index")
+    
+    let node = p.nodes[expr_idx]
+    assert(node.kind == NodeKind.UnaryExpr, "Expected UnaryExpr")
+    assert(node.op == "-", "Expected '-' op")
+    
+    let inner = p.nodes[node.left]
+    assert(inner.kind == NodeKind.IntLit, "Expected IntLit inner")
+    assert(inner.str_val == "15", "Expected 15")
+}
+
+fn test_parse_infix() {
+    let source = "1 + 2 * 3"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    
+    let expr_idx = p.parse_expr()
+    if (len(p.errors) > 0) {
+        print(p.errors[0])
+    }
+    assert(len(p.errors) == 0, "Parser has errors")
+    
+    let node = p.nodes[expr_idx]
+    assert(node.kind == NodeKind.BinaryExpr, "Expected BinaryExpr +")
+    assert(node.op == "+", "Expected +")
+    
+    let lhs = p.nodes[node.left]
+    assert(lhs.kind == NodeKind.IntLit, "Expected IntLit lhs")
+    assert(lhs.str_val == "1", "Expected 1")
+    
+    let rhs = p.nodes[node.right]
+    assert(rhs.kind == NodeKind.BinaryExpr, "Expected BinaryExpr * rhs")
+    assert(rhs.op == "*", "Expected *")
+    
+    let r_lhs = p.nodes[rhs.left]
+    assert(r_lhs.str_val == "2", "Expected 2")
+    let r_rhs = p.nodes[rhs.right]
+    assert(r_rhs.str_val == "3", "Expected 3")
+}
+
+fn test_parse_call() {
+    let source = "add(1, 2)"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    
+    let expr_idx = p.parse_expr()
+    if (len(p.errors) > 0) {
+        print(p.errors[0])
+    }
+    assert(len(p.errors) == 0, "Parser has errors")
+    
+    let node = p.nodes[expr_idx]
+    assert(node.kind == NodeKind.CallExpr, "Expected CallExpr")
+    
+    let fn_node = p.nodes[node.left]
+    assert(fn_node.name == "add", "Expected add identifier")
+    
+    assert(len(node.items) == 2, "Expected 2 args")
+    let arg1 = p.nodes[node.items[0]]
+    assert(arg1.str_val == "1", "Expected 1")
+}
+
+fn test_parse_let() {
+    let source = "let x = 10;"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    
+    let stmt_idx = p.parse_stmt()
+    if (len(p.errors) > 0) {
+        print(p.errors[0])
+    }
+    assert(len(p.errors) == 0, "Parser has errors in let")
+    
+    let node = p.nodes[stmt_idx]
+    assert(node.kind == NodeKind.LetStmt, "Expected LetStmt")
+    assert(node.name == "x", "Expected x")
+    assert(node.bool_val == false, "Expected non-const let")
+    
+    let init_node = p.nodes[node.left]
+    assert(init_node.kind == NodeKind.IntLit, "Expected init IntLit")
+    assert(init_node.str_val == "10", "Expected 10")
+}
+
+fn test_parse_if() {
+    let source = "if (true) { let y = 20 }"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    
+    let stmt_idx = p.parse_stmt()
+    if (len(p.errors) > 0) {
+        print(p.errors[0])
+    }
+    assert(len(p.errors) == 0, "Parser has errors in if")
+    
+    let node = p.nodes[stmt_idx]
+    assert(node.kind == NodeKind.IfStmt, "Expected IfStmt")
+    
+    let cond = p.nodes[node.cond]
+    assert(cond.kind == NodeKind.BoolLit, "Expected BoolLit cond")
+    assert(cond.bool_val == true, "Expected true")
+    
+    let thn = p.nodes[node.thn]
+    assert(thn.kind == NodeKind.BlockStmt, "Expected BlockStmt")
+    assert(len(thn.items) == 1, "Expected 1 stmt in block")
+    
+    let inner_stmt = p.nodes[thn.items[0]]
+    assert(inner_stmt.kind == NodeKind.LetStmt, "Expected LetStmt inside block")
+}
+
+fn test_parse_program_directives_and_fn() {
+    let source = "# include \"lib.kodae\"\nmodule app\nuse std\nfn main() -> void {\n}"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    let prog = p.parse_program()
+    assert(len(p.errors) == 0, "program parse errors")
+    assert(prog >= 0, "program index")
+    let root = p.nodes[prog]
+    assert(root.kind == NodeKind.Program, "Program")
+    assert(len(root.items) == 4, "four top-level decls")
+    assert(p.nodes[root.items[0]].kind == NodeKind.IncludeDecl, "include")
+    assert(p.nodes[root.items[0]].str_val == "lib.kodae", "include path")
+    assert(p.nodes[root.items[1]].kind == NodeKind.ModuleDecl, "module")
+    assert(p.nodes[root.items[2]].kind == NodeKind.UseDecl, "use")
+    assert(p.nodes[root.items[3]].kind == NodeKind.FnDecl, "fn main")
+    assert(p.nodes[root.items[3]].name == "main", "main name")
+}
+
+fn test_parse_match_stmt() {
+    let source = "match (x) {\n  0 => { print(\"zero\") }\n}\n"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    let stmt = p.parse_stmt()
+    assert(len(p.errors) == 0, "match parse errors")
+    let n = p.nodes[stmt]
+    assert(n.kind == NodeKind.MatchStmt, "MatchStmt")
+    assert(len(n.items) == 1, "one arm")
+}
+
+fn test_parse_repeat_stmt() {
+    let source = "repeat(3) { let i = 1 }\n"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    let stmt = p.parse_stmt()
+    assert(len(p.errors) == 0, "repeat parse errors")
+    let n = p.nodes[stmt]
+    assert(n.kind == NodeKind.RepeatStmt, "RepeatStmt")
+}
+
+fn test_parse_multi_let() {
+    let source = "let a, b = 1, 2\n"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    let stmt = p.parse_stmt()
+    assert(len(p.errors) == 0, "multi let parse")
+    let n = p.nodes[stmt]
+    assert(n.kind == NodeKind.LetStmt, "LetStmt")
+    assert(len(n.let_names) == 2, "two names")
+}
+
+fn test_parse_extern_fn() {
+    let source = "extern fn foo(x: i32, y: ptr[byte]) -> void"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    let d = p.parse_top_decl()
+    assert(len(p.errors) == 0, "extern parse")
+    let n = p.nodes[d]
+    assert(n.kind == NodeKind.ExternDecl, "ExternDecl")
+    assert(n.name == "foo", "foo")
+    assert(len(n.items) == 2, "two params")
+}
+
+fn main() {
+    print("Running parser tests...")
+    test_parse_prefix()
+    print("test_parse_prefix passed!")
+    
+    test_parse_infix()
+    print("test_parse_infix passed!")
+    
+    test_parse_call()
+    print("test_parse_call passed!")
+    
+    test_parse_let()
+    print("test_parse_let passed!")
+    
+    test_parse_if()
+    print("test_parse_if passed!")
+    
+    test_parse_program_directives_and_fn()
+    print("test_parse_program_directives_and_fn passed!")
+    
+    test_parse_extern_fn()
+    print("test_parse_extern_fn passed!")
+    
+    test_parse_match_stmt()
+    print("test_parse_match_stmt passed!")
+    
+    test_parse_repeat_stmt()
+    print("test_parse_repeat_stmt passed!")
+    
+    test_parse_multi_let()
+    print("test_parse_multi_let passed!")
+    
+    print("All tests passed!")
+}

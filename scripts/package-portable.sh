@@ -1,25 +1,23 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "$#" -lt 3 ]; then
-  echo "usage: scripts/package-portable.sh <clio-binary> <zig-binary> <platform> [out-dir]" >&2
+if [ "$#" -lt 2 ]; then
+  echo "usage: scripts/package-portable.sh <kodae-binary> <platform> [out-dir]" >&2
+  echo "  Creates dist/kodae-<platform>/ with bin/kodae only (no bundled compiler)." >&2
   exit 1
 fi
 
-CLIO_BIN="$1"
-ZIG_BIN="$2"
-PLATFORM="$3"
-OUT_DIR="${4:-dist}"
+KODAE_BIN="$1"
+PLATFORM="$2"
+OUT_DIR="${3:-dist}"
 
-BUNDLE_ROOT="$OUT_DIR/clio-$PLATFORM"
+BUNDLE_ROOT="$OUT_DIR/kodae-$PLATFORM"
 BIN_DIR="$BUNDLE_ROOT/bin"
-TOOLCHAIN_DIR="$BUNDLE_ROOT/toolchain/zig"
 
-mkdir -p "$BIN_DIR" "$TOOLCHAIN_DIR"
-cp "$CLIO_BIN" "$BIN_DIR/clio"
-cp "$ZIG_BIN" "$TOOLCHAIN_DIR/zig"
-chmod +x "$BIN_DIR/clio" "$TOOLCHAIN_DIR/zig"
+mkdir -p "$BIN_DIR"
+cp "$KODAE_BIN" "$BIN_DIR/kodae"
+chmod +x "$BIN_DIR/kodae"
 
-ARCHIVE="$OUT_DIR/clio-$PLATFORM.tar.gz"
-tar -C "$OUT_DIR" -czf "$ARCHIVE" "clio-$PLATFORM"
+ARCHIVE="$OUT_DIR/kodae-$PLATFORM.tar.gz"
+tar -C "$OUT_DIR" -czf "$ARCHIVE" "kodae-$PLATFORM"
 echo "portable bundle written: $ARCHIVE"

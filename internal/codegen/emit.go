@@ -1146,8 +1146,10 @@ func (em *emitter) emitMain(out *bytes.Buffer, f *ast.FnDecl) error {
 		em.retWant = rt
 	}
 
-	out.WriteString("int main(void) {\n")
+	out.WriteString("int main(int argc, char** argv) {\n")
 	out.WriteString("kodae_console_utf8_init();\n")
+	out.WriteString("kodae_argc = argc;\n")
+	out.WriteString("kodae_argv = argv;\n")
 	em.inMain = true
 	em.pushScope()
 	defer em.popScope()

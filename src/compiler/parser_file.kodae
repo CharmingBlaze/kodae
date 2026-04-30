@@ -1,0 +1,558 @@
+' Top-level program parsing and directives (# include / # link / …), aligned with
+' internal/parser/parse_file.go and parse_decl.go (subset).
+
+fn Parser.parse_program() -> int {
+    this.skip_newlines()
+    let decls: list[int] = []
+    while (not this.cur_token_is(TokenType.Eof)) {
+        if (this.cur_token_is(TokenType.Newline)) {
+            this.next_token()
+            continue
+        }
+        let d = this.parse_top_decl()
+        if (d != -1) {
+            decls.push(d)
+        }
+        if (len(this.errors) > 0) {
+            break
+        }
+        this.skip_newlines()
+    }
+    let prog_tok = this.cur_token
+    let n = new_ast_node(NodeKind.Program, prog_tok)
+    n.items = decls
+    return this.add_node(n)
+}
+
+fn Parser.parse_top_decl() -> int {
+    if (len(this.errors) > 0) {
+        return -1
+    }
+    this.skip_newlines()
+    let t = this.cur_token.kind
+    if (t == TokenType.Hash) {
+        return this.parse_directive()
+    }
+    if (t == TokenType.Fn) {
+        return this.parse_fn_decl()
+    }
+    if (t == TokenType.Extern) {
+        return this.parse_extern_decl()
+    }
+    if (t == TokenType.Module) {
+        return this.parse_module_decl()
+    }
+    if (t == TokenType.Use) {
+        return this.parse_use_decl()
+    }
+    if (t == TokenType.Enum) {
+        return this.parse_enum_decl()
+    }
+    if (t == TokenType.Struct) {
+        return this.parse_struct_decl()
+    }
+    if (t == TokenType.Let) {
+        return this.parse_top_let_decl()
+    }
+    if (t == TokenType.Const) {
+        return this.parse_top_const_decl()
+    }
+    this.errors.push("unexpected at file scope: " + token_type_to_string(t))
+    return -1
+}
+
+' # link "…" | # linkpath "…" | # include "…" | # meta keys
+fn Parser.parse_directive() -> int {
+    let htok = this.cur_token
+    if (not this.expect(TokenType.Hash)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("directive: expected name after #")
+        return -1
+    }
+    let key = this.cur_token.literal
+    this.next_token()
+    if (not this.cur_token_is(TokenType.StrLit)) {
+        this.errors.push("# " + key + ": expected string value")
+        return -1
+    }
+    let s = this.cur_token.literal
+    this.next_token()
+    let nk = NodeKind.MetaDecl
+    if (key == "link") {
+        nk = NodeKind.LinkDecl
+    } else {
+        if (key == "linkpath") {
+            nk = NodeKind.LinkPathDecl
+        } else {
+            if (key == "include") {
+                nk = NodeKind.IncludeDecl
+            } else {
+                if ((key != "mode") and (key != "library") and (key != "version") and (key != "author")) {
+                    this.errors.push("directive: unsupported #" + key)
+                    return -1
+                }
+            }
+        }
+    }
+    let n = new_ast_node(nk, htok)
+    n.name = key
+    n.str_val = s
+    return this.add_node(n)
+}
+
+fn Parser.parse_type_expr(allow_ptr: bool) -> int {
+    if (len(this.errors) > 0) {
+        return -1
+    }
+    let t = this.cur_token
+    if (t.kind == TokenType.Ident) {
+        let lit = t.literal
+        if (lit == "result") {
+            this.next_token()
+            if (not this.expect(TokenType.LBrack)) {
+                return -1
+            }
+            let inner = this.parse_type_expr(allow_ptr)
+            if (not this.expect(TokenType.RBrack)) {
+                return -1
+            }
+            let n = new_ast_node(NodeKind.TypeResult, t)
+            n.left = inner
+            return this.add_node(n)
+        }
+        if (lit == "list") {
+            this.next_token()
+            if (not this.expect(TokenType.LBrack)) {
+                return -1
+            }
+            let inner = this.parse_type_expr(allow_ptr)
+            if (not this.expect(TokenType.RBrack)) {
+                return -1
+            }
+            let n = new_ast_node(NodeKind.TypeList, t)
+            n.left = inner
+            return this.add_node(n)
+        }
+        if (lit == "ptr") {
+            if (not allow_ptr) {
+                this.errors.push("ptr[...] only allowed in extern signatures")
+                return -1
+            }
+            this.next_token()
+            if (not this.expect(TokenType.LBrack)) {
+                return -1
+            }
+            let inner = this.parse_type_expr(true)
+            if (not this.expect(TokenType.RBrack)) {
+                return -1
+            }
+            let n = new_ast_node(NodeKind.TypeIdent, t)
+            n.name = "ptr"
+            n.left = inner
+            return this.add_node(n)
+        }
+        this.next_token()
+        let n = new_ast_node(NodeKind.TypeIdent, t)
+        n.name = lit
+        return this.add_node(n)
+    }
+    this.errors.push("type: expected identifier")
+    return -1
+}
+
+' Contents of (...) after `(` has been consumed by the caller.
+fn Parser.parse_param_list_inner(allow_ptr: bool) -> list[int] {
+    let ps: list[int] = []
+    if (this.cur_token_is(TokenType.RParen)) {
+        this.next_token()
+        return ps
+    }
+    loop {
+        if (len(this.errors) > 0) {
+            break
+        }
+        if (this.cur_token_is(TokenType.Ellipsis)) {
+            let dt = this.cur_token
+            this.next_token()
+            let pn = new_ast_node(NodeKind.Param, dt)
+            pn.name = "..."
+            pn.bool_val = true
+            ps.push(this.add_node(pn))
+            if (not this.expect(TokenType.RParen)) {
+                break
+            }
+            return ps
+        }
+        if (not this.cur_token_is(TokenType.Ident)) {
+            this.errors.push("param: name")
+            break
+        }
+        let p_tok = this.cur_token
+        let pname = p_tok.literal
+        this.next_token()
+        if (not this.expect(TokenType.Colon)) {
+            break
+        }
+        let ty = this.parse_type_expr(allow_ptr)
+        let pn = new_ast_node(NodeKind.Param, p_tok)
+        pn.name = pname
+        pn.type_ref = ty
+        ps.push(this.add_node(pn))
+        if (this.cur_token_is(TokenType.RParen)) {
+            this.next_token()
+            return ps
+        }
+        if (this.cur_token_is(TokenType.Comma)) {
+            this.next_token()
+            this.skip_newlines()
+            continue
+        }
+        this.errors.push("param: , or )")
+        break
+    }
+    if (this.cur_token_is(TokenType.RParen)) {
+        this.next_token()
+    }
+    return ps
+}
+
+fn Parser.parse_param_list(allow_ptr: bool) -> list[int] {
+    if (not this.expect(TokenType.LParen)) {
+        let empty: list[int] = []
+        return empty
+    }
+    return this.parse_param_list_inner(allow_ptr)
+}
+
+fn Parser.parse_param_list_after_lparen(allow_ptr: bool) -> list[int] {
+    return this.parse_param_list_inner(allow_ptr)
+}
+
+fn Parser.parse_fn_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Fn)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("fn: name")
+        return -1
+    }
+    let first = this.cur_token.literal
+    this.next_token()
+    let recv = ""
+    let fname = first
+    if (this.cur_token_is(TokenType.Dot)) {
+        this.next_token()
+        if (not this.cur_token_is(TokenType.Ident)) {
+            this.errors.push("fn: method name after .")
+            return -1
+        }
+        let meth = this.cur_token.literal
+        this.next_token()
+        recv = first
+        fname = recv + "_" + meth
+    }
+    if (not this.expect(TokenType.LParen)) {
+        this.errors.push("fn: expected ( after name")
+        return -1
+    }
+    let params = this.parse_param_list_after_lparen(false)
+    if (recv != "") {
+        let needs_self = true
+        if (len(params) > 0) {
+            let p0 = this.nodes[params[0]]
+            if (p0.name == "self") {
+                needs_self = false
+            }
+        }
+        if (needs_self) {
+            let self_tok = tok
+            let pself = new_ast_node(NodeKind.Param, self_tok)
+            pself.name = "self"
+            let tr = new_ast_node(NodeKind.TypeIdent, self_tok)
+            tr.name = recv
+            let tri = this.add_node(tr)
+            pself.type_ref = tri
+            let newps: list[int] = []
+            newps.push(this.add_node(pself))
+            let pi = 0
+            while (pi < len(params)) {
+                newps.push(params[pi])
+                pi = pi + 1
+            }
+            params = newps
+        }
+    }
+    let ret_ty = -1
+    if (this.cur_token_is(TokenType.Arrow)) {
+        this.next_token()
+        ret_ty = this.parse_type_expr(false)
+    }
+    let body = this.parse_block()
+    if (body == -1) {
+        return -1
+    }
+    let n = new_ast_node(NodeKind.FnDecl, tok)
+    n.name = fname
+    n.items = params
+    n.type_ref = ret_ty
+    n.body = body
+    return this.add_node(n)
+}
+
+fn Parser.parse_extern_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Extern)) {
+        return -1
+    }
+    if (not this.expect(TokenType.Fn)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("extern: name")
+        return -1
+    }
+    let fname = this.cur_token.literal
+    this.next_token()
+    let params = this.parse_param_list(true)
+    let ret_ty = -1
+    if (this.cur_token_is(TokenType.Arrow)) {
+        this.next_token()
+        ret_ty = this.parse_type_expr(true)
+    }
+    let n = new_ast_node(NodeKind.ExternDecl, tok)
+    n.name = fname
+    n.items = params
+    n.type_ref = ret_ty
+    return this.add_node(n)
+}
+
+fn Parser.parse_module_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Module)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("module: name")
+        return -1
+    }
+    let n = new_ast_node(NodeKind.ModuleDecl, tok)
+    n.name = this.cur_token.literal
+    this.next_token()
+    return this.add_node(n)
+}
+
+fn Parser.parse_use_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Use)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("use: module name")
+        return -1
+    }
+    let n = new_ast_node(NodeKind.UseDecl, tok)
+    n.name = this.cur_token.literal
+    this.next_token()
+    return this.add_node(n)
+}
+
+fn Parser.parse_enum_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Enum)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("enum: name")
+        return -1
+    }
+    let ename = this.cur_token.literal
+    this.next_token()
+    if (not this.expect(TokenType.LBrace)) {
+        return -1
+    }
+    this.skip_newlines()
+    let vars: list[int] = []
+    while (not this.cur_token_is(TokenType.RBrace)) {
+        if (this.cur_token_is(TokenType.Eof)) {
+            this.errors.push("enum: unclosed {")
+            break
+        }
+        if ((this.cur_token_is(TokenType.Newline)) or (this.cur_token_is(TokenType.Comma))) {
+            this.next_token()
+            continue
+        }
+        if (not this.cur_token_is(TokenType.Ident)) {
+            this.errors.push("enum: variant name")
+            break
+        }
+        let vn = new_ast_node(NodeKind.IdentExpr, this.cur_token)
+        vn.name = this.cur_token.literal
+        this.next_token()
+        vars.push(this.add_node(vn))
+        if (this.cur_token_is(TokenType.Comma)) {
+            this.next_token()
+            this.skip_newlines()
+            continue
+        }
+    }
+    if (not this.expect(TokenType.RBrace)) {
+        return -1
+    }
+    let n = new_ast_node(NodeKind.EnumDecl, tok)
+    n.name = ename
+    n.items = vars
+    return this.add_node(n)
+}
+
+fn Parser.parse_struct_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Struct)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("struct: name")
+        return -1
+    }
+    let sname = this.cur_token.literal
+    this.next_token()
+    if (not this.expect(TokenType.LBrace)) {
+        return -1
+    }
+    this.skip_newlines()
+    let fields: list[int] = []
+    while (not this.cur_token_is(TokenType.RBrace)) {
+        if (this.cur_token_is(TokenType.Eof)) {
+            this.errors.push("struct: unclosed {")
+            break
+        }
+        if ((this.cur_token_is(TokenType.Newline)) or (this.cur_token_is(TokenType.Comma))) {
+            this.next_token()
+            continue
+        }
+        if (not this.cur_token_is(TokenType.Ident)) {
+            this.errors.push("struct: field name")
+            break
+        }
+        let f_tok = this.cur_token
+        let fname = f_tok.literal
+        this.next_token()
+        if (not this.expect(TokenType.Colon)) {
+            break
+        }
+        let fty = this.parse_type_expr(false)
+        let fld = new_ast_node(NodeKind.StructField, f_tok)
+        fld.name = fname
+        fld.type_ref = fty
+        fields.push(this.add_node(fld))
+    }
+    if (not this.expect(TokenType.RBrace)) {
+        return -1
+    }
+    let n = new_ast_node(NodeKind.StructDecl, tok)
+    n.name = sname
+    n.items = fields
+    return this.add_node(n)
+}
+
+fn Parser.parse_top_let_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Let)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("let: name")
+        return -1
+    }
+    let nm = this.cur_token.literal
+    this.next_token()
+    let ty = -1
+    if (this.cur_token_is(TokenType.Colon)) {
+        this.next_token()
+        ty = this.parse_type_expr(false)
+    }
+    if (not this.expect(TokenType.Assign)) {
+        this.errors.push("let: expected =")
+        return -1
+    }
+    let init = this.parse_expr()
+    let n = new_ast_node(NodeKind.LetDecl, tok)
+    n.name = nm
+    n.type_ref = ty
+    n.left = init
+    return this.add_node(n)
+}
+
+fn Parser.parse_top_const_decl() -> int {
+    let tok = this.cur_token
+    if (not this.expect(TokenType.Const)) {
+        return -1
+    }
+    if (not this.cur_token_is(TokenType.Ident)) {
+        this.errors.push("const: name")
+        return -1
+    }
+    let nm = this.cur_token.literal
+    this.next_token()
+    if (this.cur_token_is(TokenType.LBrace)) {
+        this.next_token()
+        this.skip_newlines()
+        let decls: list[int] = []
+        while (not this.cur_token_is(TokenType.RBrace)) {
+            if (this.cur_token_is(TokenType.Eof)) {
+                this.errors.push("const group: unclosed {")
+                break
+            }
+            if ((this.cur_token_is(TokenType.Newline)) or (this.cur_token_is(TokenType.Comma))) {
+                this.next_token()
+                continue
+            }
+            if (not this.cur_token_is(TokenType.Ident)) {
+                this.errors.push("const group: expected identifier")
+                break
+            }
+            let mem_tok = this.cur_token
+            let fnm = this.cur_token.literal
+            this.next_token()
+            if (this.cur_token_is(TokenType.Colon)) {
+                this.next_token()
+                let _ = this.parse_type_expr(false)
+            }
+            if (not this.expect(TokenType.Assign)) {
+                break
+            }
+            let v = this.parse_expr()
+            let ld = new_ast_node(NodeKind.LetDecl, mem_tok)
+            ld.name = nm + "_" + fnm
+            ld.left = v
+            decls.push(this.add_node(ld))
+            if (this.cur_token_is(TokenType.Comma)) {
+                this.next_token()
+                this.skip_newlines()
+                continue
+            }
+        }
+        if (not this.expect(TokenType.RBrace)) {
+            return -1
+        }
+        let cg = new_ast_node(NodeKind.ConstGroupDecl, tok)
+        cg.items = decls
+        return this.add_node(cg)
+    }
+    if (this.cur_token_is(TokenType.Colon)) {
+        this.next_token()
+        let _ = this.parse_type_expr(false)
+    }
+    if (not this.expect(TokenType.Assign)) {
+        this.errors.push("const: =")
+        return -1
+    }
+    let v = this.parse_expr()
+    let n = new_ast_node(NodeKind.LetDecl, tok)
+    n.name = nm
+    n.left = v
+    n.bool_val = true
+    return this.add_node(n)
+}

@@ -1,0 +1,11 @@
+' Smoke test: link LLVM-C and call native target init.
+' Requires LLVM with LLVM-C (e.g. MSYS2: pacman -S mingw-w64-x86_64-llvm; adjust # linkpath).
+' If link fails, the shim bindings in libs/llvm_shim/ are still the reference surface for codegen.
+# include "llvm_shim/llvm_shim"
+# linkpath "C:/msys64/mingw64/lib"
+
+fn main() {
+    LLVMInitializeNativeTarget()
+    LLVMInitializeNativeAsmPrinter()
+    print("llvm smoke: LLVMInitializeNativeTarget OK")
+}

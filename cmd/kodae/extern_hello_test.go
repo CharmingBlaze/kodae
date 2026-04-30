@@ -18,7 +18,7 @@ func TestExternPrintfExampleLinks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping link in -short")
 	}
-	ccc, err := ccdriver.Find("")
+	ccc, err := ccdriver.Find(ccdriver.FindConfig{})
 	if err != nil {
 		t.Skip(err)
 	}

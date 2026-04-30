@@ -1,15 +1,10 @@
 # Kodae Distribution Guide
 
-This guide shows how to ship Kodae so end users do not install toolchains manually.
-
 ## Goal
 
-Distribute one archive per platform:
+Ship one archive per platform containing **`bin/kodae`**, **`toolchain/`** (TinyCC for zero-install `run`/`build`), plus **`include/`**, **`examples/`**, and **`README.md`**.
 
-- Windows: zip containing `bin/kodae.exe` and `toolchain/zig/zig.exe`
-- Linux/macOS: tar.gz containing `bin/kodae` and `toolchain/zig/zig`
-
-End users extract and run `bin/kodae`.
+End users unzip and run **`kodae run examples/hello.kodae`** without installing Go, Clang, or MSVC. Optional **`kodae build --release`** skips sidecar TCC and uses **clang/gcc on `PATH`** for optimized builds.
 
 ## Build Kodae Binary
 
@@ -19,35 +14,68 @@ Build per target platform with Go:
 - Linux: `GOOS=linux GOARCH=amd64 go build -o kodae ./cmd/kodae`
 - macOS: `GOOS=darwin GOARCH=arm64 go build -o kodae ./cmd/kodae`
 
-## Package Portable Bundle
+## TinyCC (TCC) for portable bundles
 
-Use the helper scripts after building `kodae` and obtaining a Zig binary for the same platform.
-
-### Windows
-
-```powershell
-scripts/package-portable.ps1 -KodaeBinary .\kodae.exe -ZigBinary .\zig.exe -Platform windows-amd64
-```
-
-### Linux/macOS
+Before creating a bundle, populate **`toolchain/`** at the repo root (see [toolchain/README.md](../toolchain/README.md)):
 
 ```sh
-scripts/package-portable.sh ./kodae ./zig linux-amd64
-scripts/package-portable.sh ./kodae ./zig darwin-arm64
+chmod +x scripts/fetch-tcc.sh
+./scripts/fetch-tcc.sh windows amd64
+./scripts/fetch-tcc.sh linux amd64
+./scripts/fetch-tcc.sh darwin arm64
 ```
 
-## Runtime Behavior
+GitHub Actions **Distribution** workflow runs this step before `go run ./cmd/kodae bundle`.
 
-`kodae` automatically detects bundled Zig at:
+Release layout:
 
-- `toolchain/zig/zig.exe` (Windows)
-- `toolchain/zig/zig` (Linux/macOS)
+```text
+kodae-<os>-<arch>/
+  bin/kodae[.exe]
+  toolchain/tcc[.exe]
+  include/
+  examples/
+  README.md
+```
 
-This means `kodae build`, `kodae run`, and `kodae build --lib` work with no global compiler installation.
+`kodae` looks for **`../toolchain/tcc`** relative to the executable (i.e. next to `bin/`). Override behavior:
+
+- **`KODAE_NO_SIDECAR_TCC=1`** — ignore bundled TCC and use `PATH` / **`KODAE_CC`** / **`--cc`**.
+- **`kodae build --release`** / **`kodae run --release`** — skip sidecar TCC and prefer **clang**/**gcc** on `PATH`.
+
+## Package Portable Bundle
+
+From the repo root (after optional `scripts/fetch-tcc.sh`):
+
+```sh
+go run ./cmd/kodae bundle
+```
+
+Optional cross-target arguments: `go run ./cmd/kodae bundle linux amd64`
+
+This creates `dist/kodae-<os>-<arch>/` with `bin/`, `toolchain/` (if present in the repo), `include/`, `examples/`, and `README.md`.
+
+## Running user programs (`kodae run` / `kodae build`)
+
+Default **C backend**: emits C99 then compiles with **sidecar TCC** when shipped, otherwise **clang/gcc/cc** on `PATH`, or **`KODAE_CC`** / **`--cc`**.
+
+### Experimental LLVM IR backend
+
+```sh
+kodae build --backend=llvm -o hello examples/hello.kodae
+```
+
+This lowers a **supported subset** of the program to LLVM IR, links a runtime bridge with **clang**, and emits an executable. Full AST coverage is still growing.
 
 ## Overrides
 
-- Use `--cc` to force a specific compiler.
-- Use `KODAE_CC` for environment-level override.
+- **`--cc`** — force a specific C compiler (C backend only).
+- **`KODAE_CC`** — same at the environment level.
 
-Both overrides take precedence over bundled Zig.
+## Licensing
+
+TinyCC is LGPL. Include appropriate notices with release archives.
+
+## Roadmap
+
+Stronger LLVM integration (in-process LLVM/lld) remains optional; the portable story is **Go compiler + emitted C + bundled TCC**.

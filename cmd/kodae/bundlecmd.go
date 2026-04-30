@@ -32,9 +32,6 @@ func runBundle(args []string) error {
 	if err := os.MkdirAll(filepath.Join(bundleDir, "bin"), 0755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(bundleDir, "toolchain", "zig"), 0755); err != nil {
-		return err
-	}
 
 	// 1. Build kodae
 	fmt.Println("building kodae...")
@@ -50,29 +47,7 @@ func runBundle(args []string) error {
 		return fmt.Errorf("go build failed: %v\n%s", err, string(b))
 	}
 
-	// 2. Obtain Zig (copy from PATH if current platform matches)
-	zigExe := "zig"
-	if targetOS == "windows" {
-		zigExe = "zig.exe"
-	}
-	if targetOS == runtime.GOOS && targetArch == runtime.GOARCH {
-		fmt.Println("searching for zig on PATH to bundle...")
-		if p, err := exec.LookPath("zig"); err == nil {
-			fmt.Printf("found zig at %s, copying...\n", p)
-			zigDst := filepath.Join(bundleDir, "toolchain", "zig", zigExe)
-			if err := copyFile(p, zigDst); err != nil {
-				fmt.Printf("warning: failed to copy zig: %v\n", err)
-			} else {
-				fmt.Println("zig bundled successfully")
-			}
-		} else {
-			fmt.Println("zig not found on PATH, skipping bundle inclusion")
-		}
-	} else {
-		fmt.Println("cross-compiling: skipping automatic zig bundling (download manually and place in toolchain/zig/)")
-	}
-
-	// 3. Copy include and examples
+	// 2. Copy include and examples
 	fmt.Println("bundling include/ and examples/...")
 	if err := copyDir("include", filepath.Join(bundleDir, "include")); err != nil {
 		fmt.Printf("warning: failed to bundle include/: %v\n", err)
@@ -82,6 +57,12 @@ func runBundle(args []string) error {
 	}
 	if err := copyFile("README.md", filepath.Join(bundleDir, "README.md")); err != nil {
 		fmt.Printf("warning: failed to bundle README.md: %v\n", err)
+	}
+	if fi, err := os.Stat("toolchain"); err == nil && fi.IsDir() {
+		fmt.Println("bundling toolchain/ (TinyCC sidecar)...")
+		if err := copyDir("toolchain", filepath.Join(bundleDir, "toolchain")); err != nil {
+			return fmt.Errorf("bundle toolchain/: %w", err)
+		}
 	}
 	
 	fmt.Printf("\nbundle created at: %s\n", bundleDir)

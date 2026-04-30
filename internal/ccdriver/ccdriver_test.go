@@ -2,28 +2,28 @@ package ccdriver
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-func TestZigExeName(t *testing.T) {
+func TestHintTextNonEmpty(t *testing.T) {
 	t.Parallel()
-	n := zigExeName()
-	if n == "" {
-		t.Fatal("zig executable name must not be empty")
+	if hintText() == "" {
+		t.Fatal("hintText must be non-empty")
 	}
 }
 
-func TestBundledZigCandidatesIncludesBundleFromBinCwd(t *testing.T) {
+func TestFindArchiverContract(t *testing.T) {
 	t.Parallel()
-	exe := `C:\kodae\bin\kodae.exe`
-	cwd := `C:\kodae\bin`
-	want := filepath.Clean(`C:\kodae\toolchain\zig\` + zigExeName())
-
-	got := bundledZigCandidates(exe, cwd)
-	for _, c := range got {
-		if c == want {
-			return
+	p, err := findArchiver()
+	if err != nil {
+		if !strings.Contains(err.Error(), "ar/llvm-ar/gcc-ar") {
+			t.Fatalf("unexpected archiver error: %v", err)
 		}
+		return
 	}
-	t.Fatalf("expected candidate %q in %v", want, got)
+	base := strings.ToLower(filepath.Base(p))
+	if !strings.Contains(base, "ar") {
+		t.Fatalf("unexpected archiver path: %q", p)
+	}
 }

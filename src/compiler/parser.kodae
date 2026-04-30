@@ -1,0 +1,444 @@
+#include "token"
+#include "lexer"
+#include "ast"
+
+struct Parser {
+    lexer: Lexer
+    
+    cur_token: Token
+    peek_token: Token
+    
+    nodes: list[AstNode]
+    errors: list[str]
+}
+
+fn new_parser(lexer: Lexer) -> Parser {
+    let empty_nodes: list[AstNode] = []
+    let empty_errors: list[str] = []
+    let p = Parser {
+        lexer: lexer,
+        cur_token: Token { kind: TokenType.Illegal, literal: "", line: 0, column: 0 },
+        peek_token: Token { kind: TokenType.Illegal, literal: "", line: 0, column: 0 },
+        nodes: empty_nodes,
+        errors: empty_errors
+    }
+    p.next_token()
+    p.next_token()
+    return p
+}
+
+fn Parser.next_token() {
+    this.cur_token = this.peek_token
+    this.peek_token = this.lexer.next()
+}
+
+fn Parser.cur_token_is(t: TokenType) -> bool {
+    return this.cur_token.kind == t
+}
+
+fn Parser.peek_token_is(t: TokenType) -> bool {
+    return this.peek_token.kind == t
+}
+
+fn Parser.expect_peek(t: TokenType) -> bool {
+    if (this.peek_token_is(t)) {
+        this.next_token()
+        return true
+    }
+    this.peek_error(t)
+    return false
+}
+
+fn Parser.peek_error(t: TokenType) {
+    let msg = "expected next token to be " + token_type_to_string(t) + ", got " + token_type_to_string(this.peek_token.kind)
+    this.errors.push(msg)
+}
+
+fn Parser.add_node(node: AstNode) -> int {
+    let index = len(this.nodes)
+    this.nodes.push(node)
+    return index
+}
+
+fn bin_prec(t: TokenType) -> int {
+    if (t == TokenType.Or) { return 1 }
+    if (t == TokenType.And) { return 2 }
+    if ((t == TokenType.Eq) or (t == TokenType.Neq) or (t == TokenType.Lt) or (t == TokenType.Gt) or (t == TokenType.Leq) or (t == TokenType.Geq) or (t == TokenType.DotDot)) { return 3 }
+    if ((t == TokenType.Plus) or (t == TokenType.Minus)) { return 4 }
+    if ((t == TokenType.Mul) or (t == TokenType.Div) or (t == TokenType.Mod)) { return 5 }
+    if ((t == TokenType.BitAnd) or (t == TokenType.BitOr) or (t == TokenType.BitXor)) { return 6 }
+    if ((t == TokenType.Assign) or (t == TokenType.PlusEq) or (t == TokenType.MinusEq) or (t == TokenType.MulEq) or (t == TokenType.DivEq) or (t == TokenType.ModEq)) { return 0 }
+    return -1
+}
+
+fn is_binary_op(t: TokenType) -> bool {
+    return bin_prec(t) >= 0
+}
+
+fn tok_to_op(t: TokenType) -> str {
+    if (t == TokenType.Plus) { return "+" }
+    if (t == TokenType.Minus) { return "-" }
+    if (t == TokenType.Mul) { return "*" }
+    if (t == TokenType.Div) { return "/" }
+    if (t == TokenType.Mod) { return "%" }
+    if (t == TokenType.Eq) { return "==" }
+    if (t == TokenType.Neq) { return "!=" }
+    if (t == TokenType.Lt) { return "<" }
+    if (t == TokenType.Gt) { return ">" }
+    if (t == TokenType.Leq) { return "<=" }
+    if (t == TokenType.Geq) { return ">=" }
+    if (t == TokenType.And) { return "&&" }
+    if (t == TokenType.Or) { return "||" }
+    if (t == TokenType.Assign) { return "=" }
+    if (t == TokenType.PlusEq) { return "+=" }
+    if (t == TokenType.MinusEq) { return "-=" }
+    if (t == TokenType.MulEq) { return "*=" }
+    if (t == TokenType.DivEq) { return "/=" }
+    if (t == TokenType.ModEq) { return "%=" }
+    if (t == TokenType.DotDot) { return ".." }
+    if (t == TokenType.BitAnd) { return "&" }
+    if (t == TokenType.BitOr) { return "|" }
+    if (t == TokenType.BitXor) { return "^" }
+    return "?"
+}
+
+fn tok_to_unary_op(t: TokenType) -> str {
+    if (t == TokenType.Not) { return "!" }
+    if (t == TokenType.Minus) { return "-" }
+    if (t == TokenType.Plus) { return "+" }
+    if (t == TokenType.BitNot) { return "~" }
+    return "?"
+}
+
+' ==========================================
+' EXPRESSION PARSING (Pratt Parser)
+' ==========================================
+
+fn Parser.parse_expr() -> int {
+    return this.parse_expr_bp(0)
+}
+
+fn Parser.parse_expr_bp(min_prec: int) -> int {
+    if (len(this.errors) > 0) { return -1 }
+    
+    let lhs = this.parse_prefix()
+    if (lhs == -1) { return -1 }
+    
+    loop {
+        if (not is_binary_op(this.cur_token.kind)) {
+            return lhs
+        }
+        let prec = bin_prec(this.cur_token.kind)
+        if (prec < min_prec) {
+            return lhs
+        }
+        
+        let op_tok = this.cur_token
+        this.next_token()
+        
+        let rhs = this.parse_expr_bp(prec + 1)
+        
+        let node = new_ast_node(NodeKind.BinaryExpr, op_tok)
+        node.op = tok_to_op(op_tok.kind)
+        node.left = lhs
+        node.right = rhs
+        lhs = this.add_node(node)
+    }
+    return lhs
+}
+
+fn Parser.parse_prefix() -> int {
+    if (len(this.errors) > 0) { return -1 }
+    
+    let t = this.cur_token
+    
+    if ((t.kind == TokenType.Not) or (t.kind == TokenType.Minus) or (t.kind == TokenType.Plus) or (t.kind == TokenType.BitNot)) {
+        this.next_token()
+        let inner = this.parse_expr_bp(6)
+        let node = new_ast_node(NodeKind.UnaryExpr, t)
+        node.op = tok_to_unary_op(t.kind)
+        node.left = inner
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.LParen) {
+        this.next_token()
+        let inner = this.parse_expr()
+        if (not this.cur_token_is(TokenType.RParen)) {
+            this.errors.push("expected ) in group")
+            return inner
+        }
+        this.next_token()
+        let node = new_ast_node(NodeKind.ParenExpr, t)
+        node.left = inner
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.LBrack) {
+        return this.parse_list_literal()
+    }
+    
+    if (t.kind == TokenType.IntLit) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.IntLit, t)
+        node.str_val = t.literal
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.FloatLit) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.FloatLit, t)
+        node.str_val = t.literal
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.StrLit) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.StringLit, t)
+        node.str_val = t.literal
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.True) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.BoolLit, t)
+        node.bool_val = true
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.False) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.BoolLit, t)
+        node.bool_val = false
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.None) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.NoneExpr, t)
+        return this.add_node(node)
+    }
+    
+    if (t.kind == TokenType.Ident) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.IdentExpr, t)
+        node.name = t.literal
+        let id_idx = this.add_node(node)
+        if (this.cur_token_is(TokenType.LBrace)) {
+            if (t.literal.len() > 0) {
+                let c0 = t.literal.slice(0, 1)
+                if ((c0 == c0.upper()) and (c0 != c0.lower())) {
+                    return this.parse_struct_literal(id_idx)
+                }
+            }
+        }
+        return this.parse_postfix(id_idx)
+    }
+    
+    if (t.kind == TokenType.This) {
+        this.next_token()
+        let node = new_ast_node(NodeKind.IdentExpr, t)
+        node.name = "this"
+        let id_idx = this.add_node(node)
+        return this.parse_postfix(id_idx)
+    }
+    
+    this.errors.push("unexpected token in expr: " + token_type_to_string(t.kind))
+    return -1
+}
+
+fn Parser.parse_list_literal() -> int {
+    let tok = this.cur_token
+    this.next_token() ' consume [
+    let items: list[int] = []
+    if (this.cur_token_is(TokenType.RBrack)) {
+        this.next_token()
+        let n = new_ast_node(NodeKind.ListLit, tok)
+        n.items = items
+        return this.add_node(n)
+    }
+    loop {
+        if (len(this.errors) > 0) { break }
+        let e = this.parse_expr()
+        items.push(e)
+        if (this.cur_token_is(TokenType.RBrack)) {
+            break
+        }
+        if (this.cur_token_is(TokenType.Comma)) {
+            this.next_token()
+            continue
+        }
+        this.errors.push("list literal: expected ] or comma")
+        break
+    }
+    if (this.cur_token_is(TokenType.RBrack)) {
+        this.next_token()
+    }
+    let n = new_ast_node(NodeKind.ListLit, tok)
+    n.items = items
+    return this.add_node(n)
+}
+
+fn Parser.parse_struct_literal(base_ident: int) -> int {
+    let tok = this.cur_token
+    this.next_token() ' consume {
+    this.skip_newlines()
+    let fields: list[int] = []
+    if (this.cur_token_is(TokenType.RBrace)) {
+        this.next_token()
+        let n = new_ast_node(NodeKind.StructLit, tok)
+        n.left = base_ident
+        n.items = fields
+        return this.parse_postfix(this.add_node(n))
+    }
+    loop {
+        if (len(this.errors) > 0) { break }
+        if (not this.cur_token_is(TokenType.Ident)) {
+            this.errors.push("struct literal: field name expected")
+            break
+        }
+        let ft = this.cur_token
+        let fname = ft.literal
+        this.next_token()
+        if (not this.cur_token_is(TokenType.Colon)) {
+            this.errors.push("struct literal: expected : after field name")
+            break
+        }
+        this.next_token()
+        let fv = this.parse_expr()
+        let fin = new_ast_node(NodeKind.StructFieldInit, ft)
+        fin.name = fname
+        fin.left = fv
+        fields.push(this.add_node(fin))
+        this.skip_newlines()
+        if (this.cur_token_is(TokenType.RBrace)) {
+            break
+        }
+        if (this.cur_token_is(TokenType.Comma)) {
+            this.next_token()
+            this.skip_newlines()
+            continue
+        }
+        this.errors.push("struct literal: expected } or comma")
+        break
+    }
+    if (this.cur_token_is(TokenType.RBrace)) {
+        this.next_token()
+    }
+    let n = new_ast_node(NodeKind.StructLit, tok)
+    n.left = base_ident
+    n.items = fields
+    let lit_idx = this.add_node(n)
+    return this.parse_postfix(lit_idx)
+}
+
+fn Parser.parse_postfix(lhs: int) -> int {
+    let current_lhs = lhs
+    loop {
+        if (len(this.errors) > 0) { return current_lhs }
+        
+        let t = this.cur_token
+        
+        if (t.kind == TokenType.Dot) {
+            this.next_token()
+            let f = ""
+            if (this.cur_token_is(TokenType.Ident)) {
+                f = this.cur_token.literal
+                this.next_token()
+            } else {
+                this.errors.push("field name expected after .")
+                return current_lhs
+            }
+            let node = new_ast_node(NodeKind.MemberExpr, t)
+            node.left = current_lhs
+            node.name = f
+            current_lhs = this.add_node(node)
+            continue
+        }
+        
+        if (t.kind == TokenType.LBrack) {
+            this.next_token()
+            let idx = this.parse_expr()
+            if (not this.cur_token_is(TokenType.RBrack)) {
+                this.errors.push("expected ] after index")
+                return current_lhs
+            }
+            this.next_token()
+            let node = new_ast_node(NodeKind.IndexExpr, t)
+            node.left = current_lhs
+            node.right = idx
+            current_lhs = this.add_node(node)
+            continue
+        }
+        
+        if (t.kind == TokenType.LParen) {
+            let args = this.parse_arg_list()
+            let node = new_ast_node(NodeKind.CallExpr, t)
+            node.left = current_lhs
+            node.items = args
+            current_lhs = this.add_node(node)
+            continue
+        }
+        
+        if (t.kind == TokenType.PlusPlus) {
+            this.next_token()
+            let node = new_ast_node(NodeKind.PostfixExpr, t)
+            node.op = "++"
+            node.left = current_lhs
+            current_lhs = this.add_node(node)
+            continue
+        }
+        
+        if (t.kind == TokenType.MinusMinus) {
+            this.next_token()
+            let node = new_ast_node(NodeKind.PostfixExpr, t)
+            node.op = "--"
+            node.left = current_lhs
+            current_lhs = this.add_node(node)
+            continue
+        }
+        
+        break
+    }
+    return current_lhs
+}
+
+fn Parser.parse_arg_list() -> list[int] {
+    let args: list[int] = []
+    
+    if (not this.cur_token_is(TokenType.LParen)) {
+        return args
+    }
+    this.next_token() ' consume (
+    
+    if (this.cur_token_is(TokenType.RParen)) {
+        this.next_token()
+        return args
+    }
+    
+    loop {
+        if (len(this.errors) > 0) { break }
+        
+        let e = this.parse_expr()
+        args.push(e)
+        
+        if (this.cur_token_is(TokenType.RParen)) {
+            break
+        }
+        if (this.cur_token_is(TokenType.Comma)) {
+            this.next_token()
+            continue
+        }
+        this.errors.push("in arg list, expected ) or comma")
+        break
+    }
+    
+    if (this.cur_token_is(TokenType.RParen)) {
+        this.next_token()
+    }
+    
+    return args
+}
+
+#include "parser_stmt"
+#include "parser_file"

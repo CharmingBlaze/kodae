@@ -15,6 +15,7 @@ import (
 	"kodae/internal/headergen"
 	lexapi "kodae/internal/lexer"
 	"kodae/internal/loader"
+	"kodae/internal/llir"
 	"kodae/internal/parser"
 )
 
@@ -22,6 +23,11 @@ type buildOptions struct {
 	LibMode bool
 	Static  bool
 	Shared  bool
+	// Release skips sidecar TCC and uses PATH clang/gcc for optimizing builds.
+	Release bool
+	// Backend is "llvm" (default: emit LLVM IR and compile with clang) or "c"
+	// (compatibility path: emit C and compile with a C compiler).
+	Backend string
 }
 
 func runCheck(paths ...string) error {
@@ -43,6 +49,39 @@ func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []strin
 		return err
 	}
 	libMode := opt.LibMode || strings.EqualFold(strings.TrimSpace(inf.Meta["mode"]), "library")
+	backend := strings.ToLower(strings.TrimSpace(opt.Backend))
+	if backend == "" {
+		// Keep LLVM as the default app backend, but preserve compatibility workflows.
+		if cOnly || libMode {
+			backend = "c"
+		} else {
+			backend = "llvm"
+		}
+	}
+	if backend == "llvm" {
+		if libMode {
+			return fmt.Errorf("build --backend=llvm: library mode not supported yet")
+		}
+		if cOnly {
+			return fmt.Errorf("buildc/--backend=llvm: use build --backend=llvm -o out.exe (LLVM path emits IR, not C)")
+		}
+		if out == "" {
+			out = defaultOutBin(paths[0])
+		}
+		outAbs, err := filepath.Abs(out)
+		if err != nil {
+			return err
+		}
+		if err := llir.CompileProgramLLVM(p, inf, outAbs); err != nil {
+			return err
+		}
+		_ = inf
+		_ = ldExtra
+		return nil
+	}
+	if backend != "c" {
+		return fmt.Errorf("build: unknown --backend=%q (use c or llvm)", opt.Backend)
+	}
 	csrc, err := codegen.EmitCWithOptions(p, inf, codegen.EmitOptions{LibraryMode: libMode})
 	if err != nil {
 		return err
@@ -70,7 +109,7 @@ func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []strin
 		if err := os.WriteFile(hOut, []byte(hdr), 0644); err != nil {
 			return err
 		}
-		ccc, err := ccdriver.Find(cc)
+		ccc, err := ccdriver.Find(ccdriver.FindConfig{Override: cc, Release: opt.Release})
 		if err != nil {
 			return err
 		}
@@ -116,7 +155,7 @@ func runBuild(paths []string, out string, cOnly bool, cc string, ldExtra []strin
 	if err := os.WriteFile(cf, []byte(csrc), 0644); err != nil {
 		return err
 	}
-	ccc, err := ccdriver.Find(cc)
+	ccc, err := ccdriver.Find(ccdriver.FindConfig{Override: cc, Release: opt.Release})
 	if err != nil {
 		return err
 	}
@@ -142,8 +181,8 @@ func defaultOutBin(kodaePath string) string {
 	return base
 }
 
-func runBuildAndRun(paths []string, cc string, ldExtra []string) error {
-	if err := runBuild(paths, "", false, cc, ldExtra, buildOptions{}); err != nil {
+func runBuildAndRun(paths []string, cc string, ldExtra []string, opt buildOptions) error {
+	if err := runBuild(paths, "", false, cc, ldExtra, opt); err != nil {
 		return err
 	}
 	abs, _ := filepath.Abs(defaultOutBin(paths[0]))
@@ -221,14 +260,25 @@ func parseBuildFlags(in []string) (files []string, out, cc, ld string, err error
 
 func parseBuildFlagsExt(in []string) (files []string, out, cc, ld string, opt buildOptions, err error) {
 	raw := make([]string, 0, len(in))
-	for _, a := range in {
-		switch a {
-		case "--lib":
+	for i := 0; i < len(in); i++ {
+		a := in[i]
+		switch {
+		case a == "--lib":
 			opt.LibMode = true
-		case "--static":
+		case a == "--static":
 			opt.Static = true
-		case "--shared":
+		case a == "--shared":
 			opt.Shared = true
+		case a == "--release":
+			opt.Release = true
+		case a == "--backend":
+			if i+1 >= len(in) {
+				return nil, "", "", "", opt, fmt.Errorf("--backend needs a value (c or llvm)")
+			}
+			i++
+			opt.Backend = in[i]
+		case strings.HasPrefix(a, "--backend="):
+			opt.Backend = strings.TrimPrefix(a, "--backend=")
 		default:
 			raw = append(raw, a)
 		}

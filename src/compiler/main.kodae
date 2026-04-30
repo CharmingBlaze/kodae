@@ -1,0 +1,83 @@
+' In-tree Kodae compiler driver: parse, check, and C codegen (fragment compatible with `kodae build` runtime).
+#include "token"
+#include "lexer"
+#include "parser"
+#include "check"
+#include "codegen"
+
+fn usage() {
+    print("kodae-compiler:  kodae-compiler check <file.kodae>  |  kodae-compiler cgen <file.kodae>")
+}
+
+fn compile_file(path: str, want_cgen: bool) {
+    let src = read_file(path)
+    let lexer = new_lexer(src)
+    let p = new_parser(lexer)
+    let prog = p.parse_program()
+    if (len(p.errors) > 0) {
+        print("parse errors:")
+        let i = 0
+        while (i < len(p.errors)) {
+            print(p.errors[i])
+            i = i + 1
+        }
+        return
+    }
+    let c = new_checker(p.nodes)
+    c.check_program(prog)
+    if (not c.ok()) {
+        print("check errors:")
+        let ei = 0
+        while (ei < len(c.errors)) {
+            print(c.errors[ei])
+            ei = ei + 1
+        }
+        return
+    }
+    if (want_cgen) {
+        let g = new_codegen(p.nodes, c)
+        print(g.emit_program(prog))
+    } else {
+        print("check OK: " + path)
+    }
+}
+
+fn main() {
+    let av = args()
+    if (len(av) < 2) {
+        usage()
+        let sample = "fn add(a: int, b: int) -> int { return a + b }\n"
+        let lexer = new_lexer(sample)
+        let p = new_parser(lexer)
+        let prog = p.parse_program()
+        if (len(p.errors) > 0) {
+            print("demo parse error")
+            return
+        }
+        let c = new_checker(p.nodes)
+        c.check_program(prog)
+        if (not c.ok()) {
+            print("demo check errors")
+            return
+        }
+        print("demo: parse+check OK (try: kodae-compiler cgen <file.kodae>)")
+        return
+    }
+    if (av[1] == "check") {
+        if (len(av) < 3) {
+            usage()
+            return
+        }
+        compile_file(av[2], false)
+        return
+    }
+    if (av[1] == "cgen") {
+        if (len(av) < 3) {
+            usage()
+            return
+        }
+        compile_file(av[2], true)
+        return
+    }
+    usage()
+}

@@ -19,18 +19,12 @@ jobs:
         include:
           - os: windows
             arch: amd64
-            zig_url: https://ziglang.org/download/0.12.0/zig-windows-x86_64-0.12.0.zip
-            zig_exe: zig.exe
             archive_ext: zip
           - os: linux
             arch: amd64
-            zig_url: https://ziglang.org/download/0.12.0/zig-linux-x86_64-0.12.0.tar.xz
-            zig_exe: zig
             archive_ext: tar.gz
           - os: darwin
             arch: arm64
-            zig_url: https://ziglang.org/download/0.12.0/zig-macos-aarch64-0.12.0.tar.xz
-            zig_exe: zig
             archive_ext: tar.gz
 
     steps:
@@ -41,41 +35,12 @@ jobs:
         with:
           go-version: "1.22"
 
+      - name: Fetch TinyCC for bundle target
+        run: chmod +x scripts/fetch-tcc.sh && ./scripts/fetch-tcc.sh ${{ matrix.os }} ${{ matrix.arch }}
+
       - name: Build base bundle
         run: |
           go run ./cmd/kodae bundle ${{ matrix.os }} ${{ matrix.arch }}
-
-      - name: Download and place Zig
-        env:
-          ZIG_URL: ${{ matrix.zig_url }}
-          ZIG_EXE: ${{ matrix.zig_exe }}
-          TARGET_OS: ${{ matrix.os }}
-          TARGET_ARCH: ${{ matrix.arch }}
-        run: |
-          curl -L "$ZIG_URL" -o zig_archive
-          mkdir -p zig_temp
-          case "$ZIG_URL" in
-            *.zip) unzip -q zig_archive -d zig_temp ;;
-            *.tar.xz) tar -xf zig_archive -C zig_temp ;;
-            *) echo "unsupported zig archive: $ZIG_URL"; exit 1 ;;
-          esac
-
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          root = Path("zig_temp")
-          zig_exe = os.environ["ZIG_EXE"]
-          target = Path("dist") / f"kodae-{os.environ['TARGET_OS']}-{os.environ['TARGET_ARCH']}" / "toolchain" / "zig" / zig_exe
-          matches = list(root.rglob(zig_exe))
-          if not matches:
-              raise SystemExit(f"zig binary {zig_exe} not found after extraction")
-          target.parent.mkdir(parents=True, exist_ok=True)
-          target.write_bytes(matches[0].read_bytes())
-          if zig_exe != "zig.exe":
-              target.chmod(0o755)
-          print(f"wrote bundled zig to {target}")
-          PY
 
       - name: Validate bundle layout
         env:
@@ -84,16 +49,15 @@ jobs:
         run: |
           bundle="dist/kodae-${TARGET_OS}-${TARGET_ARCH}"
           test -d "$bundle/bin"
-          test -d "$bundle/toolchain/zig"
           test -d "$bundle/include"
           test -d "$bundle/examples"
           test -f "$bundle/README.md"
           if [ "$TARGET_OS" = "windows" ]; then
             test -f "$bundle/bin/kodae.exe"
-            test -f "$bundle/toolchain/zig/zig.exe"
+            test -f "$bundle/toolchain/tcc.exe"
           else
             test -f "$bundle/bin/kodae"
-            test -f "$bundle/toolchain/zig/zig"
+            test -f "$bundle/toolchain/tcc"
           fi
 
       - name: Create release archive
@@ -110,13 +74,20 @@ jobs:
             tar -czf "../${name}.tar.gz" "$name"
           fi
 
-      - name: Upload artifact
+      - name: Upload artifact (zip)
+        if: matrix.archive_ext == 'zip'
         uses: actions/upload-artifact@v4
         with:
           name: kodae-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            kodae-${{ matrix.os }}-${{ matrix.arch }}.zip
-            kodae-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          path: kodae-${{ matrix.os }}-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+      - name: Upload artifact (tar.gz)
+        if: matrix.archive_ext != 'zip'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kodae-${{ matrix.os }}-${{ matrix.arch }}
+          path: kodae-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
           if-no-files-found: error
 
   release:

@@ -1,0 +1,7 @@
+' AUTO-GENERATED bindings for llvm_shim
+# link "llvm_shim"
+
+extern fn LLVMInitializeNativeTarget() -> void
+
+extern fn LLVMInitializeNativeAsmPrinter() -> void
+

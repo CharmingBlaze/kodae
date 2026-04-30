@@ -10,7 +10,8 @@ Read these in any order; the table shows what each document is for.
 | **[C_LIBRARIES.md](C_LIBRARIES.md)** | **C interop** — `extern fn`, sized types, linking game libs (e.g. Raylib). |
 | **[BINDGEN.md](BINDGEN.md)** | **Auto bindings** from `.h` files (`kodae bind` / `kodae-bind`). |
 | **[LIBRARIES.md](LIBRARIES.md)** | **`kodae build --lib`** — shipping `.c` / `.h` / `.a` / `.dll` / `.so`. |
-| **[DISTRIBUTION.md](DISTRIBUTION.md)** | **Portable bundles** — shipping `kodae` + toolchain (e.g. Zig). |
+| **[DISTRIBUTION.md](DISTRIBUTION.md)** | **Portable bundles** — layout, C vs experimental LLVM backend, releases. |
+| **[CROSS_PLATFORM.md](CROSS_PLATFORM.md)** | **Cross-platform matrix** — Windows/Linux/macOS reliability checks and CI coverage. |
 
 **Also in the repo**
 

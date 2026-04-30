@@ -1,0 +1,126 @@
+#include "token"
+
+enum NodeKind {
+    ' Expressions
+    IdentExpr,
+    IntLit,
+    FloatLit,
+    StringLit,
+    BoolLit,
+    NoneExpr,
+    ParenExpr,
+    PostfixExpr,
+    UnaryExpr,
+    BinaryExpr,
+    CallExpr,
+    CastExpr,
+    MemberExpr,
+    StructFieldInit,
+    StructLit,
+    StructUpdateExpr,
+    FuncLit,
+    ListLit,
+    IndexExpr,
+    TupleExpr,
+    ResultCatchExpr,
+
+    ' Statements
+    BlockStmt,
+    IfStmt,
+    WhileStmt,
+    LoopStmt,
+    ForInStmt,
+    ReturnStmt,
+    BreakStmt,
+    ContinueStmt,
+    DeferStmt,
+    LetStmt,
+    ExprStmt,
+    AssignStmt,
+    MatchStmt,
+    MatchArm,
+    RepeatStmt,
+
+    ' Declarations
+    EnumDecl,
+    FnDecl,
+    LetDecl,
+    ConstGroupDecl,
+    StructField,
+    StructDecl,
+    Param,
+    ExternDecl,
+    ModuleDecl,
+    UseDecl,
+    LinkDecl,
+    LinkPathDecl,
+    IncludeDecl,
+    MetaDecl,
+
+    ' Types
+    TypeIdent,
+    TypeList,
+    TypeOptional,
+    TypeResult,
+    TypeFunc,
+    TypeTuple,
+
+    ' Top-level
+    Program
+}
+
+struct AstNode {
+    kind: NodeKind
+    
+    ' Token info
+    token: Token
+    file: str
+    
+    ' General properties
+    name: str
+    str_val: str
+    int_val: int
+    bool_val: bool
+    op: str
+    
+    ' Child node indices (pointing to the global AST node list)
+    left: int
+    right: int
+    cond: int
+    body: int
+    thn: int
+    els: int
+    
+    ' Type reference index
+    type_ref: int
+    
+    ' Lists of child indices
+    items: list[int]
+    
+    ' Multi-target let: let a, b, c = ... (empty => use name only)
+    let_names: list[str]
+}
+
+fn new_ast_node(kind: NodeKind, tok: Token) -> AstNode {
+    let empty_items: list[int] = []
+    let empty_names: list[str] = []
+    return AstNode {
+        kind: kind,
+        token: tok,
+        file: "",
+        name: "",
+        str_val: "",
+        int_val: 0,
+        bool_val: false,
+        op: "",
+        left: -1,
+        right: -1,
+        cond: -1,
+        body: -1,
+        thn: -1,
+        els: -1,
+        type_ref: -1,
+        items: empty_items,
+        let_names: empty_names
+    }
+}

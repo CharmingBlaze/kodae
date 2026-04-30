@@ -1,0 +1,208 @@
+enum TokenType {
+    Illegal,
+    Eof,
+    Newline,
+    Ident,
+    IntLit,
+    FloatLit,
+    StrLit,
+    Fn,
+    Let,
+    Const,
+    If,
+    Else,
+    While,
+    For,
+    In,
+    Loop,
+    Break,
+    Return,
+    Struct,
+    Module,
+    Use,
+    Extern,
+    True,
+    False,
+    As,
+    Result,
+    Catch,
+    Ok,
+    Err,
+    Enum,
+    Match,
+    None,
+    This,
+    Comma,
+    Colon,
+    Semi,
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    LBrack,
+    RBrack,
+    Plus,
+    Minus,
+    Mul,
+    Div,
+    Mod,
+    And,
+    Or,
+    Not,
+    Assign,
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    Leq,
+    Geq,
+    Dot,
+    DotDot,
+    Quest,
+    Hash,
+    PlusEq,
+    MinusEq,
+    MulEq,
+    DivEq,
+    ModEq,
+    FatArrow,
+    Arrow,
+    PlusPlus,
+    MinusMinus,
+    Ellipsis,
+    Continue,
+    Defer,
+    Repeat,
+    With,
+    BitAnd,
+    BitOr,
+    BitXor,
+    BitNot
+}
+
+struct Token {
+    kind: TokenType
+    literal: str
+    line: int
+    column: int
+}
+
+fn token_type_to_string(t: TokenType) -> str {
+    match (t) {
+        TokenType.Illegal => { return "ILLEGAL" }
+        TokenType.Eof => { return "EOF" }
+        TokenType.Newline => { return "NEWLINE" }
+        TokenType.Ident => { return "IDENT" }
+        TokenType.IntLit => { return "INTLIT" }
+        TokenType.FloatLit => { return "FLOATLIT" }
+        TokenType.StrLit => { return "STRLIT" }
+        TokenType.Fn => { return "fn" }
+        TokenType.Let => { return "let" }
+        TokenType.Const => { return "const" }
+        TokenType.If => { return "if" }
+        TokenType.Else => { return "else" }
+        TokenType.While => { return "while" }
+        TokenType.For => { return "for" }
+        TokenType.In => { return "in" }
+        TokenType.Loop => { return "loop" }
+        TokenType.Break => { return "break" }
+        TokenType.Return => { return "return" }
+        TokenType.Struct => { return "struct" }
+        TokenType.Module => { return "module" }
+        TokenType.Use => { return "use" }
+        TokenType.Extern => { return "extern" }
+        TokenType.True => { return "true" }
+        TokenType.False => { return "false" }
+        TokenType.As => { return "as" }
+        TokenType.Result => { return "result" }
+        TokenType.Catch => { return "catch" }
+        TokenType.Ok => { return "ok" }
+        TokenType.Err => { return "err" }
+        TokenType.Enum => { return "enum" }
+        TokenType.Match => { return "match" }
+        TokenType.None => { return "none" }
+        TokenType.This => { return "this" }
+        TokenType.Comma => { return "," }
+        TokenType.Colon => { return ":" }
+        TokenType.Semi => { return ";" }
+        TokenType.LParen => { return "(" }
+        TokenType.RParen => { return ")" }
+        TokenType.LBrace => { return "{" }
+        TokenType.RBrace => { return "}" }
+        TokenType.LBrack => { return "[" }
+        TokenType.RBrack => { return "]" }
+        TokenType.Plus => { return "+" }
+        TokenType.Minus => { return "-" }
+        TokenType.Mul => { return "*" }
+        TokenType.Div => { return "/" }
+        TokenType.Mod => { return "%" }
+        TokenType.And => { return "and" }
+        TokenType.Or => { return "or" }
+        TokenType.Not => { return "not" }
+        TokenType.Assign => { return "=" }
+        TokenType.Eq => { return "==" }
+        TokenType.Neq => { return "!=" }
+        TokenType.Lt => { return "<" }
+        TokenType.Gt => { return ">" }
+        TokenType.Leq => { return "<=" }
+        TokenType.Geq => { return ">=" }
+        TokenType.Dot => { return "." }
+        TokenType.DotDot => { return ".." }
+        TokenType.Quest => { return "?" }
+        TokenType.Hash => { return "#" }
+        TokenType.PlusEq => { return "+=" }
+        TokenType.MinusEq => { return "-=" }
+        TokenType.MulEq => { return "*=" }
+        TokenType.DivEq => { return "/=" }
+        TokenType.ModEq => { return "%=" }
+        TokenType.FatArrow => { return "=>" }
+        TokenType.Arrow => { return "->" }
+        TokenType.PlusPlus => { return "++" }
+        TokenType.MinusMinus => { return "--" }
+        TokenType.Ellipsis => { return "..." }
+        TokenType.Continue => { return "continue" }
+        TokenType.Defer => { return "defer" }
+        TokenType.Repeat => { return "repeat" }
+        TokenType.With => { return "with" }
+        TokenType.BitAnd => { return "&" }
+        TokenType.BitOr => { return "|" }
+        TokenType.BitXor => { return "^" }
+        TokenType.BitNot => { return "~" }
+    }
+    return "UNKNOWN"
+}
+
+fn lookup_keyword(ident: str) -> TokenType {
+    if (ident == "and") { return TokenType.And }
+    if (ident == "or") { return TokenType.Or }
+    if (ident == "not") { return TokenType.Not }
+    if (ident == "NOT") { return TokenType.Not }
+    if (ident == "fn") { return TokenType.Fn }
+    if (ident == "let") { return TokenType.Let }
+    if (ident == "const") { return TokenType.Const }
+    if (ident == "if") { return TokenType.If }
+    if (ident == "else") { return TokenType.Else }
+    if (ident == "while") { return TokenType.While }
+    if (ident == "for") { return TokenType.For }
+    if (ident == "in") { return TokenType.In }
+    if (ident == "loop") { return TokenType.Loop }
+    if (ident == "break") { return TokenType.Break }
+    if (ident == "return") { return TokenType.Return }
+    if (ident == "struct") { return TokenType.Struct }
+    if (ident == "module") { return TokenType.Module }
+    if (ident == "use") { return TokenType.Use }
+    if (ident == "extern") { return TokenType.Extern }
+    if (ident == "true") { return TokenType.True }
+    if (ident == "false") { return TokenType.False }
+    if (ident == "as") { return TokenType.As }
+    if (ident == "catch") { return TokenType.Catch }
+    if (ident == "enum") { return TokenType.Enum }
+    if (ident == "match") { return TokenType.Match }
+    if (ident == "none") { return TokenType.None }
+    if (ident == "this") { return TokenType.This }
+    if (ident == "continue") { return TokenType.Continue }
+    if (ident == "defer") { return TokenType.Defer }
+    if (ident == "repeat") { return TokenType.Repeat }
+    if (ident == "with") { return TokenType.With }
+    return TokenType.Ident
+}

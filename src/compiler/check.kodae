@@ -1,0 +1,690 @@
+#include "ast"
+
+' Minimal semantic checker: flat type strings ("int", "float", "str", "bool", "void", "unknown")
+' and a scope stack for fn parameters and block-local lets.
+
+struct Scope {
+    names: list[str]
+    types: list[str]
+}
+
+struct Checker {
+    nodes: list[AstNode]
+    errors: list[str]
+    scopes: list[Scope]
+    fn_names: list[str]
+    fn_nodes: list[int]
+    sf_struct: list[str]
+    sf_field: list[str]
+    sf_ty: list[str]
+    struct_names: list[str]
+    enum_names: list[str]
+    enum_owner: list[str]
+    enum_variant: list[str]
+}
+
+fn new_checker(nodes: list[AstNode]) -> Checker {
+    let empty_scopes: list[Scope] = []
+    let empty_errs: list[str] = []
+    let empty_names: list[str] = []
+    let empty_fn_nodes: list[int] = []
+    let sf0: list[str] = []
+    let sf1: list[str] = []
+    let sf2: list[str] = []
+    let sn0: list[str] = []
+    let en0: list[str] = []
+    let eo0: list[str] = []
+    let ev0: list[str] = []
+    return Checker {
+        nodes: nodes,
+        errors: empty_errs,
+        scopes: empty_scopes,
+        fn_names: empty_names,
+        fn_nodes: empty_fn_nodes,
+        sf_struct: sf0,
+        sf_field: sf1,
+        sf_ty: sf2,
+        struct_names: sn0,
+        enum_names: en0,
+        enum_owner: eo0,
+        enum_variant: ev0
+    }
+}
+
+fn Checker.push_error(msg: str) {
+    this.errors.push(msg)
+}
+
+fn Checker.push_scope() {
+    let empty_names: list[str] = []
+    let empty_types: list[str] = []
+    let sc = Scope { names: empty_names, types: empty_types }
+    this.scopes.push(sc)
+}
+
+fn Checker.pop_scope() {
+    if (len(this.scopes) > 0) {
+        this.scopes.pop()
+    }
+}
+
+fn Checker.scope_set(name: str, ty: str) {
+    if (len(this.scopes) == 0) {
+        this.push_scope()
+    }
+    let last = len(this.scopes) - 1
+    let sc = this.scopes[last]
+    sc.names.push(name)
+    sc.types.push(ty)
+    this.scopes[last] = sc
+}
+
+fn Checker.scope_get(name: str) -> str {
+    let i = len(this.scopes) - 1
+    while (i >= 0) {
+        let sc = this.scopes[i]
+        let j = 0
+        while (j < len(sc.names)) {
+            if (sc.names[j] == name) {
+                return sc.types[j]
+            }
+            j = j + 1
+        }
+        i = i - 1
+    }
+    return ""
+}
+
+fn starts_with_upper_ascii(s: str) -> bool {
+    if (s.len() == 0) {
+        return false
+    }
+    let c = s.slice(0, 1)
+    let ups = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    let i = 0
+    while (i < ups.len()) {
+        if (c == ups.slice(i, i + 1)) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+fn Checker.collect_struct_fields(prog_idx: int) {
+    let ss: list[str] = []
+    let sf: list[str] = []
+    let st: list[str] = []
+    let names: list[str] = []
+    let enames: list[str] = []
+    let eown: list[str] = []
+    let evar: list[str] = []
+    if ((prog_idx < 0) or (prog_idx >= len(this.nodes))) {
+        this.sf_struct = ss
+        this.sf_field = sf
+        this.sf_ty = st
+        this.struct_names = names
+        this.enum_names = enames
+        this.enum_owner = eown
+        this.enum_variant = evar
+        return
+    }
+    let root = this.nodes[prog_idx]
+    let i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di < 0) or (di >= len(this.nodes))) {
+            i = i + 1
+            continue
+        }
+        let d = this.nodes[di]
+        if (d.kind == NodeKind.StructDecl) {
+            names.push(d.name)
+            let sj = 0
+            while (sj < len(d.items)) {
+                let fi = d.items[sj]
+                if ((fi >= 0) and (fi < len(this.nodes))) {
+                    let fnode = this.nodes[fi]
+                    if (fnode.kind == NodeKind.StructField) {
+                        ss.push(d.name)
+                        sf.push(fnode.name)
+                        st.push(this.type_name_from_type_node(fnode.type_ref))
+                    }
+                }
+                sj = sj + 1
+            }
+        }
+        if (d.kind == NodeKind.EnumDecl) {
+            enames.push(d.name)
+            let vi = 0
+            while (vi < len(d.items)) {
+                let vv = d.items[vi]
+                if ((vv >= 0) and (vv < len(this.nodes))) {
+                    let vnode = this.nodes[vv]
+                    eown.push(d.name)
+                    evar.push(vnode.name)
+                }
+                vi = vi + 1
+            }
+        }
+        i = i + 1
+    }
+    this.sf_struct = ss
+    this.sf_field = sf
+    this.sf_ty = st
+    this.struct_names = names
+    this.enum_names = enames
+    this.enum_owner = eown
+    this.enum_variant = evar
+}
+
+fn Checker.declares_struct(sname: str) -> bool {
+    let i = 0
+    while (i < len(this.struct_names)) {
+        if (this.struct_names[i] == sname) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+fn Checker.declares_enum(ename: str) -> bool {
+    let i = 0
+    while (i < len(this.enum_names)) {
+        if (this.enum_names[i] == ename) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+fn Checker.has_enum_variant(ename: str, vname: str) -> bool {
+    let i = 0
+    while (i < len(this.enum_owner)) {
+        if ((this.enum_owner[i] == ename) and (this.enum_variant[i] == vname)) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+fn Checker.struct_field_type(sname: str, fname: str) -> str {
+    let k = 0
+    while (k < len(this.sf_struct)) {
+        if ((this.sf_struct[k] == sname) and (this.sf_field[k] == fname)) {
+            return this.sf_ty[k]
+        }
+        k = k + 1
+    }
+    return ""
+}
+
+fn Checker.list_inner_type(list_ty: str) -> str {
+    if ((list_ty.len() > 6) and (list_ty.slice(0, 5) == "list[")) {
+        if (list_ty.slice(list_ty.len() - 1, list_ty.len()) == "]") {
+            return list_ty.slice(5, list_ty.len() - 1)
+        }
+    }
+    return "unknown"
+}
+
+fn Checker.type_name_from_type_node(idx: int) -> str {
+    if ((idx < 0) or (idx >= len(this.nodes))) {
+        return "unknown"
+    }
+    let n = this.nodes[idx]
+    if (n.kind == NodeKind.TypeIdent) {
+        return n.name
+    }
+    if (n.kind == NodeKind.TypeList) {
+        let inner = this.type_name_from_type_node(n.left)
+        return "list[" + inner + "]"
+    }
+    if (n.kind == NodeKind.TypeResult) {
+        let inner = this.type_name_from_type_node(n.left)
+        return "result[" + inner + "]"
+    }
+    return "unknown"
+}
+
+fn Checker.check_expr(idx: int) -> str {
+    if ((idx < 0) or (idx >= len(this.nodes))) {
+        return "unknown"
+    }
+    let n = this.nodes[idx]
+    if (n.kind == NodeKind.IntLit) {
+        return "int"
+    }
+    if (n.kind == NodeKind.FloatLit) {
+        return "float"
+    }
+    if (n.kind == NodeKind.StringLit) {
+        return "str"
+    }
+    if (n.kind == NodeKind.BoolLit) {
+        return "bool"
+    }
+    if (n.kind == NodeKind.NoneExpr) {
+        return "none"
+    }
+    if (n.kind == NodeKind.IdentExpr) {
+        if ((n.name == "print") or (n.name == "str") or (n.name == "len") or (n.name == "args") or (n.name == "read_file") or (n.name == "write_file") or (n.name == "int") or (n.name == "float") or (n.name == "bool")) {
+            return "builtin"
+        }
+        if (this.declares_enum(n.name)) {
+            return n.name
+        }
+        let t = this.scope_get(n.name)
+        if (t == "") {
+            if (starts_with_upper_ascii(n.name)) {
+                return "unknown"
+            }
+            this.push_error("unknown identifier: " + n.name)
+            return "unknown"
+        }
+        return t
+    }
+    if (n.kind == NodeKind.UnaryExpr) {
+        let inner = this.check_expr(n.left)
+        if ((n.op == "-") or (n.op == "+") or (n.op == "~")) {
+            return inner
+        }
+        if (n.op == "!") {
+            return "bool"
+        }
+        return inner
+    }
+    if (n.kind == NodeKind.BinaryExpr) {
+        let lt = this.check_expr(n.left)
+        let rt = this.check_expr(n.right)
+        if (n.op == "+") {
+            if ((lt == "str") or (rt == "str")) {
+                if ((lt != "str") or (rt != "str")) {
+                    this.push_error("binary +: both sides must be str when one side is str")
+                }
+                return "str"
+            }
+            if ((lt != "int") and (lt != "float") and (lt != "unknown")) {
+                this.push_error("binary +: bad left type")
+            }
+            if ((rt != "int") and (rt != "float") and (rt != "unknown")) {
+                this.push_error("binary +: bad right type")
+            }
+            if ((lt == "float") or (rt == "float")) {
+                return "float"
+            }
+            return "int"
+        }
+        if ((n.op == "-") or (n.op == "*") or (n.op == "/") or (n.op == "%")) {
+            if ((lt != "int") and (lt != "float") and (lt != "unknown")) {
+                this.push_error("binary " + n.op + ": bad left type")
+            }
+            if ((rt != "int") and (rt != "float") and (rt != "unknown")) {
+                this.push_error("binary " + n.op + ": bad right type")
+            }
+            if ((lt == "float") or (rt == "float")) {
+                return "float"
+            }
+            return "int"
+        }
+        if ((n.op == "==") or (n.op == "!=") or (n.op == "<") or (n.op == ">") or (n.op == "<=") or (n.op == ">=")) {
+            return "bool"
+        }
+        if ((n.op == "&&") or (n.op == "||")) {
+            if ((lt != "bool") or (rt != "bool")) {
+                this.push_error("logic op needs bool")
+            }
+            return "bool"
+        }
+        return "unknown"
+    }
+    if (n.kind == NodeKind.ParenExpr) {
+        return this.check_expr(n.left)
+    }
+    if (n.kind == NodeKind.ListLit) {
+        if (len(n.items) == 0) {
+            return "list[unknown]"
+        }
+        let et = this.check_expr(n.items[0])
+        let j = 1
+        while (j < len(n.items)) {
+            let _lj = this.check_expr(n.items[j])
+            j = j + 1
+        }
+        return "list[" + et + "]"
+    }
+    if (n.kind == NodeKind.IndexExpr) {
+        let bt = this.check_expr(n.left)
+        let _ix = this.check_expr(n.right)
+        if ((bt.len() > 6) and (bt.slice(0, 5) == "list[")) {
+            if (bt.slice(bt.len() - 1, bt.len()) == "]") {
+                return bt.slice(5, bt.len() - 1)
+            }
+        }
+        return "unknown"
+    }
+    if (n.kind == NodeKind.MemberExpr) {
+        let ln = this.nodes[n.left]
+        if (ln.kind == NodeKind.IdentExpr) {
+            if (this.declares_enum(ln.name)) {
+                if (this.has_enum_variant(ln.name, n.name)) {
+                    return ln.name
+                }
+                this.push_error("unknown enum variant: " + ln.name + "." + n.name)
+                return "unknown"
+            }
+        }
+        let lt = this.check_expr(n.left)
+        if ((lt != "") and (lt != "unknown")) {
+            let ft = this.struct_field_type(lt, n.name)
+            if (ft != "") {
+                return ft
+            }
+        }
+        return "unknown"
+    }
+    if (n.kind == NodeKind.StructLit) {
+        let leftn = this.nodes[n.left]
+        if (leftn.kind != NodeKind.IdentExpr) {
+            return "unknown"
+        }
+        let sname = leftn.name
+        if (not this.declares_struct(sname)) {
+            if (starts_with_upper_ascii(sname)) {
+                return sname
+            }
+            this.push_error("unknown struct: " + sname)
+            return "unknown"
+        }
+        let i = 0
+        while (i < len(n.items)) {
+            let fi = n.items[i]
+            if ((fi >= 0) and (fi < len(this.nodes))) {
+                let fin = this.nodes[fi]
+                if (fin.kind == NodeKind.StructFieldInit) {
+                    let want = this.struct_field_type(sname, fin.name)
+                    let got = this.check_expr(fin.left)
+                    if ((want != "") and (got != "unknown") and (want != got)) {
+                        this.push_error("struct field " + sname + "." + fin.name + ": type mismatch")
+                    }
+                }
+            }
+            i = i + 1
+        }
+        return sname
+    }
+    if (n.kind == NodeKind.CallExpr) {
+        let callee = this.nodes[n.left]
+        if (callee.kind == NodeKind.IdentExpr) {
+            let nm = callee.name
+            if ((nm.len() > 4) and (nm.slice(0, 4) == "new_")) {
+                let tail = nm.slice(4, nm.len())
+                if (tail.len() > 0) {
+                    let cand = tail.slice(0, 1).upper() + tail.slice(1, tail.len())
+                    if (this.declares_struct(cand)) {
+                        let i = 0
+                        while (i < len(n.items)) {
+                            let _ci = this.check_expr(n.items[i])
+                            i = i + 1
+                        }
+                        return cand
+                    }
+                }
+            }
+            if (callee.name == "len") {
+                let i = 0
+                while (i < len(n.items)) {
+                    let _li = this.check_expr(n.items[i])
+                    i = i + 1
+                }
+                return "int"
+            }
+            if (callee.name == "str") {
+                let i = 0
+                while (i < len(n.items)) {
+                    let _si = this.check_expr(n.items[i])
+                    i = i + 1
+                }
+                return "str"
+            }
+        }
+        if (callee.kind == NodeKind.MemberExpr) {
+            let bt = this.check_expr(callee.left)
+            if ((bt.len() >= 5) and (bt.slice(0, 5) == "list[")) {
+                let inner = this.list_inner_type(bt)
+                if ((callee.name == "push") or (callee.name == "append")) {
+                    let i = 0
+                    while (i < len(n.items)) {
+                        let _mi = this.check_expr(n.items[i])
+                        i = i + 1
+                    }
+                    return "unknown"
+                }
+                if ((callee.name == "pop") or (callee.name == "remove")) {
+                    let i = 0
+                    while (i < len(n.items)) {
+                        let _ri = this.check_expr(n.items[i])
+                        i = i + 1
+                    }
+                    return inner
+                }
+            }
+        }
+        let _cl = this.check_expr(n.left)
+        let i = 0
+        while (i < len(n.items)) {
+            let _ai = this.check_expr(n.items[i])
+            i = i + 1
+        }
+        return "unknown"
+    }
+    return "unknown"
+}
+
+fn Checker.collect_globals(prog_idx: int) {
+    if ((prog_idx < 0) or (prog_idx >= len(this.nodes))) {
+        return
+    }
+    let root = this.nodes[prog_idx]
+    let i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        if ((di < 0) or (di >= len(this.nodes))) {
+            i = i + 1
+            continue
+        }
+        let d = this.nodes[di]
+        if (d.kind == NodeKind.LetDecl) {
+            let ty = ""
+            if (d.type_ref >= 0) {
+                ty = this.type_name_from_type_node(d.type_ref)
+            } else {
+                ty = this.check_expr(d.left)
+            }
+            this.scope_set(d.name, ty)
+        }
+        if (d.kind == NodeKind.FnDecl) {
+            this.scope_set(d.name, "fn")
+        }
+        if (d.kind == NodeKind.ExternDecl) {
+            this.scope_set(d.name, "fn")
+        }
+        if (d.kind == NodeKind.StructDecl) {
+            this.scope_set(d.name, d.name)
+        }
+        if (d.kind == NodeKind.EnumDecl) {
+            this.scope_set(d.name, d.name)
+        }
+        i = i + 1
+    }
+}
+
+fn Checker.check_stmt(idx: int) {
+    if ((idx < 0) or (idx >= len(this.nodes))) {
+        return
+    }
+    let n = this.nodes[idx]
+    if (n.kind == NodeKind.BlockStmt) {
+        this.push_scope()
+        let i = 0
+        while (i < len(n.items)) {
+            this.check_stmt(n.items[i])
+            i = i + 1
+        }
+        this.pop_scope()
+        return
+    }
+    if (n.kind == NodeKind.LetStmt) {
+        let inferred = "unknown"
+        if (n.left >= 0) {
+            inferred = this.check_expr(n.left)
+        }
+        let decl_ty = ""
+        if (n.type_ref >= 0) {
+            decl_ty = this.type_name_from_type_node(n.type_ref)
+        }
+        if (len(n.let_names) > 1) {
+            let j = 0
+            while (j < len(n.let_names)) {
+                let nm = n.let_names[j]
+                if (decl_ty != "") {
+                    this.scope_set(nm, decl_ty)
+                } else {
+                    this.scope_set(nm, inferred)
+                }
+                j = j + 1
+            }
+        } else {
+            if (decl_ty != "") {
+                if ((inferred != "unknown") and (inferred != "list[unknown]") and (decl_ty != inferred)) {
+                    this.push_error("let " + n.name + ": type mismatch")
+                }
+                this.scope_set(n.name, decl_ty)
+            } else {
+                this.scope_set(n.name, inferred)
+            }
+        }
+        return
+    }
+    if (n.kind == NodeKind.AssignStmt) {
+        let _al = this.check_expr(n.left)
+        let _ar = this.check_expr(n.right)
+        return
+    }
+    if (n.kind == NodeKind.ExprStmt) {
+        let _es = this.check_expr(n.left)
+        return
+    }
+    if (n.kind == NodeKind.ReturnStmt) {
+        if (n.left >= 0) {
+            let _rs = this.check_expr(n.left)
+        }
+        return
+    }
+    if (n.kind == NodeKind.IfStmt) {
+        let ct = this.check_expr(n.cond)
+        if ((ct != "bool") and (ct != "unknown")) {
+            this.push_error("if condition must be bool")
+        }
+        this.check_stmt(n.thn)
+        if (n.els >= 0) {
+            this.check_stmt(n.els)
+        }
+        return
+    }
+    if (n.kind == NodeKind.WhileStmt) {
+        let wt = this.check_expr(n.cond)
+        if ((wt != "bool") and (wt != "unknown")) {
+            this.push_error("while condition must be bool")
+        }
+        this.check_stmt(n.body)
+        return
+    }
+    if (n.kind == NodeKind.LoopStmt) {
+        this.check_stmt(n.body)
+        return
+    }
+    if (n.kind == NodeKind.ForInStmt) {
+        let _fi = this.check_expr(n.cond)
+        this.scope_set(n.name, "unknown")
+        this.check_stmt(n.body)
+        return
+    }
+    if (n.kind == NodeKind.MatchStmt) {
+        let _mc = this.check_expr(n.cond)
+        let ai = 0
+        while (ai < len(n.items)) {
+            let arm = this.nodes[n.items[ai]]
+            if (arm.kind == NodeKind.MatchArm) {
+                let _ma = this.check_expr(arm.left)
+                this.check_stmt(arm.body)
+            }
+            ai = ai + 1
+        }
+        return
+    }
+    if (n.kind == NodeKind.RepeatStmt) {
+        let rt = this.check_expr(n.cond)
+        if ((rt != "int") and (rt != "unknown")) {
+            this.push_error("repeat count must be int")
+        }
+        this.check_stmt(n.body)
+        return
+    }
+}
+
+fn Checker.collect_fns(prog_idx: int) {
+    let root = this.nodes[prog_idx]
+    let i = 0
+    while (i < len(root.items)) {
+        let di = root.items[i]
+        let d = this.nodes[di]
+        if (d.kind == NodeKind.FnDecl) {
+            this.fn_names.push(d.name)
+            this.fn_nodes.push(di)
+        }
+        i = i + 1
+    }
+}
+
+fn Checker.check_fn(fn_idx: int) {
+    let f = this.nodes[fn_idx]
+    this.push_scope()
+    let pi = 0
+    while (pi < len(f.items)) {
+        let p = this.nodes[f.items[pi]]
+        if (p.kind == NodeKind.Param) {
+            if (p.bool_val) {
+                ' varargs
+            } else {
+                let tn = this.type_name_from_type_node(p.type_ref)
+                this.scope_set(p.name, tn)
+            }
+        }
+        pi = pi + 1
+    }
+    if (f.body >= 0) {
+        this.check_stmt(f.body)
+    }
+    ' Keep this scope available for later codegen type queries.
+}
+
+fn Checker.check_program(prog_idx: int) {
+    this.collect_struct_fields(prog_idx)
+    this.push_scope()
+    this.collect_globals(prog_idx)
+    this.collect_fns(prog_idx)
+    let i = 0
+    while (i < len(this.fn_nodes)) {
+        this.check_fn(this.fn_nodes[i])
+        i = i + 1
+    }
+    ' Keep global scope available for later codegen type queries.
+}
+
+fn Checker.ok() -> bool {
+    return len(this.errors) == 0
+}

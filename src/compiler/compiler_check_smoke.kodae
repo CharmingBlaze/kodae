@@ -1,0 +1,41 @@
+#include "token"
+#include "lexer"
+#include "parser"
+#include "check"
+
+fn assert(cond: bool, msg: str) {
+    if (not cond) {
+        print("ASSERT: " + msg)
+    }
+}
+
+fn test_check_fn_params_and_body() {
+    let source = "fn add(a: int, b: int) -> int {\n    let s = a + b\n    return s\n}\n"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    let prog = p.parse_program()
+    assert(len(p.errors) == 0, "parse")
+    let c = new_checker(p.nodes)
+    c.check_program(prog)
+    assert(c.ok(), "checker should accept simple int fn")
+}
+
+fn test_check_bad_binary() {
+    let source = "fn bad() -> void {\n    let x = true + 1\n}\n"
+    let lexer = new_lexer(source)
+    let p = new_parser(lexer)
+    let prog = p.parse_program()
+    assert(len(p.errors) == 0, "parse")
+    let c = new_checker(p.nodes)
+    c.check_program(prog)
+    assert(not c.ok(), "checker should reject bool + int")
+}
+
+fn main() {
+    print("Running check tests...")
+    test_check_fn_params_and_body()
+    print("test_check_fn_params_and_body passed!")
+    test_check_bad_binary()
+    print("test_check_bad_binary passed!")
+    print("All check tests passed!")
+}

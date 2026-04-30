@@ -1,0 +1,569 @@
+#include "token"
+
+' Runtime helper from inlined C bootstrap (see internal/cruntime/kodae_bootstrap.txt).
+extern fn kodae_str_from_byte(b: int) -> str
+
+struct Lexer {
+    input: str
+    pos: int
+    line: int
+    col: int
+    ch: str
+}
+
+fn new_lexer(input: str) -> Lexer {
+    let ch = ""
+    if (input.len() > 0) {
+        ch = input.slice(0, 1)
+    }
+    return Lexer {
+        input: input,
+        pos: 0,
+        line: 1,
+        col: 0,
+        ch: ch
+    }
+}
+
+fn Lexer.at_eof() -> bool {
+    return this.ch == ""
+}
+
+fn Lexer.peek(ahead: int) -> str {
+    let n = this.pos + ahead
+    if ((n >= 0) and (n < this.input.len())) {
+        return this.input.slice(n, n + 1)
+    }
+    return ""
+}
+
+fn Lexer.advance() {
+    if (this.ch == "") {
+        return
+    }
+    if (this.ch == "\n") {
+        this.line++
+        this.col = 0
+    } else {
+        this.col++
+    }
+    this.pos++
+    if (this.pos >= this.input.len()) {
+        this.ch = ""
+    } else {
+        this.ch = this.input.slice(this.pos, this.pos + 1)
+    }
+}
+
+fn Lexer.illegal(line: int, col: int) -> Token {
+    let c = this.ch
+    this.advance()
+    if (c == "") {
+        return Token { kind: TokenType.Illegal, literal: "<EOF>", line: line, column: col }
+    }
+    return Token { kind: TokenType.Illegal, literal: c, line: line, column: col }
+}
+
+fn Lexer.is_digit() -> bool {
+    let digits = "0123456789"
+    return (this.ch.len() == 1) and digits.contains(this.ch)
+}
+
+fn Lexer.is_hex() -> bool {
+    let hex_chars = "0123456789abcdefABCDEF"
+    return (this.ch.len() == 1) and hex_chars.contains(this.ch)
+}
+
+fn Lexer.is_ident_start() -> bool {
+    let ident_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+    return (this.ch.len() == 1) and ident_chars.contains(this.ch)
+}
+
+fn Lexer.is_ident_cont() -> bool {
+    return this.is_ident_start() or this.is_digit()
+}
+
+fn Lexer.skip_hspace() {
+    while ((this.ch == " ") or (this.ch == "\t") or (this.ch == "\r")) {
+        this.advance()
+    }
+}
+
+fn Lexer.is_line_comment_start() -> bool {
+    if (this.ch == "'") {
+        return true
+    }
+    return (this.ch == "-") and (this.peek(1) == "-")
+}
+
+fn Lexer.skip_line_comment() {
+    if (this.ch == "'") {
+        this.advance()
+    } else {
+        if (this.ch == "-") {
+            this.advance()
+            if (this.ch == "-") {
+                this.advance()
+            }
+        }
+    }
+    while ((this.ch != "") and (this.ch != "\n")) {
+        this.advance()
+    }
+}
+
+fn Lexer.read_ident(line: int, col: int) -> Token {
+    let start = this.pos
+    while (this.is_ident_cont()) {
+        this.advance()
+    }
+    let lit = this.input.slice(start, this.pos)
+    return Token { kind: lookup_keyword(lit), literal: lit, line: line, column: col }
+}
+
+fn hex_value_char(ch: str) -> int {
+    if (ch == "0") { return 0 }
+    if (ch == "1") { return 1 }
+    if (ch == "2") { return 2 }
+    if (ch == "3") { return 3 }
+    if (ch == "4") { return 4 }
+    if (ch == "5") { return 5 }
+    if (ch == "6") { return 6 }
+    if (ch == "7") { return 7 }
+    if (ch == "8") { return 8 }
+    if (ch == "9") { return 9 }
+    if ((ch == "a") or (ch == "A")) { return 10 }
+    if ((ch == "b") or (ch == "B")) { return 11 }
+    if ((ch == "c") or (ch == "C")) { return 12 }
+    if ((ch == "d") or (ch == "D")) { return 13 }
+    if ((ch == "e") or (ch == "E")) { return 14 }
+    if ((ch == "f") or (ch == "F")) { return 15 }
+    return 0
+}
+
+' Append UTF-8 encoding of code point r (BMP: 0..0xFFFF) to buf.
+fn utf8_append_rune(buf: str, r: int) -> str {
+    if (r < 0) {
+        return buf
+    }
+    if (r > 65535) {
+        return buf
+    }
+    if (r <= 127) {
+        return buf + kodae_str_from_byte(r)
+    }
+    if (r <= 2047) {
+        let b1 = 192 + (r / 64)
+        let b2 = 128 + (r % 64)
+        return buf + kodae_str_from_byte(b1) + kodae_str_from_byte(b2)
+    }
+    let b1 = 224 + (r / 4096)
+    let r2 = r % 4096
+    let b2 = 128 + ((r2 / 64) % 64)
+    let b3 = 128 + (r2 % 64)
+    return buf + kodae_str_from_byte(b1) + kodae_str_from_byte(b2) + kodae_str_from_byte(b3)
+}
+
+fn Lexer.read_number(line: int, col: int) -> Token {
+    let start = this.pos
+    
+    if ((this.ch == "0") and ((this.peek(1) == "x") or (this.peek(1) == "X"))) {
+        this.advance()
+        this.advance()
+        let hex_start = this.pos
+        while (this.is_hex()) {
+            this.advance()
+        }
+        if (this.pos == hex_start) {
+            return this.illegal(line, col)
+        }
+        return Token { kind: TokenType.IntLit, literal: this.input.slice(start, this.pos), line: line, column: col }
+    }
+    
+    if ((this.ch == "0") and ((this.peek(1) == "b") or (this.peek(1) == "B"))) {
+        this.advance()
+        this.advance()
+        let bin_start = this.pos
+        while ((this.ch == "0") or (this.ch == "1")) {
+            this.advance()
+        }
+        if (this.pos == bin_start) {
+            return this.illegal(line, col)
+        }
+        return Token { kind: TokenType.IntLit, literal: this.input.slice(start, this.pos), line: line, column: col }
+    }
+    
+    let typ = TokenType.IntLit
+    while (this.is_digit()) {
+        this.advance()
+    }
+    
+    if ((this.ch == ".") and (this.peek(1) == ".")) {
+        return Token { kind: TokenType.IntLit, literal: this.input.slice(start, this.pos), line: line, column: col }
+    }
+    
+    if (this.ch == ".") {
+        typ = TokenType.FloatLit
+        this.advance()
+        while (this.is_digit()) {
+            this.advance()
+        }
+    }
+    
+    if ((this.ch == "e") or (this.ch == "E")) {
+        typ = TokenType.FloatLit
+        this.advance()
+        if ((this.ch == "+") or (this.ch == "-")) {
+            this.advance()
+        }
+        while (this.is_digit()) {
+            this.advance()
+        }
+    }
+    return Token { kind: typ, literal: this.input.slice(start, this.pos), line: line, column: col }
+}
+
+fn Lexer.read_string(line: int, col: int) -> Token {
+    if (this.ch != "\"") {
+        return this.illegal(line, col)
+    }
+    this.advance()
+    let buf = ""
+    while (true) {
+        if (this.ch == "") {
+            return Token { kind: TokenType.Illegal, literal: "unclosed string", line: line, column: col }
+        }
+        if (this.ch == "\"") {
+            this.advance()
+            return Token { kind: TokenType.StrLit, literal: buf, line: line, column: col }
+        }
+        if (this.ch == "\n") {
+            return Token { kind: TokenType.Illegal, literal: "newline in string", line: line, column: col }
+        }
+        if (this.ch == "\\") {
+            this.advance()
+            if (this.ch == "") {
+                return Token { kind: TokenType.Illegal, literal: "unclosed string", line: line, column: col }
+            }
+            if (this.ch == "n") {
+                buf = buf + "\n"
+                this.advance()
+                continue
+            }
+            if (this.ch == "r") {
+                buf = buf + "\r"
+                this.advance()
+                continue
+            }
+            if (this.ch == "t") {
+                buf = buf + "\t"
+                this.advance()
+                continue
+            }
+            if (this.ch == "0") {
+                buf = buf + kodae_str_from_byte(0)
+                this.advance()
+                continue
+            }
+            if ((this.ch == "\\") or (this.ch == "\"")) {
+                buf = buf + this.ch
+                this.advance()
+                continue
+            }
+            if (this.ch == "x") {
+                this.advance()
+                if (not this.is_hex()) {
+                    return Token { kind: TokenType.Illegal, literal: "bad \\x", line: line, column: col }
+                }
+                let v = 0
+                let i = 0
+                while ((i < 2) and this.is_hex()) {
+                    v = v * 16 + hex_value_char(this.ch)
+                    this.advance()
+                    i++
+                }
+                buf = buf + kodae_str_from_byte(v)
+                continue
+            }
+            if (this.ch == "u") {
+                this.advance()
+                if (not this.is_hex()) {
+                    return Token { kind: TokenType.Illegal, literal: "bad \\u", line: line, column: col }
+                }
+                let rune_val = 0
+                let j = 0
+                while ((j < 4) and this.is_hex()) {
+                    rune_val = rune_val * 16 + hex_value_char(this.ch)
+                    this.advance()
+                    j++
+                }
+                if (rune_val > 1114111) {
+                    return Token { kind: TokenType.Illegal, literal: "invalid \\u", line: line, column: col }
+                }
+                buf = utf8_append_rune(buf, rune_val)
+                continue
+            }
+            buf = buf + this.ch
+            this.advance()
+            continue
+        }
+        buf = buf + this.ch
+        this.advance()
+    }
+}
+
+fn Lexer.read_multiline_string(line: int, col: int) -> Token {
+    this.advance()
+    this.advance()
+    this.advance()
+    let buf = ""
+    while (this.ch != "") {
+        if ((this.ch == "\"") and (this.peek(1) == "\"") and (this.peek(2) == "\"")) {
+            this.advance()
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.StrLit, literal: buf, line: line, column: col }
+        }
+        if (this.ch == "\n") {
+            this.line++
+            this.col = 0
+        }
+        buf = buf + this.ch
+        this.advance()
+    }
+    return Token { kind: TokenType.Illegal, literal: "unclosed multiline string", line: line, column: col }
+}
+
+fn Lexer.next() -> Token {
+    loop {
+        this.skip_hspace()
+        if (this.ch == "\n") {
+            let line = this.line
+            let col = this.col + 1
+            this.advance()
+            return Token { kind: TokenType.Newline, literal: "\n", line: line, column: col }
+        }
+        if (this.is_line_comment_start()) {
+            this.skip_line_comment()
+            continue
+        }
+        if (this.ch == "") {
+            return Token { kind: TokenType.Eof, literal: "", line: this.line, column: this.col + 1 }
+        }
+        return this.next_after_space()
+    }
+}
+
+fn Lexer.next_after_space() -> Token {
+    let line = this.line
+    let col = this.col + 1
+    
+    let ch = this.ch
+    let p1 = this.peek(1)
+    let p2 = this.peek(2)
+    
+    if (ch == "(") {
+        this.advance()
+        return Token { kind: TokenType.LParen, literal: "(", line: line, column: col }
+    }
+    if (ch == ")") {
+        this.advance()
+        return Token { kind: TokenType.RParen, literal: ")", line: line, column: col }
+    }
+    if (ch == "{") {
+        this.advance()
+        return Token { kind: TokenType.LBrace, literal: "{", line: line, column: col }
+    }
+    if (ch == "}") {
+        this.advance()
+        return Token { kind: TokenType.RBrace, literal: "}", line: line, column: col }
+    }
+    if (ch == "[") {
+        this.advance()
+        return Token { kind: TokenType.LBrack, literal: "[", line: line, column: col }
+    }
+    if (ch == "]") {
+        this.advance()
+        return Token { kind: TokenType.RBrack, literal: "]", line: line, column: col }
+    }
+    if (ch == ",") {
+        this.advance()
+        return Token { kind: TokenType.Comma, literal: ",", line: line, column: col }
+    }
+    if (ch == ":") {
+        this.advance()
+        return Token { kind: TokenType.Colon, literal: ":", line: line, column: col }
+    }
+    if (ch == ";") {
+        this.advance()
+        return Token { kind: TokenType.Semi, literal: ";", line: line, column: col }
+    }
+    
+    if (ch == "+") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.PlusEq, literal: "+=", line: line, column: col }
+        }
+        if (p1 == "+") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.PlusPlus, literal: "++", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Plus, literal: "+", line: line, column: col }
+    }
+    if (ch == "-") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.MinusEq, literal: "-=", line: line, column: col }
+        }
+        if (p1 == "-") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.MinusMinus, literal: "--", line: line, column: col }
+        }
+        if (p1 == ">") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.Arrow, literal: "->", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Minus, literal: "-", line: line, column: col }
+    }
+    if (ch == "*") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.MulEq, literal: "*=", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Mul, literal: "*", line: line, column: col }
+    }
+    if (ch == "/") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.DivEq, literal: "/=", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Div, literal: "/", line: line, column: col }
+    }
+    if (ch == "%") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.ModEq, literal: "%=", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Mod, literal: "%", line: line, column: col }
+    }
+    if (ch == "=") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.Eq, literal: "==", line: line, column: col }
+        }
+        if (p1 == ">") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.FatArrow, literal: "=>", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Assign, literal: "=", line: line, column: col }
+    }
+    if (ch == "!") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.Neq, literal: "!=", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Not, literal: "!", line: line, column: col }
+    }
+    if (ch == "<") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.Leq, literal: "<=", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Lt, literal: "<", line: line, column: col }
+    }
+    if (ch == ">") {
+        if (p1 == "=") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.Geq, literal: ">=", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Gt, literal: ">", line: line, column: col }
+    }
+    if (ch == "&") {
+        if (p1 == "&") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.And, literal: "&&", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.BitAnd, literal: "&", line: line, column: col }
+    }
+    if (ch == "|") {
+        if (p1 == "|") {
+            this.advance()
+            this.advance()
+            return Token { kind: TokenType.Or, literal: "||", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.BitOr, literal: "|", line: line, column: col }
+    }
+    if (ch == "^") {
+        this.advance()
+        return Token { kind: TokenType.BitXor, literal: "^", line: line, column: col }
+    }
+    if (ch == "~") {
+        this.advance()
+        return Token { kind: TokenType.BitNot, literal: "~", line: line, column: col }
+    }
+    
+    if (ch == ".") {
+        if (p1 == ".") {
+            this.advance()
+            if (this.peek(1) == ".") {
+                this.advance()
+                this.advance()
+                return Token { kind: TokenType.Ellipsis, literal: "...", line: line, column: col }
+            }
+            this.advance()
+            return Token { kind: TokenType.DotDot, literal: "..", line: line, column: col }
+        }
+        this.advance()
+        return Token { kind: TokenType.Dot, literal: ".", line: line, column: col }
+    }
+    
+    if (ch == "\"") {
+        if ((p1 == "\"") and (p2 == "\"")) {
+            return this.read_multiline_string(line, col)
+        }
+        return this.read_string(line, col)
+    }
+    
+    if (ch == "#") {
+        this.advance()
+        return Token { kind: TokenType.Hash, literal: "#", line: line, column: col }
+    }
+    if (ch == "?") {
+        this.advance()
+        return Token { kind: TokenType.Quest, literal: "?", line: line, column: col }
+    }
+    
+    if (this.is_ident_start()) {
+        return this.read_ident(line, col)
+    }
+    if (this.is_digit()) {
+        return this.read_number(line, col)
+    }
+    
+    return this.illegal(line, col)
+}

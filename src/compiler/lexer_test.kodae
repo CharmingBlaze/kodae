@@ -1,0 +1,161 @@
+#include "token"
+#include "lexer"
+
+fn test_lexer_basic() {
+    let source = "let x = 10; print(x)"
+    let lexer = new_lexer(source)
+    
+    let t1 = lexer.next()
+    assert(t1.kind == TokenType.Let, "Expected Let, got " + token_type_to_string(t1.kind))
+    
+    let t2 = lexer.next()
+    assert(t2.kind == TokenType.Ident, "Expected Ident")
+    assert(t2.literal == "x", "Expected x")
+    
+    let t3 = lexer.next()
+    assert(t3.kind == TokenType.Assign, "Expected Assign")
+    
+    let t4 = lexer.next()
+    assert(t4.kind == TokenType.IntLit, "Expected IntLit")
+    assert(t4.literal == "10", "Expected 10")
+    
+    let t5 = lexer.next()
+    assert(t5.kind == TokenType.Semi, "Expected Semi")
+    
+    let t6 = lexer.next()
+    assert(t6.kind == TokenType.Ident, "Expected Ident")
+    assert(t6.literal == "print", "Expected print")
+    
+    let t7 = lexer.next()
+    assert(t7.kind == TokenType.LParen, "Expected LParen")
+    
+    let t8 = lexer.next()
+    assert(t8.kind == TokenType.Ident, "Expected Ident")
+    assert(t8.literal == "x", "Expected x")
+    
+    let t9 = lexer.next()
+    assert(t9.kind == TokenType.RParen, "Expected RParen")
+    
+    let t10 = lexer.next()
+    assert(t10.kind == TokenType.Eof, "Expected Eof")
+    
+    print("test_lexer_basic passed!")
+}
+
+fn test_lexer_numbers() {
+    let source = "0x1A 0b10 3.14 2e-4"
+    let lexer = new_lexer(source)
+    
+    let t1 = lexer.next()
+    assert(t1.kind == TokenType.IntLit, "Expected IntLit")
+    assert(t1.literal == "0x1A", "Expected 0x1A")
+    
+    let t2 = lexer.next()
+    assert(t2.kind == TokenType.IntLit, "Expected IntLit")
+    assert(t2.literal == "0b10", "Expected 0b10")
+    
+    let t3 = lexer.next()
+    assert(t3.kind == TokenType.FloatLit, "Expected FloatLit")
+    assert(t3.literal == "3.14", "Expected 3.14")
+    
+    let t4 = lexer.next()
+    assert(t4.kind == TokenType.FloatLit, "Expected FloatLit")
+    assert(t4.literal == "2e-4", "Expected 2e-4")
+    
+    print("test_lexer_numbers passed!")
+}
+
+fn test_lexer_strings() {
+    let source = "\"hello\" \"world\""
+    let lexer = new_lexer(source)
+    
+    let t1 = lexer.next()
+    assert(t1.kind == TokenType.StrLit, "Expected StrLit")
+    assert(t1.literal == "hello", "Expected hello")
+    
+    let t2 = lexer.next()
+    assert(t2.kind == TokenType.StrLit, "Expected StrLit")
+    assert(t2.literal == "world", "Expected world")
+    
+    print("test_lexer_strings passed!")
+}
+
+' Parity with internal/lexer/literal_test.go TestString_Escapes
+fn test_lexer_string_escapes() {
+    let source = "\"\\n\\t\\\\\\\"\\x41\""
+    let lexer = new_lexer(source)
+    let t1 = lexer.next()
+    assert(t1.kind == TokenType.StrLit, "Expected StrLit")
+    let want = "\n\t\\\"A"
+    assert(t1.literal == want, "escape literal mismatch")
+    print("test_lexer_string_escapes passed!")
+}
+
+fn test_lexer_string_unicode_escape() {
+    let source = "\"\\u0041hi\""
+    let lexer = new_lexer(source)
+    let t1 = lexer.next()
+    assert(t1.kind == TokenType.StrLit, "Expected StrLit")
+    assert(t1.literal == "Ahi", "Expected Ahi from \\u0041")
+    print("test_lexer_string_unicode_escape passed!")
+}
+
+fn test_lexer_comments() {
+    let source = "let x = 1 ' this is a comment\nlet y = 2 -- another comment\nlet z = 3"
+    let lexer = new_lexer(source)
+    
+    let t1 = lexer.next()
+    assert(t1.kind == TokenType.Let, "Expected Let")
+    
+    let t2 = lexer.next()
+    assert(t2.kind == TokenType.Ident, "Expected Ident")
+    
+    let t3 = lexer.next()
+    assert(t3.kind == TokenType.Assign, "Expected Assign")
+    
+    let t4 = lexer.next()
+    assert(t4.kind == TokenType.IntLit, "Expected IntLit")
+    
+    let t5 = lexer.next()
+    assert(t5.kind == TokenType.Newline, "Expected Newline")
+    
+    let t6 = lexer.next()
+    assert(t6.kind == TokenType.Let, "Expected Let")
+    
+    let t7 = lexer.next()
+    assert(t7.kind == TokenType.Ident, "Expected Ident")
+    
+    let t8 = lexer.next()
+    assert(t8.kind == TokenType.Assign, "Expected Assign")
+    
+    let t9 = lexer.next()
+    assert(t9.kind == TokenType.IntLit, "Expected IntLit")
+    
+    let t10 = lexer.next()
+    assert(t10.kind == TokenType.Newline, "Expected Newline")
+    
+    let t11 = lexer.next()
+    assert(t11.kind == TokenType.Let, "Expected Let")
+    
+    let t12 = lexer.next()
+    assert(t12.kind == TokenType.Ident, "Expected Ident")
+    
+    let t13 = lexer.next()
+    assert(t13.kind == TokenType.Assign, "Expected Assign")
+    
+    let t14 = lexer.next()
+    assert(t14.kind == TokenType.IntLit, "Expected IntLit")
+    
+    print("test_lexer_comments passed!")
+}
+
+fn main() {
+    print("Running lexer tests...")
+    test_lexer_basic()
+    test_lexer_numbers()
+    test_lexer_strings()
+    test_lexer_string_escapes()
+    test_lexer_string_unicode_escape()
+    test_lexer_comments()
+    print("All tests passed!")
+}

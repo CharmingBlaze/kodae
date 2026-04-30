@@ -25,12 +25,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  parse|ast <a.kodae> [b.kodae]  parse and print AST (merged like build; optional -o/--cc/--ldflags ignored)\n")
 		fmt.Fprintf(os.Stderr, "  check <a.kodae> [b.kodae]     type-check (merges; optional -o/--cc/--ldflags ignored)\n")
 		fmt.Fprintf(os.Stderr, "  cgen|emit <a.kodae> [b.kodae]  print generated C to stdout (merged program)\n")
-		fmt.Fprintf(os.Stderr, "  build [--lib] [--static] [--shared] <a.kodae> [b.kodae] [-o out] [--cc c] [--ldflags \"-lfoo\"]\n")
+		fmt.Fprintf(os.Stderr, "  build [--lib] [--static] [--shared] [--release] [--backend=llvm|c] <a.kodae> [b.kodae] [-o out] [--cc c] [--ldflags \"-lfoo\"]\n")
 		fmt.Fprintf(os.Stderr, "  buildc <file.kodae> [-o f.c]  write C only\n")
-		fmt.Fprintf(os.Stderr, "  run <file.kodae> [--cc c]  build and run the same binary (set KODAE_CC to pick the C compiler)\n")
+		fmt.Fprintf(os.Stderr, "  run <file.kodae> [--release] [--backend=llvm|c] [--cc c]  build and run (default backend: llvm; --release skips sidecar TCC)\n")
 		fmt.Fprintf(os.Stderr, "  install <name.kodae|name>  copy a .kodae into the user lib dir (see $KODAE_HOME or ~/.kodae/libs) for #include\n")
 		fmt.Fprintf(os.Stderr, "  bind <name> <header.h> [-o out.kodae]  generate Kodae bindings from a C header (needs Clang; see docs/BINDGEN.md)\n")
-		fmt.Fprintf(os.Stderr, "  bundle [os] [arch]  create a portable distribution in dist/ (bundles local zig if found)\n")
+		fmt.Fprintf(os.Stderr, "  bundle [os] [arch]  create dist/ bundle (bin + include + examples; copies toolchain/ if present)\n")
 		fmt.Fprintf(os.Stderr, "  version\n")
 		os.Exit(1)
 	}
@@ -87,7 +87,7 @@ func main() {
 			fatal(err)
 		}
 		if len(in) == 0 {
-			fatal(fmt.Errorf("build: kodae build [--lib] [--static] [--shared] <file>  or  kodae build -o <out> [--cc clang] [--ldflags \"-lfoo\"] <a.kodae> [b.kodae]"))
+			fatal(fmt.Errorf("build: kodae build [--lib] [--static] [--shared] [--release] [--backend=llvm|c] <file>  or  kodae build -o <out> [--cc clang] [--ldflags \"-lfoo\"] <a.kodae> [b.kodae]"))
 		}
 		ldx := []string{}
 		if ld != "" {
@@ -114,18 +114,18 @@ func main() {
 		}
 	case "run":
 		a := os.Args[2:]
-		in, _, cc, ld, err := parseBuildFlags(a)
+		in, _, cc, ld, bopt, err := parseBuildFlagsExt(a)
 		if err != nil {
 			fatal(err)
 		}
 		if len(in) == 0 {
-			fatal(fmt.Errorf("run: kodae run <file>  or  kodae run [--cc zig] <file>"))
+			fatal(fmt.Errorf("run: kodae run <file>  or  kodae run [--backend=llvm|c] [--cc clang] <file>"))
 		}
 		ldx := []string{}
 		if ld != "" {
 			ldx = strings.Fields(ld)
 		}
-		if err := runBuildAndRun(in, cc, ldx); err != nil {
+		if err := runBuildAndRun(in, cc, ldx, bopt); err != nil {
 			fatal(err)
 		}
 	case "install":
